@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from skillnav.output import print_skill_summary
+from skillnav.output import print_skill_summary, unwrap_resource_id
 
 
 def test_print_skill_summary_dict_versions(capsys) -> None:
@@ -44,3 +44,17 @@ def test_print_skill_summary_list_versions(capsys) -> None:
     out = capsys.readouterr().out
     assert "Status: published" in out
     assert "1.0.0 [approved] review=approved" in out
+
+
+def test_unwrap_resource_id_nested() -> None:
+    payload = {"issue": {"id": "issue_123", "title": "Test"}}
+    assert unwrap_resource_id(payload, "issue") == "issue_123"
+
+
+def test_unwrap_resource_id_flat() -> None:
+    payload = {"id": "issue_456"}
+    assert unwrap_resource_id(payload, "issue") == "issue_456"
+
+
+def test_unwrap_resource_id_missing() -> None:
+    assert unwrap_resource_id({}, "issue") == "?"

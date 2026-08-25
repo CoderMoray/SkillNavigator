@@ -38,6 +38,7 @@ from skillnav.output import (
     print_review,
     print_search_results,
     print_skill_summary,
+    unwrap_resource_id,
 )
 from skillnav.packages import extract_zip_to_directory, package_to_base64, resolve_user_path
 from skillnav.urls import join_registry_url, slug_path
@@ -660,7 +661,7 @@ def issue_cmd(
         if cli.json_output:
             emit_json(payload)
         else:
-            typer.echo(f"Issue created: {payload.get('id', '?')}")
+            typer.echo(f"Issue created: {unwrap_resource_id(payload, 'issue')}")
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
 

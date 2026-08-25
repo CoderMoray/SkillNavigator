@@ -102,6 +102,16 @@ def _iter_version_rows(body: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]
     return []
 
 
+def unwrap_resource_id(payload: dict[str, Any], resource_key: str) -> str:
+    """Read id from {resource: {id}} API wrappers or a flat {id} body."""
+    nested = payload.get(resource_key)
+    if isinstance(nested, dict) and nested.get("id"):
+        return str(nested["id"])
+    if payload.get("id"):
+        return str(payload["id"])
+    return "?"
+
+
 def print_skill_summary(body: dict[str, Any]) -> None:
     print(f"{body.get('name', '?')} ({body.get('slug', '?')})")
     print(f"Status: {_resolve_skill_status(body)}")
