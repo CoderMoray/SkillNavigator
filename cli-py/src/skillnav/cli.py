@@ -436,7 +436,7 @@ def report_cmd(
         if cli.json_output:
             emit_json(body)
         else:
-            print_report_version(body)
+            print_report_version(body, slug=slug)
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
 
