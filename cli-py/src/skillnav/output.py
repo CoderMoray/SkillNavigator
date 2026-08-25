@@ -152,16 +152,84 @@ def print_evaluation(report: dict[str, Any]) -> None:
             print(f"  Recommendation: {finding['recommendation']}")
 
 
-def _resolve_skill_status(body: dict[str, Any]) -> str:
-    if body.get("status"):
-        return str(body["status"])
+def _resolve_latest_verdict(body: dict[str, Any]) -> str:
     latest = body.get("latestVersion")
     versions = body.get("versions")
     if latest and isinstance(versions, dict):
-        latest_entry = versions.get(latest)
-        if isinstance(latest_entry, dict) and latest_entry.get("status"):
-            return str(latest_entry["status"])
+        entry = versions.get(latest)
+        if isinstance(entry, dict):
+            review = entry.get("review") or {}
+            if review.get("verdict"):
+                return str(review["verdict"])
+            if entry.get("status"):
+                return str(entry["status"])
+    if body.get("status"):
+        return str(body["status"])
     return "?"
+
+
+def _format_visibility(published: bool | None) -> str:
+    if published is False:
+        return "unpublished"
+    return "public"
+
+
+def _count_open_issues(issues: list[dict[str, Any]]) -> int:
+    return sum(1 for issue in issues if issue.get("status") != "closed")
+
+
+def _resolve_owner_name(contributors: list[dict[str, Any]]) -> str | None:
+    for contributor in contributors:
+        if contributor.get("role") == "owner":
+            return str(contributor.get("username") or contributor.get("name") or "")
+    if contributors:
+        first = contributors[0]
+        return str(first.get("username") or first.get("name") or "")
+    return None
+
+
+def _latest_version_entry(body: dict[str, Any]) -> dict[str, Any]:
+    latest = body.get("latestVersion")
+    versions = body.get("versions")
+    if not latest or not isinstance(versions, dict):
+        return {}
+    entry = versions.get(latest)
+    return entry if isinstance(entry, dict) else {}
+
+
+def _resolve_categories(body: dict[str, Any]) -> list[str]:
+    manifest = _latest_version_entry(body).get("manifest")
+    if isinstance(manifest, dict):
+        categories = manifest.get("categories")
+        if isinstance(categories, list):
+            return [str(category) for category in categories if category]
+    return []
+
+
+def _resolve_latest_downloads(body: dict[str, Any]) -> int | None:
+    downloads = _latest_version_entry(body).get("downloads")
+    return int(downloads) if downloads is not None else None
+
+
+def _hash_prefix(value: Any) -> str:
+    if not value:
+        return "-"
+    text = str(value)
+    return f"{text[:12]}..." if len(text) > 12 else text
+
+
+def _virustotal_one_liner(review: dict[str, Any]) -> str:
+    summary = review.get("virusTotal")
+    if not isinstance(summary, dict):
+        return "-"
+    status = summary.get("status")
+    if status == "failed":
+        return "failed"
+    if status == "not_found":
+        return "not_found"
+    malicious = int(summary.get("malicious") or 0)
+    suspicious = int(summary.get("suspicious") or 0)
+    return f"{malicious}/{suspicious}"
 
 
 def _iter_version_rows(body: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
@@ -194,18 +262,70 @@ def unwrap_resource_id(payload: dict[str, Any], resource_key: str) -> str:
     return "?"
 
 
-def print_skill_summary(body: dict[str, Any]) -> None:
+def print_skill_info(body: dict[str, Any]) -> None:
+    """Human-readable skill metadata (catalog card)."""
     print(f"{body.get('name', '?')} ({body.get('slug', '?')})")
-    print(f"Status: {_resolve_skill_status(body)}")
+    description = body.get("description")
+    if description:
+        print(f"Description: {description}")
+    categories = _resolve_categories(body)
+    if categories:
+        print(f"Categories: {', '.join(categories)}")
     if body.get("latestVersion"):
         print(f"Latest: {body['latestVersion']}")
+    owner = _resolve_owner_name(body.get("contributors") or [])
+    if owner:
+        print(f"Owner: {owner}")
+    contributors = body.get("contributors") or []
+    if contributors:
+        names = [
+            str(contributor.get("name") or contributor.get("username") or "?")
+            for contributor in contributors
+        ]
+        print(f"Contributors: {', '.join(names)} ({len(contributors)})")
+    rating_count = int(body.get("ratingCount") or 0)
+    average_rating = body.get("averageRating")
+    if rating_count:
+        rating_text = f"{float(average_rating):.1f}" if average_rating is not None else "?"
+        print(f"Rating: {rating_text} ({rating_count})")
+    else:
+        print("Rating: none")
+    print(f"Open issues: {_count_open_issues(body.get('issues') or [])}")
+    downloads = _resolve_latest_downloads(body)
+    if downloads is not None:
+        print(f"Downloads (latest): {downloads}")
+    print(f"Visibility: {_format_visibility(body.get('published'))}")
+    if body.get("createdAt"):
+        print(f"Created: {body['createdAt']}")
+    if body.get("updatedAt"):
+        print(f"Updated: {body['updatedAt']}")
+    if body.get("bookmarkedByViewer") is True:
+        print("Bookmarked: yes")
+
+
+def print_skill_status(body: dict[str, Any]) -> None:
+    """Human-readable publish and review status summary."""
+    slug = body.get("slug", "?")
+    latest = body.get("latestVersion", "?")
+    print(f"{slug}@{latest}")
+    print(f"Verdict: {_resolve_latest_verdict(body)}")
+    print(f"Visibility: {_format_visibility(body.get('published'))}")
     version_rows = _iter_version_rows(body)
     if version_rows:
         print("Versions:")
         for vid, entry in version_rows:
-            vstatus = entry.get("status", "?")
-            verdict = (entry.get("review") or {}).get("verdict", "?")
-            print(f"  - {vid} [{vstatus}] review={verdict}")
+            review = entry.get("review") or {}
+            verdict = review.get("verdict") or entry.get("status", "?")
+            published = "yes" if entry.get("published") is not False else "no"
+            hash_prefix = _hash_prefix(entry.get("contentHash"))
+            vt = _virustotal_one_liner(review)
+            latest_marker = " (latest)" if vid == body.get("latestVersion") else ""
+            print(
+                f"  {vid}  published={published}  verdict={verdict}  "
+                f"hash={hash_prefix}  VT={vt}{latest_marker}"
+            )
+    if latest and latest != "?":
+        print(f"\nTip: skillnav report {slug} --version {latest} for full review")
 
 
 def print_search_results(body: dict[str, Any]) -> None:

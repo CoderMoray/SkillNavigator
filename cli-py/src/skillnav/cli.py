@@ -37,7 +37,8 @@ from skillnav.output import (
     print_report_version,
     print_review,
     print_search_results,
-    print_skill_summary,
+    print_skill_info,
+    print_skill_status,
     unwrap_resource_id,
 )
 from skillnav.packages import extract_zip_to_directory, package_to_base64, resolve_user_path
@@ -392,7 +393,7 @@ def info_cmd(slug: Annotated[str, typer.Argument(help="Skill slug")]) -> None:
         if cli.json_output:
             emit_json(body)
         else:
-            print_skill_summary(body)
+            print_skill_info(body)
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
 
@@ -411,7 +412,7 @@ def status_cmd(slug: Annotated[str, typer.Argument(help="Skill slug")]) -> None:
         if cli.json_output:
             emit_json(body)
         else:
-            print_skill_summary(body)
+            print_skill_status(body)
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
 

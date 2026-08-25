@@ -125,7 +125,17 @@ skillnav
 ### `report`
 
 - 取指定版本（默认最新已发布版本）的完整 review / evaluation。
-- 输出分区：Security（SkillSpector findings）/ Quality（HaluCatch results），人类可读模式给出 verdict、riskScore、scores 与 findings 列表。
+- 输出分区：SkillSpector（Security）/ VirusTotal（Security）/ HaluCatch（Quality）；人类可读模式给出 verdict、scores 与 findings 列表。
+
+### `info`
+
+- `GET /skills/:slug`；人类可读：**元数据卡片**（名称、描述、分类、贡献者、评分、Issue 数、下载、可见性、时间戳）。
+- 不展开 review findings；版本审查摘要见 `status`，单版本完整报告见 `report`。
+
+### `status`
+
+- 同一 API；人类可读：**发布/审查状态**（最新 verdict、可见性、版本表：published / verdict / hash / VT 摘要）。
+- 末尾提示使用 `skillnav report <slug> --version <ver>` 查看完整报告。
 
 ## 7. 输出与退出码约定
 

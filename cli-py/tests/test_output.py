@@ -4,51 +4,96 @@ from __future__ import annotations
 
 from skillnav.output import (
     print_report_version,
-    print_skill_summary,
+    print_skill_info,
+    print_skill_status,
     print_virustotal_summary,
     unwrap_resource_id,
 )
 
-
-def test_print_skill_summary_dict_versions(capsys) -> None:
-    body = {
-        "slug": "demo-skill",
-        "name": "Demo Skill",
-        "latestVersion": "0.1.0",
-        "published": True,
-        "versions": {
-            "0.1.0": {
-                "version": "0.1.0",
-                "status": "approved",
-                "review": {"verdict": "approved"},
-            }
+SAMPLE_SKILL = {
+    "slug": "demo-skill",
+    "name": "Demo Skill",
+    "description": "A demo skill for testing.",
+    "latestVersion": "1.0.1",
+    "published": True,
+    "averageRating": 4.5,
+    "ratingCount": 12,
+    "createdAt": "2026-08-01T00:00:00.000Z",
+    "updatedAt": "2026-08-20T00:00:00.000Z",
+    "contributors": [
+        {"name": "alice", "username": "alice", "role": "owner"},
+        {"name": "bob", "username": "bob", "role": "contributor"},
+    ],
+    "issues": [
+        {"id": "issue_1", "status": "open", "title": "Test"},
+        {"id": "issue_2", "status": "closed", "title": "Done"},
+    ],
+    "versions": {
+        "1.0.0": {
+            "version": "1.0.0",
+            "status": "published",
+            "published": True,
+            "contentHash": "abc123def4567890",
+            "downloads": 10,
+            "manifest": {"categories": ["demo", "tutorial"]},
+            "review": {
+                "verdict": "published",
+                "virusTotal": {
+                    "status": "completed",
+                    "malicious": 0,
+                    "suspicious": 0,
+                },
+            },
         },
-    }
-    print_skill_summary(body)
+        "1.0.1": {
+            "version": "1.0.1",
+            "status": "published",
+            "published": True,
+            "contentHash": "fedcba9876543210",
+            "downloads": 42,
+            "manifest": {"categories": ["demo", "tutorial"]},
+            "review": {
+                "verdict": "published",
+                "virusTotal": {
+                    "status": "completed",
+                    "malicious": 0,
+                    "suspicious": 1,
+                },
+            },
+        },
+    },
+}
+
+
+def test_print_skill_info(capsys) -> None:
+    print_skill_info(SAMPLE_SKILL)
     out = capsys.readouterr().out
     assert "Demo Skill (demo-skill)" in out
-    assert "Status: approved" in out
-    assert "Latest: 0.1.0" in out
-    assert "0.1.0 [approved] review=approved" in out
+    assert "Description: A demo skill for testing." in out
+    assert "Categories: demo, tutorial" in out
+    assert "Latest: 1.0.1" in out
+    assert "Owner: alice" in out
+    assert "Contributors: alice, bob (2)" in out
+    assert "Rating: 4.5 (12)" in out
+    assert "Open issues: 1" in out
+    assert "Downloads (latest): 42" in out
+    assert "Visibility: public" in out
+    assert "Verdict:" not in out
+    assert "Versions:" not in out
 
 
-def test_print_skill_summary_list_versions(capsys) -> None:
-    body = {
-        "slug": "legacy",
-        "name": "Legacy",
-        "status": "published",
-        "versions": [
-            {
-                "version": "1.0.0",
-                "status": "approved",
-                "review": {"verdict": "approved"},
-            }
-        ],
-    }
-    print_skill_summary(body)
+def test_print_skill_status(capsys) -> None:
+    print_skill_status(SAMPLE_SKILL)
     out = capsys.readouterr().out
-    assert "Status: published" in out
-    assert "1.0.0 [approved] review=approved" in out
+    assert out.startswith("demo-skill@1.0.1")
+    assert "Verdict: published" in out
+    assert "Visibility: public" in out
+    assert "Versions:" in out
+    assert "1.0.0  published=yes  verdict=published" in out
+    assert "VT=0/0" in out
+    assert "VT=0/1 (latest)" in out
+    assert "Tip: skillnav report demo-skill --version 1.0.1" in out
+    assert "Description:" not in out
 
 
 def test_unwrap_resource_id_nested() -> None:
