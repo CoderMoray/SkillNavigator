@@ -1,30 +1,45 @@
 # skillnav
 
-CLI client for the Skill management platform (MonoSkillNavigator).
+Official CLI client for the Skill management platform (MonoSkillNavigator).
 
-> **Placeholder release (0.0.1)** — reserved on PyPI. The full command surface
-> is specified in the platform repo at `docs/cli-design.md` and will be
-> implemented in upcoming releases.
+Specification: `docs/cli-design.md` in the platform repository.
 
 ## Install
 
 ```bash
 pipx install skillnav
+# or from this repo:
+pip install -e "cli-py[dev]"
 ```
 
 ## Usage
 
 ```bash
 skillnav --version
-skillnav --help
+skillnav config test
+skillnav login --username alice --password password123
+skillnav search demo
+skillnav info demo-skill
+skillnav review examples/demo-skill
+skillnav publish examples/demo-skill --dry-run
+skillnav download demo-skill -o /tmp/demo.zip
 ```
 
-## Roadmap
+Global flags: `--registry`, `--profile`, `--json`, `--no-input`.
 
-- 0.1.0 — auth (login/logout/whoami/token) + search/top/info/status
-- 0.2.0 — publish/--dry-run/review + report
-- 0.3.0 — download/install + community (rate/issue/issues/contributor)
-- 1.0.0 — freeze command surface, full `--json` coverage
+Configuration: `~/.config/skillnav/config.json` (multi-profile).
+
+Environment: `SKILLNAV_REGISTRY`, `SKILLNAV_PROFILE`, `SKILLNAV_TOKEN`.
+
+## Test
+
+Requires a running API at `http://127.0.0.1:3000` (`npm run dev:api`):
+
+```bash
+cd cli-py
+pip install -e ".[dev]"
+pytest -v
+```
 
 ## License
 
