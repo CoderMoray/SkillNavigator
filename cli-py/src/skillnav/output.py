@@ -70,18 +70,49 @@ def print_evaluation(report: dict[str, Any]) -> None:
             print(f"  Recommendation: {finding['recommendation']}")
 
 
+def _resolve_skill_status(body: dict[str, Any]) -> str:
+    if body.get("status"):
+        return str(body["status"])
+    latest = body.get("latestVersion")
+    versions = body.get("versions")
+    if latest and isinstance(versions, dict):
+        latest_entry = versions.get(latest)
+        if isinstance(latest_entry, dict) and latest_entry.get("status"):
+            return str(latest_entry["status"])
+    return "?"
+
+
+def _iter_version_rows(body: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    versions = body.get("versions")
+    if isinstance(versions, dict):
+        rows: list[tuple[str, dict[str, Any]]] = []
+        for vid, entry in versions.items():
+            if isinstance(entry, dict):
+                rows.append((str(entry.get("version", vid)), entry))
+            else:
+                rows.append((str(vid), {}))
+        rows.sort(key=lambda row: row[0])
+        return rows
+    if isinstance(versions, list):
+        rows = []
+        for entry in versions:
+            if isinstance(entry, dict):
+                rows.append((str(entry.get("version", "?")), entry))
+        return rows
+    return []
+
+
 def print_skill_summary(body: dict[str, Any]) -> None:
     print(f"{body.get('name', '?')} ({body.get('slug', '?')})")
-    print(f"Status: {body.get('status', '?')}")
+    print(f"Status: {_resolve_skill_status(body)}")
     if body.get("latestVersion"):
         print(f"Latest: {body['latestVersion']}")
-    versions = body.get("versions") or []
-    if versions:
+    version_rows = _iter_version_rows(body)
+    if version_rows:
         print("Versions:")
-        for version in versions:
-            vid = version.get("version", "?")
-            vstatus = version.get("status", "?")
-            verdict = (version.get("review") or {}).get("verdict", "?")
+        for vid, entry in version_rows:
+            vstatus = entry.get("status", "?")
+            verdict = (entry.get("review") or {}).get("verdict", "?")
             print(f"  - {vid} [{vstatus}] review={verdict}")
 
 
