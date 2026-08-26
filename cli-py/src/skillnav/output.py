@@ -115,19 +115,65 @@ def print_virustotal_summary(summary: dict[str, Any]) -> None:
             print(f"  ... and {len(flagged) - 20} more")
 
 
-def print_review(report: dict[str, Any]) -> None:
-    name = report.get("skillName") or report.get("skill_name") or "?"
-    version = report.get("version", "?")
-    print(f"Review: {name}@{version}")
-    print(f"Verdict: {report.get('verdict', '?')}")
-    scores = report.get("scores") or {}
+def _print_review_sections(review: dict[str, Any]) -> None:
+    print(f"Verdict: {review.get('verdict', '?')}")
+    skillspector_findings, virustotal_findings = _partition_review_findings(
+        review.get("findings") or []
+    )
+    print("\n=== SkillSpector（Security）===")
+    scores = review.get("scores") or {}
     print(
         "Scores: "
         f"quality={scores.get('qualityScore', '?')}, "
         f"security={scores.get('securityScore', '?')}, "
         f"reliability={scores.get('reliabilityScore', '?')}"
     )
-    _print_findings_list(report.get("findings") or [])
+    _print_findings_list(skillspector_findings)
+
+    virustotal_summary = review.get("virusTotal")
+    if virustotal_summary or virustotal_findings:
+        print("\n=== VirusTotal（Security）===")
+        if isinstance(virustotal_summary, dict):
+            print_virustotal_summary(virustotal_summary)
+        _print_findings_list(virustotal_findings)
+
+
+def _print_failed_stages(failed_stages: Any) -> None:
+    if not failed_stages:
+        return
+    print("\n=== Pipeline warnings ===")
+    for failure in failed_stages:
+        if isinstance(failure, dict):
+            stage = failure.get("stage", "?")
+            message = failure.get("message", "?")
+            print(f"- {stage}: {message}")
+        else:
+            print(f"- {failure}")
+
+
+def print_review(report: dict[str, Any]) -> None:
+    name = report.get("skillName") or report.get("skill_name") or "?"
+    version = report.get("version", "?")
+    print(f"Review: {name}@{version}")
+    _print_review_sections(report)
+
+
+def print_review_result(payload: dict[str, Any]) -> None:
+    """Print a /reviews/run (or publish) response with partitioned sections."""
+    review = payload.get("review")
+    evaluation = payload.get("evaluation")
+    if review:
+        name = review.get("skillName") or review.get("skill_name") or "?"
+        version = review.get("version", "?")
+        print(f"Review: {name}@{version}")
+        _print_review_sections(review)
+    elif not evaluation:
+        print("No review or evaluation data.")
+        return
+    if evaluation:
+        print("\n=== HaluCatch（Quality）===")
+        print_evaluation(evaluation)
+    _print_failed_stages(payload.get("failedStages"))
 
 
 def print_evaluation(report: dict[str, Any]) -> None:
@@ -373,26 +419,7 @@ def print_report_version(body: dict[str, Any], *, slug: str | None = None) -> No
     version = body.get("version", "?")
     print(f"Report: {resolved_slug}@{version}")
     if review:
-        print(f"Verdict: {review.get('verdict', '?')}")
-        skillspector_findings, virustotal_findings = _partition_review_findings(
-            review.get("findings") or []
-        )
-        print("\n=== SkillSpector（Security）===")
-        scores = review.get("scores") or {}
-        print(
-            "Scores: "
-            f"quality={scores.get('qualityScore', '?')}, "
-            f"security={scores.get('securityScore', '?')}, "
-            f"reliability={scores.get('reliabilityScore', '?')}"
-        )
-        _print_findings_list(skillspector_findings)
-
-        virustotal_summary = review.get("virusTotal")
-        if virustotal_summary or virustotal_findings:
-            print("\n=== VirusTotal（Security）===")
-            if isinstance(virustotal_summary, dict):
-                print_virustotal_summary(virustotal_summary)
-            _print_findings_list(virustotal_findings)
+        _print_review_sections(review)
     if evaluation:
         print("\n=== HaluCatch（Quality）===")
         print_evaluation(evaluation)

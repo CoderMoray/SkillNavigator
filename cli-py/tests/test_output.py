@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from skillnav.output import (
     print_report_version,
+    print_review,
+    print_review_result,
     print_skill_info,
     print_skill_status,
     print_virustotal_summary,
@@ -108,6 +110,80 @@ def test_unwrap_resource_id_flat() -> None:
 
 def test_unwrap_resource_id_missing() -> None:
     assert unwrap_resource_id({}, "issue") == "?"
+
+
+def test_print_review_result_includes_sections(capsys) -> None:
+    payload = {
+        "review": {
+            "skillName": "Demo Skill",
+            "version": "0.1.0",
+            "verdict": "published",
+            "scores": {
+                "qualityScore": 100,
+                "securityScore": 100,
+                "reliabilityScore": 100,
+            },
+            "findings": [],
+            "virusTotal": {
+                "status": "completed",
+                "malicious": 0,
+                "suspicious": 0,
+                "totalEngines": 76,
+                "sha256": "abc123",
+            },
+        },
+        "evaluation": {
+            "provider": "halucatch-adapter",
+            "status": "partial",
+            "score": 62,
+            "tasksPassed": 2,
+            "tasksTotal": 5,
+            "findings": [
+                {
+                    "severity": "medium",
+                    "message": "Missing structured steps",
+                    "task": "规则与方法论",
+                    "recommendation": "Add workflow steps.",
+                }
+            ],
+        },
+        "failedStages": [{"stage": "halucatch", "message": "adapter timeout"}],
+    }
+    print_review_result(payload)
+    out = capsys.readouterr().out
+    assert "Review: Demo Skill@0.1.0" in out
+    assert "=== SkillSpector（Security）===" in out
+    assert "=== VirusTotal（Security）===" in out
+    assert "Detections: 0 malicious, 0 suspicious" in out
+    assert "=== HaluCatch（Quality）===" in out
+    assert "Missing structured steps" in out
+    assert "=== Pipeline warnings ===" in out
+    assert "halucatch: adapter timeout" in out
+
+
+def test_print_review_partitions_skillspector_findings(capsys) -> None:
+    print_review(
+        {
+            "skillName": "Demo Skill",
+            "version": "0.1.0",
+            "verdict": "needs_review",
+            "scores": {"qualityScore": 80, "securityScore": 90, "reliabilityScore": 85},
+            "findings": [
+                {
+                    "id": "rule-1",
+                    "severity": "low",
+                    "category": "quality",
+                    "title": "SkillSpector note",
+                    "message": "Minor issue",
+                }
+            ],
+        }
+    )
+    out = capsys.readouterr().out
+    assert "Review: Demo Skill@0.1.0" in out
+    assert "=== SkillSpector（Security）===" in out
+    assert "SkillSpector note" in out
+    assert "=== HaluCatch" not in out
 
 
 def test_print_report_version_includes_virustotal(capsys) -> None:

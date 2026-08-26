@@ -121,6 +121,7 @@ skillnav
 
 - 调用 `POST /reviews/run`（需登录），返回安全 + 质量报告。
 - 是"发布前先看报告"的路径：`skillnav review ./demo && skillnav publish ./demo`。
+- 人类可读输出与 `report` 一致：Verdict → SkillSpector（Security）→ VirusTotal（Security）→ HaluCatch（Quality）；若有 stage 失败则展示 Pipeline warnings。
 
 ### `report`
 
@@ -141,7 +142,7 @@ skillnav
 
 **输出**：
 
-- 默认：人类可读（对齐现有 TS CLI 的 `printReview` / `printEvaluation` 风格）。
+- 默认：人类可读；`review` / `report` / `publish` 成功后按 SkillSpector / VirusTotal / HaluCatch 分区展示。
 - `--json`：输出**服务端原始响应体**（不二次包装），便于脚本消费。
 - 错误一律写 stderr：`skillnav: <message>`；`--json` 模式下错误输出 `{"error": "..."}`。
 

@@ -32,13 +32,14 @@ from skillnav.errors import (
 from skillnav.output import (
     emit_error,
     emit_json,
-    print_evaluation,
     print_leaderboard,
     print_report_version,
     print_review,
+    print_review_result,
     print_search_results,
     print_skill_info,
     print_skill_status,
+    print_virustotal_summary,
     unwrap_resource_id,
 )
 from skillnav.packages import extract_zip_to_directory, package_to_base64, resolve_user_path
@@ -488,10 +489,8 @@ def publish_cmd(
         )
         typer.echo(f"Status: {payload.get('status')}")
         typer.echo(f"Hash: {payload.get('contentHash')}")
-        if payload.get("review"):
-            print_review(payload["review"])
-        if payload.get("evaluation"):
-            print_evaluation(payload["evaluation"])
+        if payload.get("review") or payload.get("evaluation"):
+            print_review_result(payload)
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
 
@@ -518,10 +517,8 @@ def review_cmd(
         if cli.json_output:
             emit_json(payload)
             return
-        if payload.get("review"):
-            print_review(payload["review"])
-        if payload.get("evaluation"):
-            print_evaluation(payload["evaluation"])
+        if payload.get("review") or payload.get("evaluation"):
+            print_review_result(payload)
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
 
