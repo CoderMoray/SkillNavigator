@@ -148,3 +148,124 @@ def test_not_logged_in_exit_code(runner: CliRunner, isolated_config: Path) -> No
     )
     assert result.exit_code == 2
     assert "not logged in" in _output(result)
+
+
+def _ensure_user(username: str, password: str, email: str) -> None:
+    payload = json.dumps({"username": username, "password": password, "email": email}).encode()
+    req = urllib.request.Request(
+        f"{API}/auth/register",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        urllib.request.urlopen(req, timeout=5)
+    except urllib.error.HTTPError as exc:
+        if exc.code not in (400, 409):
+            raise
+
+
+def _login_token(username: str, password: str) -> str:
+    payload = json.dumps({"username": username, "password": password}).encode()
+    req = urllib.request.Request(
+        f"{API}/auth/login",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=5) as resp:
+        body = json.loads(resp.read().decode())
+    token = body.get("token")
+    assert token
+    return str(token)
+
+
+def _remove_contributor_if_present(slug: str, username: str, token: str) -> None:
+    req = urllib.request.Request(
+        f"{API}/skills/{slug}",
+        headers={"Authorization": f"Bearer {token}"},
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=5) as resp:
+        skill = json.loads(resp.read().decode())
+    for contributor in skill.get("contributors") or []:
+        if contributor.get("username") == username:
+            delete_req = urllib.request.Request(
+                f"{API}/skills/{slug}/contributors/{contributor['id']}",
+                headers={"Authorization": f"Bearer {token}"},
+                method="DELETE",
+            )
+            try:
+                urllib.request.urlopen(delete_req, timeout=5)
+            except urllib.error.HTTPError:
+                pass
+
+
+def test_add_and_remove_contributor(runner: CliRunner, isolated_config: Path) -> None:
+    _ensure_user("testuser", "test123456", "testuser@example.com")
+    alice_token = _login_token("alice", "password123")
+    _remove_contributor_if_present("demo-skill", "testuser", alice_token)
+
+    login = runner.invoke(
+        app,
+        ["--registry", API, "login", "--username", "alice", "--password", "password123"],
+    )
+    assert login.exit_code == 0, _output(login)
+
+    add = runner.invoke(
+        app,
+        [
+            "--registry",
+            API,
+            "--json",
+            "add-contributor",
+            "demo-skill",
+            "--username",
+            "testuser",
+        ],
+    )
+    assert add.exit_code == 0, _output(add)
+    added = json.loads(add.stdout)
+    assert added.get("contributor", {}).get("username") == "testuser"
+
+    remove = runner.invoke(
+        app,
+        [
+            "--registry",
+            API,
+            "remove-contributor",
+            "demo-skill",
+            "--username",
+            "testuser",
+        ],
+    )
+    assert remove.exit_code == 0, _output(remove)
+    assert "Contributor removed: testuser" in remove.stdout
+
+    info = runner.invoke(app, ["--registry", API, "--json", "info", "demo-skill"])
+    assert info.exit_code == 0, _output(info)
+    contributors = json.loads(info.stdout).get("contributors") or []
+    assert not any(item.get("username") == "testuser" for item in contributors)
+
+
+def test_add_contributor_requires_owner(runner: CliRunner, isolated_config: Path) -> None:
+    _ensure_user("testuser", "test123456", "testuser@example.com")
+    login = runner.invoke(
+        app,
+        ["--registry", API, "login", "--username", "testuser", "--password", "test123456"],
+    )
+    assert login.exit_code == 0, _output(login)
+
+    result = runner.invoke(
+        app,
+        [
+            "--registry",
+            API,
+            "add-contributor",
+            "demo-skill",
+            "--username",
+            "alice",
+        ],
+    )
+    assert result.exit_code == 2, _output(result)
+    assert "only_owner_can_add_contributors" in _output(result)

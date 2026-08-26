@@ -236,6 +236,79 @@ test("未登录创建 Issue 应拒绝", async () => {
   expect(res.status).toBe(401);
 });
 
+async function login(username: string, password: string): Promise<string> {
+  const res = await fetch(`${API}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as { token: string };
+  expect(body.token).toBeTruthy();
+  return body.token;
+}
+
+type SkillContributor = { id: string; username?: string; name?: string; role: string };
+
+test("owner 添加并删除 contributor", async () => {
+  const aliceToken = await login("alice", "password123");
+
+  const addRes = await fetch(`${API}/skills/demo-skill/contributors`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${aliceToken}`,
+    },
+    body: JSON.stringify({ name: "testuser", role: "contributor" }),
+  });
+  expect([201, 409]).toContain(addRes.status);
+
+  const skillRes = await fetch(`${API}/skills/demo-skill`);
+  expect(skillRes.status).toBe(200);
+  const skill = (await skillRes.json()) as { contributors?: SkillContributor[] };
+  const contributor = skill.contributors?.find((item) => item.username === "testuser");
+  expect(contributor).toBeTruthy();
+  expect(contributor!.role).toBe("contributor");
+
+  const deleteRes = await fetch(
+    `${API}/skills/demo-skill/contributors/${encodeURIComponent(contributor!.id)}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${aliceToken}` },
+    }
+  );
+  expect(deleteRes.status).toBe(200);
+
+  const afterRes = await fetch(`${API}/skills/demo-skill`);
+  expect(afterRes.status).toBe(200);
+  const afterSkill = (await afterRes.json()) as { contributors?: SkillContributor[] };
+  expect(afterSkill.contributors?.some((item) => item.username === "testuser")).toBe(false);
+});
+
+test("非 owner 添加 contributor 应拒绝", async () => {
+  const testuserToken = await login("testuser", "test123456");
+  const res = await fetch(`${API}/skills/demo-skill/contributors`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${testuserToken}`,
+    },
+    body: JSON.stringify({ name: "alice", role: "contributor" }),
+  });
+  expect(res.status).toBe(403);
+  const body = (await res.json()) as { error?: string };
+  expect(body.error).toBe("only_owner_can_add_contributors");
+});
+
+test("未登录添加 contributor 应拒绝", async () => {
+  const res = await fetch(`${API}/skills/demo-skill/contributors`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "testuser", role: "contributor" }),
+  });
+  expect(res.status).toBe(401);
+});
+
 // --- MinIO artifact 测试 ---
 
 test("MinIO: 重新发布验证 artifact 存入对象存储", async () => {
