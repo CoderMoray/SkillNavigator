@@ -312,13 +312,44 @@ program
   .command("remove-contributor")
   .description("Remove a skill contributor (skill owner token required)")
   .argument("<slug>", "Skill slug")
-  .requiredOption("--id <id>", "Contributor id")
+  .option("--id <id>", "Contributor id")
+  .option("--username <username>", "Contributor username or display name")
   .option("--registry <url>", "Registry API URL", defaultRegistry)
   .option("--token <token>", "Bearer token, defaults to SKILL_AUTH_TOKEN")
-  .action(async (slug: string, options: { id: string; registry: string; token?: string }) => {
+  .action(async (slug: string, options: { id?: string; username?: string; registry: string; token?: string }) => {
+    if (!options.id && !options.username) {
+      console.error("Specify --id or --username.");
+      process.exitCode = 1;
+      return;
+    }
+    if (options.id && options.username) {
+      console.error("Specify only one of --id or --username.");
+      process.exitCode = 1;
+      return;
+    }
+
+    const authToken = requireAuthToken(options.token);
+    let contributorId = options.id;
+    if (options.username) {
+      const skillResponse = await getJson<{ contributors?: Array<{ id: string; username?: string; name: string; role: string }> }>(
+        `${options.registry}/skills/${encodeURIComponent(slug)}`,
+        authToken
+      );
+      if (skillResponse.status >= 400) {
+        printJson(skillResponse.body);
+        process.exitCode = 1;
+        return;
+      }
+      contributorId = resolveContributorId(skillResponse.body, options.username);
+      if (!contributorId) {
+        process.exitCode = 1;
+        return;
+      }
+    }
+
     const response = await deleteJson<Record<string, unknown>>(
-      `${options.registry}/skills/${encodeURIComponent(slug)}/contributors/${encodeURIComponent(options.id)}`,
-      requireAuthToken(options.token)
+      `${options.registry}/skills/${encodeURIComponent(slug)}/contributors/${encodeURIComponent(contributorId!)}`,
+      authToken
     );
     printJson(response.body);
   });
@@ -344,8 +375,12 @@ program
 
 await program.parseAsync(process.argv);
 
-async function getJson<T>(url: string): Promise<ApiResponse<T>> {
-  const response = await fetch(url);
+async function getJson<T>(url: string, token?: string): Promise<ApiResponse<T>> {
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const response = await fetch(url, { headers });
   return {
     status: response.status,
     body: (await response.json()) as T
@@ -491,4 +526,34 @@ function requireAuthToken(token: string | undefined): string {
     process.exit(1);
   }
   return resolved;
+}
+
+function resolveContributorId(
+  skill: { contributors?: Array<{ id: string; username?: string; name: string; role: string }> },
+  username: string
+): string | undefined {
+  const needle = username.trim().toLowerCase();
+  if (!needle) {
+    console.error("Username must not be empty.");
+    return undefined;
+  }
+
+  const matches = (skill.contributors ?? []).filter((contributor) => {
+    if (contributor.role === "owner") {
+      return false;
+    }
+    const contributorUsername = (contributor.username ?? "").toLowerCase();
+    const contributorName = (contributor.name ?? "").toLowerCase();
+    return needle === contributorUsername || needle === contributorName;
+  });
+
+  if (matches.length === 0) {
+    console.error(`Contributor not found: ${username}`);
+    return undefined;
+  }
+  if (matches.length > 1) {
+    console.error(`Ambiguous contributor: ${username}`);
+    return undefined;
+  }
+  return matches[0]!.id;
 }

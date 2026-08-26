@@ -17,7 +17,7 @@ from skillnav.api import (
     request_bytes,
     request_json,
 )
-from skillnav.config import get_profile, load_config, save_config
+from skillnav.contributors import resolve_contributor_id
 from skillnav.context import CliContext
 from skillnav.errors import (
     EXIT_AUTH,
@@ -728,24 +728,44 @@ def contributor_cmd(
 @app.command("remove-contributor")
 def remove_contributor_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
-    id: Annotated[str, typer.Option("--id", help="Contributor id")],
+    id: Annotated[Optional[str], typer.Option("--id", help="Contributor id")] = None,
+    username: Annotated[
+        Optional[str], typer.Option("--username", help="Contributor username or display name")
+    ] = None,
 ) -> None:
     """Remove a contributor (owner only)."""
     try:
+        if not id and not username:
+            raise UsageError("specify --id or --username")
+        if id and username:
+            raise UsageError("specify only one of --id or --username")
+
         cli = _ctx()
+        token = cli.require_token()
+        contributor_id = id
+        if username:
+            status, skill_body = request_json(
+                "GET",
+                join_registry_url(cli.registry, f"/skills/{slug_path(slug)}"),
+                token=token,
+            )
+            raise_for_api_status(status, skill_body)
+            contributor_id = resolve_contributor_id(skill_body, username)
+
         status, payload = request_json(
             "DELETE",
             join_registry_url(
                 cli.registry,
-                f"/skills/{slug_path(slug)}/contributors/{slug_path(id)}",
+                f"/skills/{slug_path(slug)}/contributors/{slug_path(contributor_id)}",
             ),
-            token=cli.require_token(),
+            token=token,
         )
         raise_for_api_status(status, payload)
         if cli.json_output:
             emit_json(payload)
         else:
-            typer.echo("Contributor removed.")
+            label = username or contributor_id
+            typer.echo(f"Contributor removed: {label}")
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
 
