@@ -103,7 +103,7 @@ skillnav
 │  ├─ rate <slug> --score N [--comment]        # POST /skills/:slug/ratings
 │  ├─ issue <slug> --title T [--type] [--severity] [--body]   # POST /skills/:slug/issues
 │  ├─ issues <slug> [--status]                 # GET /skills/:slug/issues
-│  ├─ contributor <slug> --username USER       # POST /skills/:slug/contributors
+│  ├─ add-contributor <slug> --username USER   # POST /skills/:slug/contributors
 │  └─ remove-contributor <slug> [--id ID | --username USER]  # DELETE /skills/:slug/contributors/:id
 └─ skill / skill2（预留）
 ```
@@ -175,7 +175,7 @@ skillnav
 | rate | `POST /skills/:slug/ratings` | Bearer |
 | issue | `POST /skills/:slug/issues` | Bearer |
 | issues | `GET /skills/:slug/issues` | 公开 |
-| contributor | `POST /skills/:slug/contributors` | Bearer（owner） |
+| add-contributor | `POST /skills/:slug/contributors` | Bearer（owner） |
 | remove-contributor | `DELETE /skills/:slug/contributors/:id` | Bearer（owner） |
 
 ## 9. 版本与里程碑
@@ -183,7 +183,7 @@ skillnav
 - `0.0.1`（已发布）：PyPI 占位壳，可安装、`skillnav --version`、`--help`。
 - `0.1.0`：平台配置（config add/use/list/test）+ 登录与身份（login/logout/whoami/token）+ 检索（search/top/info/status）。
 - `0.2.0`：发布流（publish/--dry-run/review）+ report 完整展示。
-- `0.3.0`：分发（download/install）+ 社区（rate/issue/issues/contributor）。
+- `0.3.0`：分发（download/install）+ 社区（rate/issue/issues/add-contributor）。
 - `1.0.0`：冻结命令集；补齐 `--json` 全命令覆盖、错误处理与帮助文档；`apps/cli` TS 版下线。
 
 ## 10. 待定事项

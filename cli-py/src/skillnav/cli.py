@@ -702,8 +702,8 @@ def issues_cmd(
         _handle_error(exc)
 
 
-@app.command("contributor")
-def contributor_cmd(
+@app.command("add-contributor")
+def add_contributor_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
     username: Annotated[str, typer.Option("--username", help="Contributor username")],
 ) -> None:

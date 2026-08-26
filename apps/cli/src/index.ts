@@ -290,7 +290,7 @@ program
   });
 
 program
-  .command("contributor")
+  .command("add-contributor")
   .description("Add a skill contributor (skill owner token required)")
   .argument("<slug>", "Skill slug")
   .requiredOption("--person <person>", "Contributor display name")
