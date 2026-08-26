@@ -94,9 +94,15 @@ def test_top(runner: CliRunner) -> None:
     assert result.exit_code == 0, _output(result)
 
 
-def test_review_demo_skill(runner: CliRunner) -> None:
+def test_review_demo_skill(runner: CliRunner, isolated_config: Path) -> None:
     if not DEMO_SKILL.is_dir():
         pytest.skip("examples/demo-skill not found")
+    login = runner.invoke(
+        app,
+        ["--registry", API, "login", "--username", "alice", "--password", "password123"],
+    )
+    assert login.exit_code == 0, _output(login)
+
     result = runner.invoke(
         app,
         ["--registry", API, "--json", "review", str(DEMO_SKILL)],
@@ -104,6 +110,17 @@ def test_review_demo_skill(runner: CliRunner) -> None:
     assert result.exit_code == 0, _output(result)
     body = json.loads(result.stdout)
     assert body.get("review")
+
+
+def test_review_requires_login(runner: CliRunner, isolated_config: Path) -> None:
+    if not DEMO_SKILL.is_dir():
+        pytest.skip("examples/demo-skill not found")
+    result = runner.invoke(
+        app,
+        ["--registry", API, "--no-input", "review", str(DEMO_SKILL)],
+    )
+    assert result.exit_code == 2
+    assert "not logged in" in _output(result)
 
 
 def test_publish_dry_run(runner: CliRunner, isolated_config: Path) -> None:

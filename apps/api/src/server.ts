@@ -625,7 +625,12 @@ export function buildServer() {
     }
   });
 
-  app.post<{ Body: ReviewBody }>("/reviews/run", async (request) => {
+  app.post<{ Body: ReviewBody }>("/reviews/run", async (request, reply) => {
+    const user = await requireAuthenticatedUser(request.headers.authorization, authStore, reply);
+    if (!user) {
+      return;
+    }
+
     const { snapshot, version } = readSkillFromBody(request.body);
     const { review, evaluation, failedStages } = await reviewAndEvaluateSkillSnapshot(snapshot, version);
     return { review, evaluation, failedStages };

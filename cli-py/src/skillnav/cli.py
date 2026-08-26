@@ -512,6 +512,7 @@ def review_cmd(
             "POST",
             join_registry_url(cli.registry, "/reviews/run"),
             body=body,
+            token=cli.require_token(),
         )
         raise_for_api_status(status, payload)
         if cli.json_output:

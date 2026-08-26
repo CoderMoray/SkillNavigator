@@ -329,12 +329,13 @@ program
   .argument("<package>", "Skill directory or .zip package")
   .option("--version <version>", "Version used in the review report")
   .option("--registry <url>", "Registry API URL", defaultRegistry)
-  .action(async (input: string, options: { version?: string; registry: string }) => {
+  .option("--token <token>", "Bearer token, defaults to SKILL_AUTH_TOKEN")
+  .action(async (input: string, options: { version?: string; registry: string; token?: string }) => {
     const archive = await readSkillPackageZipBuffer(resolveUserPath(input));
     const response = await postJson<{ review: ReviewReport; evaluation?: FunctionalEvaluationReport }>(`${options.registry}/reviews/run`, {
       archiveBase64: archive.toString("base64"),
       version: options.version
-    });
+    }, requireAuthToken(options.token));
     printReview(response.body.review);
     if (response.body.evaluation) {
       printEvaluation(response.body.evaluation);

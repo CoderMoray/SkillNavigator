@@ -89,7 +89,7 @@ skillnav
 │  └─ token                                    # 打印已存 token（CI 调试）
 ├─ 发布与审查（服务端执行）
 │  ├─ publish <dir|zip> [--version] [--changelog] [--dry-run] [--json]
-│  ├─ review   <dir|zip> [--version] [--json]  # 远程审查不发布 → POST /reviews/run
+│  ├─ review   <dir|zip> [--version] [--json]  # 远程审查不发布 → POST /reviews/run（需登录）
 │  ├─ status   <slug> [--json]                 # 发布状态 + 各版本审查结论 → GET /skills/:slug
 │  └─ report   <slug> [--version] [--json]     # 安全/质量报告 → GET /skills/:slug/versions/:version
 ├─ 检索
@@ -119,7 +119,7 @@ skillnav
 
 ### `review`
 
-- 调用 `POST /reviews/run`（当前无需登录），返回安全 + 质量报告。
+- 调用 `POST /reviews/run`（需登录），返回安全 + 质量报告。
 - 是"发布前先看报告"的路径：`skillnav review ./demo && skillnav publish ./demo`。
 
 ### `report`
@@ -166,7 +166,7 @@ skillnav
 | config test | `GET /health` | 公开 |
 | publish | `POST /skills/publish` | Bearer |
 | publish --dry-run | `POST /skills/publish/preview` | Bearer |
-| review | `POST /reviews/run` | 公开 |
+| review | `POST /reviews/run` | Bearer |
 | status / info | `GET /skills/:slug` | 视可见性 |
 | report | `GET /skills/:slug/versions/:version` | 视可见性 |
 | search | `GET /skills?query=` | 公开 |
