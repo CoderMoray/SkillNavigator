@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ComponentPropsWithoutRef } from "react";
-import { resolveDocHref } from "../lib/docs-nav";
+import { resolveDocHref, resolveDocImageSrc } from "../lib/docs-nav";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
@@ -41,10 +41,19 @@ function DocAnchor({ href, children, ...rest }: ComponentPropsWithoutRef<"a">) {
   );
 }
 
+function DocImage({ src, alt, ...rest }: ComponentPropsWithoutRef<"img">) {
+  const resolved = resolveDocImageSrc(src);
+  return <img src={resolved} alt={alt} {...rest} />;
+}
+
 export function DocsMarkdownContent({ children }: { children: string }) {
   return (
     <div className="markdown-content docs-markdown">
-      <ReactMarkdown remarkPlugins={remarkPlugins} rehypePlugins={rehypePlugins} components={{ a: DocAnchor }}>
+      <ReactMarkdown
+        remarkPlugins={remarkPlugins}
+        rehypePlugins={rehypePlugins}
+        components={{ a: DocAnchor, img: DocImage }}
+      >
         {children}
       </ReactMarkdown>
     </div>

@@ -91,3 +91,27 @@ export function resolveDocHref(href: string | undefined): string | undefined {
 
   return href;
 }
+
+/** Map doc markdown image paths to Next.js public URLs (with optional basePath). */
+export function resolveDocImageSrc(src: string | undefined): string | undefined {
+  if (!src) {
+    return src;
+  }
+  if (src.startsWith("http://") || src.startsWith("https://") || src.startsWith("data:")) {
+    return src;
+  }
+
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+  const normalized = src.replace(/\\/g, "/");
+
+  const tutorialMatch = normalized.match(/(?:^|\/)docs\/tutorial\/([^?#]+)$/);
+  if (tutorialMatch) {
+    return `${basePath}/docs/tutorial/${tutorialMatch[1]}`;
+  }
+
+  if (normalized.startsWith("/")) {
+    return `${basePath}${normalized}`;
+  }
+
+  return src;
+}

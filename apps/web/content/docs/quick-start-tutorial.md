@@ -28,7 +28,7 @@
 
 登录后，点击右上角用户名可打开菜单：进入**个人中心**、修改密码、注销账户、添加 Skill、切换浅色/深色/跟随系统主题，或登出。
 
-![图 01：首页与全局导航](/docs/tutorial/01-home-and-navigation.png)
+![图 01：首页与全局导航](../../public/docs/tutorial/01-home-and-navigation.png)
 *图 01：首页与全局导航*
 
 > `Plugins` 标签目前仍在建设中；本教程中的操作均针对已开放的 **Skills** 功能。
@@ -52,7 +52,7 @@
 
 | | |
 | --- | --- |
-| ![图 02：注册页面](/docs/tutorial/02-register.png) | ![图 03：登录页面](/docs/tutorial/03-login.png) |
+| ![图 02：注册页面](../../public/docs/tutorial/02-register.png) | ![图 03：登录页面](../../public/docs/tutorial/03-login.png) |
 | *图 02：注册页面* | *图 03：登录页面* |
 
 ### 使用个人中心
@@ -68,7 +68,7 @@
 
 已拒绝或已下架的 Skill 仅对其拥有者显示在个人中心，不会出现在公开 Skill 广场或搜索结果中。
 
-![图 04：个人中心](/docs/tutorial/04-personal-center.png)
+![图 04：个人中心](../../public/docs/tutorial/04-personal-center.png)
 *图 04：个人中心*
 
 ## 3. 浏览、搜索和筛选 Skill
@@ -81,7 +81,7 @@
 
 搜索时排序控件会暂时禁用，因为结果按匹配度返回；清空搜索词后即可再次使用排序。
 
-![图 05：Skill广场搜索与筛选](/docs/tutorial/05-skills-marketplace.png)
+![图 05：Skill广场搜索与筛选](../../public/docs/tutorial/05-skills-marketplace.png)
 *图 05：Skill广场搜索与筛选*
 
 ### 通过榜单和 Creator 发现内容
@@ -90,10 +90,10 @@
 - 在 **Creators** 页面搜索发布者名称或 `@用户名`，点击发布者可进入其公开主页。
 - Creator 主页会展示公开的 Skill、下载量和评分；只有本人能看到收藏、回收站及被隐藏的内容。
 
-![图 06：Creators搜索与浏览](/docs/tutorial/06-creators.png)
+![图 06：Creators搜索与浏览](../../public/docs/tutorial/06-creators.png)
 *图 06：Creators搜索与浏览*
 
-![图 07：榜单](/docs/tutorial/07-leaderboard.png)
+![图 07：榜单](../../public/docs/tutorial/07-leaderboard.png)
 *图 07：榜单*
 
 ## 4. 在详情页判断 Skill 是否适合使用
@@ -114,7 +114,7 @@
 | **需复核** | 已保存，但存在需要人工判断或改进的 finding；先查看“审查与评估”。 |
 | **已拒绝** | 命中自动拒绝规则；不要安装或推广，作者应修复后发布新版本。 |
 
-![图 08：Skill详情](/docs/tutorial/08-skill-detail-overview.png)
+![图 08：Skill详情](../../public/docs/tutorial/08-skill-detail-overview.png)
 *图 08：Skill详情*
 
 ### 了解详情页的六个内容标签
@@ -147,10 +147,10 @@
 
 安全分和 HaluCatch 质量结果分别服务于不同目的，不能简单相加为“总分”。完整解释见[安全检测](./security-scan.md)和[质量审查](./halucatch-review.md)。
 
-![图 09：质量审查](/docs/tutorial/09-quality-review.png)
+![图 09：质量审查](../../public/docs/tutorial/09-quality-review.png)
 *图 09：质量审查*
 
-![图 10：安全审查](/docs/tutorial/10-security-review.png)
+![图 10：安全审查](../../public/docs/tutorial/10-security-review.png)
 *图 10：安全审查*
 
 ## 6. 提交 Issue 和评分
@@ -172,7 +172,7 @@
 
 每位用户对同一个 Skill 的同一版本只能评分一次；切换到另一个版本后可以单独评分。
 
-![图 11：Issue与评分](/docs/tutorial/11-issue-and-rating.png)
+![图 11：Issue与评分](../../public/docs/tutorial/11-issue-and-rating.png)
 *图 11：Issue与评分*
 
 ## 7. 准备要发布的 Skill 包
@@ -207,7 +207,7 @@ my-skill/
    - 将文件夹或 ZIP 拖拽到上传区。
 3. 上传后，页面会解析 Skill 入口文件，并尽量自动填写 frontmatter 中的字段。
 
-![图 12：Skill上传与发布](/docs/tutorial/12-publish-upload.png)
+![图 12：Skill上传与发布](../../public/docs/tutorial/12-publish-upload.png)
 *图 12：Skill上传与发布*
 
 ### 检查并补全发布信息
@@ -259,7 +259,7 @@ Skill 所有者或 contributor 可在详情页右侧点击 **发布新版本**�
 2. 点击 **添加 contributor**。
 3. 新成员可以协助发布新版本，但不能添加 contributor 或变更 owner。
 
-![图 13：审查中心](/docs/tutorial/15-skill-card.png)
+![图 13：审查中心](../../public/docs/tutorial/15-skill-card.png)
 *图 13：审查中心*
 
 ### 下架、上架和删除
@@ -270,7 +270,7 @@ Skill 所有者或 contributor 可在详情页右侧点击 **发布新版本**�
 - **下架历史版本：** 在 **Versions** 中对非最新版本操作；最新版本不能单独下架。
 - **删除：** 先移入回收站，默认保留 3 天；可在个人中心恢复，或立即永久删除。
 
-![图 14：版本管理](/docs/tutorial/16-versions.png)
+![图 14：版本管理](../../public/docs/tutorial/16-versions.png)
 *图 14：版本管理*
 
 ## 10. 在审查中心对比和导出数据
@@ -285,7 +285,7 @@ Skill 所有者或 contributor 可在详情页右侧点击 **发布新版本**�
 
 审查中心展示的是每个 Skill 的最新版本概要；需要定位具体 finding 时，点击表格中的 Skill 名称进入详情页。
 
-![图 15：审查中心](/docs/tutorial/17-audits-center.png)
+![图 15：审查中心](../../public/docs/tutorial/17-audits-center.png)
 *图 15：审查中心*
 
 ## 常见问题
