@@ -705,7 +705,7 @@ def issues_cmd(
 @app.command("contributor")
 def contributor_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
-    name: Annotated[str, typer.Option("--name", help="Contributor display name")],
+    username: Annotated[str, typer.Option("--username", help="Contributor username")],
 ) -> None:
     """Add a contributor (owner only)."""
     try:
@@ -713,14 +713,14 @@ def contributor_cmd(
         status, payload = request_json(
             "POST",
             join_registry_url(cli.registry, f"/skills/{slug_path(slug)}/contributors"),
-            body={"name": name, "role": "contributor"},
+            body={"name": username, "role": "contributor"},
             token=cli.require_token(),
         )
         raise_for_api_status(status, payload)
         if cli.json_output:
             emit_json(payload)
         else:
-            typer.echo(f"Contributor added: {name}")
+            typer.echo(f"Contributor added: {username}")
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
 

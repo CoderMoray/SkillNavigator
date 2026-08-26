@@ -103,7 +103,7 @@ skillnav
 │  ├─ rate <slug> --score N [--comment]        # POST /skills/:slug/ratings
 │  ├─ issue <slug> --title T [--type] [--severity] [--body]   # POST /skills/:slug/issues
 │  ├─ issues <slug> [--status]                 # GET /skills/:slug/issues
-│  ├─ contributor <slug> --name N              # POST /skills/:slug/contributors
+│  ├─ contributor <slug> --username USER       # POST /skills/:slug/contributors
 │  └─ remove-contributor <slug> [--id ID | --username USER]  # DELETE /skills/:slug/contributors/:id
 └─ skill / skill2（预留）
 ```
