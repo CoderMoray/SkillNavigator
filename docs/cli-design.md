@@ -115,7 +115,7 @@ skillnav
 ### `publish`
 
 - 读取本地目录（须含 `SKILL.md`）或 `.zip`，原样上传（不解析内容，由服务端校验）。
-- **Metadata 与 Web 发布对齐**：必填 `displayName`、`slug`、`summary`（description）、`categories`（≥1，最多 3）、`version`（SemVer）、`releaseTags`（≥1，首版须含 `latest`）。可从 SKILL.md frontmatter 读取，亦可用 CLI flag 覆盖：`--display-name`、`--slug`、`--description`、`--category`（可重复）、`--topic`（可重复）、`--release-tag`（可重复）、`--version`。
+- **Metadata 与 Web 发布对齐**：必填 `displayName`、`slug`、`summary`（description）、`categories`（≥1，最多 3，须为平台分类列表项）、`version`（SemVer）、`releaseTags`（≥1，首版须含 `latest`）。可从 SKILL.md frontmatter 读取，亦可用 CLI flag 覆盖：`--display-name`、`--slug`、`--description`、`--category`（可重复）、`--topic`（可重复）、`--release-tag`（可重复）、`--version`。无效 category 会报错并列出可选值（与 Web 发布页一致）。
 - 请求体携带 `metadata` 对象，服务端 `applySkillPublishMetadata` 写入 frontmatter；`author` 由服务端写入当前登录用户。
 - `--dry-run`：调用 `POST /skills/publish/preview`（服务端预检：元数据 + 打包校验），不落库、不发版；CLI 本地先校验 metadata 完整性。
 - 成功（201）：打印 slug、version、status、contentHash，并按需展示 review / evaluation 摘要；`--json` 输出完整响应体。

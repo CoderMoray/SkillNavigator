@@ -2,7 +2,9 @@
 name: Demo
 slug: demo-hey
 description: Hey
-categories: test
+categories: 
+  - Developer Tools
+  - Documentation
 version: 0.0.1
 ---
 

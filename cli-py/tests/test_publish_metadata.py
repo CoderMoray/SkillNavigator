@@ -70,3 +70,31 @@ def test_validate_publish_metadata_requires_semver() -> None:
                 "releaseTags": ["latest"],
             }
         )
+
+
+def test_build_publish_metadata_normalizes_category_case() -> None:
+    metadata = build_publish_metadata(
+        {
+            "name": "Demo Skill",
+            "slug": "demo-skill",
+            "description": "Summary",
+            "version": "1.0.0",
+            "categories": ["developer tools"],
+            "release-tags": ["latest"],
+        }
+    )
+    assert metadata["categories"] == ["Developer Tools"]
+
+
+def test_build_publish_metadata_rejects_invalid_category() -> None:
+    with pytest.raises(UsageError, match="Invalid category: 'Not Real'"):
+        build_publish_metadata(
+            {
+                "name": "Demo Skill",
+                "slug": "demo-skill",
+                "description": "Summary",
+                "version": "1.0.0",
+                "categories": ["Not Real"],
+                "release-tags": ["latest"],
+            }
+        )

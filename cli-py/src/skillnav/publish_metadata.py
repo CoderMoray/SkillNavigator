@@ -11,6 +11,7 @@ from typing import Any
 
 from skillnav.errors import UsageError
 from skillnav.packages import resolve_user_path
+from skillnav.skill_categories import SKILL_CATEGORY_OPTIONS, normalize_skill_categories
 
 SKILL_ENTRY_NAMES = ("SKILL.md", "skill.md", "skills.md")
 MAX_CATEGORIES = 3
@@ -85,7 +86,9 @@ def build_publish_metadata(
     hint_topics = _coerce_string_list(hints.get("topics"))
     hint_release_tags = _coerce_string_list(hints.get("release-tags") or hints.get("releaseTags"))
 
-    merged_categories = unique_strings(categories if categories else hint_categories)
+    merged_categories = normalize_skill_categories(
+        unique_strings(categories if categories else hint_categories)
+    )
     merged_topics = unique_strings(topics if topics is not None else hint_topics)
     merged_release_tags = unique_strings(
         [tag.lower() for tag in (release_tags if release_tags else hint_release_tags or ["latest"])]
@@ -130,6 +133,9 @@ def validate_publish_metadata(metadata: dict[str, Any]) -> None:
         text = str(category).strip()
         if not text or len(text) > 64:
             raise UsageError("Each category must be 1–64 characters.")
+        if text not in SKILL_CATEGORY_OPTIONS:
+            options = ", ".join(SKILL_CATEGORY_OPTIONS)
+            raise UsageError(f"Invalid category: {text!r}. Valid options: {options}")
 
     topics = metadata.get("topics") or []
     if not isinstance(topics, list):
