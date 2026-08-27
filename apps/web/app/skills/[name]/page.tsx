@@ -41,6 +41,7 @@ import { EvaluationBadge, SeverityBadge, VerdictBadge } from "../../../component
 import { findSkillContributorByHandle, isSkillContributor, isSkillOwner } from "../../../lib/skill-contributors";
 import { buildSkillInstallPrompt } from "../../../lib/skill-install-prompt";
 import { skillnavInstallExample } from "../../../lib/cli-examples";
+import { copyTextToClipboard } from "../../../lib/copy-text";
 import {
   addSkillContributor,
   addSkillRating,
@@ -712,6 +713,15 @@ export default function SkillDetailPage() {
     }
   }
 
+  async function handleCopyInstallCommand() {
+    try {
+      await copyTextToClipboard(installCommand);
+      setSuccessToast("已复制安装命令");
+    } catch {
+      setErrorToast("复制失败，请手动复制");
+    }
+  }
+
   async function handleCopyInstallPrompt() {
     if (!skill || !currentVersion) {
       setErrorToast("Skill 数据尚未加载完成。");
@@ -1109,9 +1119,13 @@ export default function SkillDetailPage() {
                     </p>
                     <pre className="pre">{installCommand}</pre>
                     <div className="tag-row">
-                      <span className="badge">
-                        <Copy size={13} /> 可复制命令
-                      </span>
+                      <button
+                        className="button secondary compact"
+                        onClick={() => void handleCopyInstallCommand()}
+                        type="button"
+                      >
+                        <Copy size={13} /> 复制命令
+                      </button>
                       {currentVersion.releaseTags.map((releaseTag) => (
                         <span className="badge" key={releaseTag}>
                           {releaseTag}
