@@ -5,6 +5,7 @@ export {
   isContributorRole,
   normalizeContributorRole,
 } from "./contributors";
+export { assertPublishPreflight, PublishPreflightError } from "./publish-preflight.js";
 export * from "./auth";
 
 export {

@@ -21,6 +21,7 @@ import {
 import {
   aggregateCreators,
   assertAssignableContributorRole,
+  assertPublishPreflight,
   createAuthStoreFromEnv,
   createEmptyCreatorSummary,
   createRegistryStoreFromEnv,
@@ -33,6 +34,7 @@ import {
   mergeOwnerRejectedSkills,
   normalizeCategoryFilters,
   normalizeHandle,
+  PublishPreflightError,
   PublishRateLimiter,
   VerificationEmailRateLimiter,
   getPasswordResetExpiresMs,
@@ -537,6 +539,19 @@ export function buildServer() {
     }
 
     try {
+      if (request.body.metadata) {
+        const prepared = preparePublishRequest(request.body, user.username);
+        const existingSkill = await store.getSkill(prepared.slug);
+        assertPublishPreflight({
+          slug: prepared.slug,
+          version: prepared.version,
+          releaseTags: prepared.releaseTags,
+          existingSkill,
+          user,
+        });
+        return extractPublishPreview(prepared.snapshot);
+      }
+
       if (request.body.archiveBase64) {
         const buffer = Buffer.from(stripDataUrlPrefix(request.body.archiveBase64), "base64");
         const preview = readSkillZipFrontmatterHints(buffer);
@@ -549,7 +564,7 @@ export function buildServer() {
       const uploaded = readSkillFromBody(request.body);
       return extractPublishPreview(uploaded.snapshot);
     } catch (error) {
-      return reply.code(400).send({ error: errorMessage(error) });
+      return sendPublishError(reply, error);
     }
   });
 
@@ -569,26 +584,23 @@ export function buildServer() {
           retryAfterSeconds: rateLimit.retryAfterSeconds
         });
     }
-    publishRateLimiter.recordAttempt(user.id);
-
     try {
       const changelog = normalizeChangelog(request.body.changelog);
-      const uploaded = readSkillFromBody(request.body, { looseEntry: Boolean(request.body.metadata) });
-      let snapshot = request.body.metadata
-        ? applySkillPublishMetadata(uploaded.snapshot, request.body.metadata)
-        : uploaded.snapshot;
-      snapshot = applySkillAuthor(snapshot, user.username);
-      const version = request.body.metadata?.version ?? uploaded.version;
-      const slug = getSkillSlug(snapshot.manifest);
-      const existingSkill = await store.getSkill(slug);
-      if (existingSkill?.deletedAt) {
-        return reply.code(409).send({ error: "skill_in_recycle_bin" });
-      }
-      if (existingSkill && !isSkillContributor(existingSkill, user)) {
-        return reply.code(403).send({ error: "Only skill contributors can publish new versions" });
-      }
+      const prepared = preparePublishRequest(request.body, user.username);
+      const existingSkill = await store.getSkill(prepared.slug);
+      assertPublishPreflight({
+        slug: prepared.slug,
+        version: prepared.version,
+        releaseTags: prepared.releaseTags,
+        existingSkill,
+        user,
+      });
+      publishRateLimiter.recordAttempt(user.id);
 
-      const { review, evaluation, failedStages } = await reviewAndEvaluateSkillSnapshot(snapshot, version);
+      const { review, evaluation, failedStages } = await reviewAndEvaluateSkillSnapshot(
+        prepared.snapshot,
+        prepared.version
+      );
       if (failedStages.length > 0) {
         return reply.code(503).send({
           error: "review_pipeline_incomplete",
@@ -597,17 +609,17 @@ export function buildServer() {
         });
       }
 
-      const registryVersion = await store.publishSnapshot(snapshot, review, evaluation, {
+      const registryVersion = await store.publishSnapshot(prepared.snapshot, review, evaluation, {
         owner: {
           userId: user.id,
           username: user.username
         },
-        releaseTags: request.body.metadata?.releaseTags,
+        releaseTags: prepared.releaseTags,
         changelog
       });
 
       return reply.code(201).send({
-        slug,
+        slug: prepared.slug,
         name: registryVersion.manifest.name,
         version: registryVersion.version,
         releaseTags: registryVersion.releaseTags,
@@ -618,10 +630,7 @@ export function buildServer() {
         changelog: registryVersion.changelog
       });
     } catch (error) {
-      const message = errorMessage(error);
-      return reply.code(
-        message.includes("already exists") || message === "skill_in_recycle_bin" ? 409 : 400
-      ).send({ error: message });
+      return sendPublishError(reply, error);
     }
   });
 
@@ -1186,6 +1195,38 @@ function extractPublishPreview(snapshot: SkillSnapshot) {
     entryPath: entry.path,
     frontmatter: frontmatter ?? {}
   };
+}
+
+interface PreparedPublishRequest {
+  snapshot: SkillSnapshot;
+  version: string;
+  slug: string;
+  releaseTags: string[];
+}
+
+function preparePublishRequest(body: PublishBody, username: string): PreparedPublishRequest {
+  const uploaded = readSkillFromBody(body, { looseEntry: Boolean(body.metadata) });
+  let snapshot = body.metadata
+    ? applySkillPublishMetadata(uploaded.snapshot, body.metadata)
+    : uploaded.snapshot;
+  snapshot = applySkillAuthor(snapshot, username);
+  const version = body.metadata?.version ?? uploaded.version ?? snapshot.manifest.version ?? "0.1.0";
+  const slug = getSkillSlug(snapshot.manifest);
+  const releaseTags = body.metadata?.releaseTags ??
+    (Array.isArray(snapshot.manifest["release-tags"])
+      ? snapshot.manifest["release-tags"].map(String)
+      : ["latest"]);
+  return { snapshot, version, slug, releaseTags };
+}
+
+function sendPublishError(reply: FastifyReply, error: unknown) {
+  if (error instanceof PublishPreflightError) {
+    return reply.code(error.statusCode).send({ error: error.message });
+  }
+  const message = errorMessage(error);
+  return reply.code(
+    message.includes("already exists") || message === "skill_in_recycle_bin" ? 409 : 400
+  ).send({ error: message });
 }
 
 function readSkillFromBody(

@@ -10,7 +10,7 @@ import {
   type SkillManifest,
   type SkillSnapshot
 } from "@skill-platform/skill-spec";
-import { compareSemver } from "@skill-platform/skill-spec/skill-format";
+import { assertPublishPreflight } from "../publish-preflight.js";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { eq, and, sql, desc, or, ilike, inArray, isNull, isNotNull, lte, ne } from "drizzle-orm";
 import pg from "pg";
@@ -1159,28 +1159,15 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     const allowedTools = snapshot.manifest["allowed-tools"];
     const disallowedTools = snapshot.manifest["disallowed-tools"];
 
-    // Check version conflict
-    const [existingV] = await this.db.select()
-      .from(schema.skillVersions).where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version))).limit(1);
-    if (existingV) throw new Error(`Version already exists: ${slug}@${version}`);
+    const existingSkill = await this.getSkill(slug);
+    assertPublishPreflight({
+      slug,
+      version,
+      releaseTags,
+      existingSkill,
+    });
 
-    const [existingSkill] = await this.db.select().from(schema.skills).where(eq(schema.skills.slug, slug)).limit(1);
-    if (existingSkill?.deletedAt) {
-      throw new Error("skill_in_recycle_bin");
-    }
-
-    if (existingSkill) {
-      const compared = compareSemver(version, existingSkill.latestVersion);
-      if (compared !== null && compared <= 0) {
-        throw new Error(
-          `Version must be greater than latest: ${slug}@${existingSkill.latestVersion}, got ${version}`
-        );
-      }
-    }
-
-    if (!existingSkill && !releaseTags.includes("latest")) throw new Error("First version must include latest tag");
-
-    // Store the complete snapshot in MinIO first. Its descriptor is committed
+    // Store the complete snapshot in MinIO first. Its descriptor is committed Its descriptor is committed
     // with the version, while skill_version_files retains only file metadata.
     const artifact = await this.artifactStore?.putSnapshot(slug, version, snapshot);
 

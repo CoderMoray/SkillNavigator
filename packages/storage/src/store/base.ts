@@ -1,7 +1,7 @@
 import type { FunctionalEvaluationReport } from "@skill-platform/evaluator";
 import type { ReviewReport } from "@skill-platform/review-engine";
 import { getSkillSlug, type SkillSnapshot } from "@skill-platform/skill-spec";
-import { compareSemver } from "@skill-platform/skill-spec/skill-format";
+import { assertPublishPreflight } from "../publish-preflight.js";
 import type {
   ArtifactStore,
   CreateIssueInput,
@@ -57,20 +57,12 @@ export abstract class JsonRegistryStore implements RegistryStore {
       options.releaseTags ?? snapshot.manifest["release-tags"] ?? ["latest"]
     );
 
-    if (existingSkill?.versions[version]) {
-      throw new Error(`Version already exists: ${slug}@${version}`);
-    }
-    if (existingSkill) {
-      const compared = compareSemver(version, existingSkill.latestVersion);
-      if (compared !== null && compared <= 0) {
-        throw new Error(
-          `Version must be greater than latest: ${slug}@${existingSkill.latestVersion}, got ${version}`
-        );
-      }
-    }
-    if (!existingSkill && !releaseTags.includes("latest")) {
-      throw new Error("The first published version of a Skill must include the latest release tag");
-    }
+    assertPublishPreflight({
+      slug,
+      version,
+      releaseTags,
+      existingSkill,
+    });
 
     const artifact = await this.artifactStore?.putSnapshot(slug, version, snapshot);
     const registryVersion: RegistryVersion = {
