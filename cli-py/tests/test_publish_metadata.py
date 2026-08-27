@@ -5,7 +5,11 @@ from __future__ import annotations
 import pytest
 
 from skillnav.errors import UsageError
-from skillnav.publish_metadata import build_publish_metadata, validate_publish_metadata
+from skillnav.publish_metadata import (
+    build_publish_metadata,
+    resolve_publish_metadata,
+    validate_publish_metadata,
+)
 
 
 def test_build_publish_metadata_from_hints() -> None:
@@ -98,3 +102,34 @@ def test_build_publish_metadata_rejects_invalid_category() -> None:
                 "release-tags": ["latest"],
             }
         )
+
+
+def test_resolve_publish_metadata_prompts_for_missing_fields(monkeypatch) -> None:
+    prompts: list[tuple[str, str | None]] = []
+
+    def fake_prompt(label: str, default: str | None = None) -> str:
+        prompts.append((label, default))
+        answers = {
+            "Display name": "Interactive Skill",
+            "Slug": "interactive-skill",
+            "Description": "Filled interactively.",
+            "Category numbers or names (comma-separated)": "2",
+            "Version (SemVer)": "1.0.0",
+        }
+        return answers[label]
+
+    metadata = resolve_publish_metadata(
+        {"release-tags": ["latest"]},
+        interactive=True,
+        prompt_fn=fake_prompt,
+    )
+    assert metadata["displayName"] == "Interactive Skill"
+    assert metadata["slug"] == "interactive-skill"
+    assert metadata["categories"] == ["Developer Tools"]
+    assert metadata["version"] == "1.0.0"
+    assert prompts[0][0] == "Display name"
+
+
+def test_resolve_publish_metadata_no_input_skips_prompts() -> None:
+    with pytest.raises(UsageError, match="Display Name is required"):
+        resolve_publish_metadata({}, interactive=True, no_input=True)

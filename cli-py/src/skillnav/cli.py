@@ -485,6 +485,8 @@ def publish_cmd(
             topics=topic,
             version=version,
             release_tags=release_tag,
+            interactive=not cli.json_output,
+            no_input=cli.no_input,
         )
         archive_base64 = package_to_base64(package_path)
         body: dict[str, Any] = {"archiveBase64": archive_base64, "metadata": metadata}

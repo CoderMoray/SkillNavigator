@@ -5,13 +5,18 @@ from __future__ import annotations
 import io
 import re
 import zipfile
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
+
+import typer
 
 from skillnav.errors import UsageError
 from skillnav.packages import resolve_user_path
-from skillnav.skill_categories import SKILL_CATEGORY_OPTIONS, normalize_skill_categories
+from skillnav.skill_categories import (
+    SKILL_CATEGORY_OPTIONS,
+    normalize_skill_categories,
+    resolve_skill_category,
+)
 
 SKILL_ENTRY_NAMES = ("SKILL.md", "skill.md", "skills.md")
 MAX_CATEGORIES = 3
@@ -27,16 +32,7 @@ SEMVER_PATTERN = re.compile(
 RELEASE_TAG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 FRONTMATTER_PATTERN = re.compile(r"^---\r?\n([\s\S]*?)\r?\n---", re.MULTILINE)
 
-
-@dataclass(frozen=True)
-class PublishMetadataInput:
-    display_name: str | None = None
-    slug: str | None = None
-    description: str | None = None
-    categories: list[str] | None = None
-    topics: list[str] | None = None
-    version: str | None = None
-    release_tags: list[str] | None = None
+PromptFn = Callable[..., str]
 
 
 def split_csv_list(value: str | None) -> list[str]:
@@ -81,30 +77,173 @@ def build_publish_metadata(
     topics: list[str] | None = None,
     version: str | None = None,
     release_tags: list[str] | None = None,
+    interactive: bool = False,
+    no_input: bool = False,
+) -> dict[str, Any]:
+    return resolve_publish_metadata(
+        hints,
+        display_name=display_name,
+        slug=slug,
+        description=description,
+        categories=categories,
+        topics=topics,
+        version=version,
+        release_tags=release_tags,
+        interactive=interactive,
+        no_input=no_input,
+    )
+
+
+def resolve_publish_metadata(
+    hints: dict[str, Any],
+    *,
+    display_name: str | None = None,
+    slug: str | None = None,
+    description: str | None = None,
+    categories: list[str] | None = None,
+    topics: list[str] | None = None,
+    version: str | None = None,
+    release_tags: list[str] | None = None,
+    interactive: bool = False,
+    no_input: bool = False,
+    prompt_fn: PromptFn = typer.prompt,
+) -> dict[str, Any]:
+    draft = _merge_publish_metadata_draft(
+        hints,
+        display_name=display_name,
+        slug=slug,
+        description=description,
+        categories=categories,
+        topics=topics,
+        version=version,
+        release_tags=release_tags,
+    )
+    if interactive and not no_input:
+        draft = _prompt_missing_publish_metadata(draft, prompt_fn=prompt_fn)
+    return _finalize_publish_metadata(draft)
+
+
+def _merge_publish_metadata_draft(
+    hints: dict[str, Any],
+    *,
+    display_name: str | None,
+    slug: str | None,
+    description: str | None,
+    categories: list[str] | None,
+    topics: list[str] | None,
+    version: str | None,
+    release_tags: list[str] | None,
 ) -> dict[str, Any]:
     hint_categories = _coerce_string_list(hints.get("categories"))
     hint_topics = _coerce_string_list(hints.get("topics"))
     hint_release_tags = _coerce_string_list(hints.get("release-tags") or hints.get("releaseTags"))
-
-    merged_categories = normalize_skill_categories(
-        unique_strings(categories if categories else hint_categories)
-    )
+    merged_categories = unique_strings(categories if categories is not None else hint_categories)
     merged_topics = unique_strings(topics if topics is not None else hint_topics)
     merged_release_tags = unique_strings(
-        [tag.lower() for tag in (release_tags if release_tags else hint_release_tags or ["latest"])]
+        [tag.lower() for tag in (release_tags if release_tags is not None else hint_release_tags or ["latest"])]
     )
-
-    metadata = {
+    return {
         "displayName": (display_name or _hint_str(hints, "name")).strip(),
         "slug": (slug or _hint_str(hints, "slug")).strip(),
         "summary": (description or _hint_str(hints, "description")).strip(),
         "categories": merged_categories,
         "topics": merged_topics,
         "version": (version or _hint_str(hints, "version")).strip(),
-        "releaseTags": merged_release_tags,
+        "releaseTags": merged_release_tags or ["latest"],
+    }
+
+
+def _prompt_missing_publish_metadata(draft: dict[str, Any], *, prompt_fn: PromptFn) -> dict[str, Any]:
+    if not _publish_metadata_needs_prompt(draft):
+        return draft
+
+    typer.echo("Some publish metadata is missing. Please complete the following.")
+    updated = dict(draft)
+
+    if not str(updated.get("displayName") or "").strip():
+        updated["displayName"] = prompt_fn("Display name").strip()
+
+    if not str(updated.get("slug") or "").strip():
+        suggested = _suggest_slug(str(updated.get("displayName") or ""))
+        updated["slug"] = prompt_fn("Slug", default=suggested or "").strip()
+
+    if not str(updated.get("summary") or "").strip():
+        updated["summary"] = prompt_fn("Description").strip()
+
+    if not updated.get("categories"):
+        updated["categories"] = _prompt_categories(prompt_fn=prompt_fn)
+
+    if not str(updated.get("version") or "").strip():
+        updated["version"] = prompt_fn("Version (SemVer)", default="1.0.0").strip()
+
+    if not updated.get("releaseTags"):
+        raw_tags = prompt_fn("Release tags (comma-separated)", default="latest").strip()
+        updated["releaseTags"] = unique_strings([tag.lower() for tag in split_csv_list(raw_tags)]) or ["latest"]
+
+    return updated
+
+
+def _publish_metadata_needs_prompt(draft: dict[str, Any]) -> bool:
+    return (
+        not str(draft.get("displayName") or "").strip()
+        or not str(draft.get("slug") or "").strip()
+        or not str(draft.get("summary") or "").strip()
+        or not draft.get("categories")
+        or not str(draft.get("version") or "").strip()
+    )
+
+
+def _prompt_categories(*, prompt_fn: PromptFn) -> list[str]:
+    typer.echo(f"Categories (choose up to {MAX_CATEGORIES}):")
+    for index, category in enumerate(SKILL_CATEGORY_OPTIONS, start=1):
+        typer.echo(f"  {index}. {category}")
+    raw = prompt_fn("Category numbers or names (comma-separated)").strip()
+    return parse_category_input(raw)
+
+
+def parse_category_input(raw: str) -> list[str]:
+    if not raw.strip():
+        raise UsageError("At least one category is required.")
+    selected: list[str] = []
+    for part in split_csv_list(raw):
+        if part.isdigit():
+            index = int(part)
+            if index < 1 or index > len(SKILL_CATEGORY_OPTIONS):
+                raise UsageError(
+                    f"Invalid category number: {index}. Choose 1–{len(SKILL_CATEGORY_OPTIONS)}."
+                )
+            selected.append(SKILL_CATEGORY_OPTIONS[index - 1])
+        else:
+            selected.append(resolve_skill_category(part))
+    normalized = unique_strings(selected)
+    if len(normalized) > MAX_CATEGORIES:
+        raise UsageError(f"At most {MAX_CATEGORIES} categories are allowed (same as Web publish).")
+    return normalized
+
+
+def _finalize_publish_metadata(draft: dict[str, Any]) -> dict[str, Any]:
+    metadata = {
+        "displayName": str(draft.get("displayName") or "").strip(),
+        "slug": str(draft.get("slug") or "").strip(),
+        "summary": str(draft.get("summary") or "").strip(),
+        "categories": normalize_skill_categories(list(draft.get("categories") or [])),
+        "topics": unique_strings([str(item).strip() for item in draft.get("topics") or [] if str(item).strip()]),
+        "version": str(draft.get("version") or "").strip(),
+        "releaseTags": unique_strings(
+            [str(tag).strip().lower() for tag in draft.get("releaseTags") or ["latest"] if str(tag).strip()]
+        ),
     }
     validate_publish_metadata(metadata)
     return metadata
+
+
+def _suggest_slug(display_name: str) -> str:
+    slug = display_name.strip().lower()
+    slug = re.sub(r"[^a-z0-9@/._-]+", "-", slug)
+    slug = re.sub(r"-{2,}", "-", slug).strip("-")
+    if is_valid_skill_slug(slug):
+        return slug
+    return ""
 
 
 def validate_publish_metadata(metadata: dict[str, Any]) -> None:

@@ -1,12 +1,4 @@
----
-name: Demo
-slug: demo-hey
-description: Hey
-categories: 
-  - Developer Tools
-  - Documentation
-version: 0.0.1
----
+
 
 <!-- ---
 slug: demo-skill
