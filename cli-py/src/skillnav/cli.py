@@ -17,6 +17,7 @@ from skillnav.api import (
     request_bytes,
     request_json,
 )
+from skillnav.config import get_profile, load_config, save_config
 from skillnav.contributors import resolve_contributor_id
 from skillnav.context import CliContext
 from skillnav.errors import (
@@ -152,10 +153,15 @@ def config_add(
 ) -> None:
     """Add a platform profile."""
     try:
+        cli = _ctx()
         config = load_config()
-        get_profile(config, name)["registry"] = registry.rstrip("/")
+        normalized_registry = registry.rstrip("/")
+        get_profile(config, name)["registry"] = normalized_registry
         save_config(config)
-        typer.echo(f"Added profile '{name}' -> {registry.rstrip('/')}")
+        if cli.json_output:
+            emit_json({"profile": name, "registry": normalized_registry})
+            return
+        typer.echo(f"Added profile '{name}' -> {normalized_registry}")
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
 
@@ -164,11 +170,15 @@ def config_add(
 def config_use(name: Annotated[str, typer.Argument(help="Profile name to activate")]) -> None:
     """Switch the default platform profile."""
     try:
+        cli = _ctx()
         config = load_config()
         if name not in config.get("profiles", {}):
             raise UsageError(f"Unknown profile: {name}")
         config["defaultProfile"] = name
         save_config(config)
+        if cli.json_output:
+            emit_json({"defaultProfile": name})
+            return
         typer.echo(f"Default profile: {name}")
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)

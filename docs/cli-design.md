@@ -78,8 +78,8 @@ Skill 管理平台（MonoSkillNavigator）对外提供 Web UI 与 HTTP API。`sk
 ```
 skillnav
 ├─ 平台配置
-│  ├─ config add <name> --registry <url>       # 添加平台实例
-│  ├─ config use <name>                        # 切换默认平台
+│  ├─ config add <name> --registry <url>       # 添加平台实例（--json → `{profile, registry}`）
+│  ├─ config use <name>                        # 切换默认平台（--json → `{defaultProfile}`）
 │  ├─ config list                              # 列出平台实例
 │  └─ config test [name]                       # 验证连通性（GET /health）
 ├─ 登录与身份
@@ -148,7 +148,7 @@ skillnav
 **输出**：
 
 - 默认：人类可读；`review` / `report` / `publish` 成功后按 SkillSpector / VirusTotal / HaluCatch 分区展示。
-- `--json`：输出**服务端原始响应体**（不二次包装），便于脚本消费。
+- `--json`：输出**服务端原始响应体**（不二次包装），便于脚本消费；本地命令（`config add` / `config use` / `login` / `download` 等）输出结构化 JSON。
 - 错误一律写 stderr：`skillnav: <message>`；`--json` 模式下错误输出 `{"error": "..."}`。
 
 **退出码**：
@@ -190,7 +190,7 @@ skillnav
 - `0.1.0`：平台配置（config add/use/list/test）+ 登录与身份（login/logout/whoami/token）+ 检索（search/top/info/status）。
 - `0.2.0`：发布流（publish/--dry-run/review）+ report 完整展示。
 - `0.3.0`：分发（download/install）+ 社区（rate/issue/issues/add-contributor）。
-- `1.0.0`：冻结命令集；补齐 `--json` 全命令覆盖、错误处理与帮助文档；`apps/cli` TS 版下线。
+- `1.0.0`：冻结命令集；错误处理与帮助文档 polish；`apps/cli` TS 版下线。（`--json` 已覆盖全部 22 个子命令。）
 
 ## 10. 待定事项
 
