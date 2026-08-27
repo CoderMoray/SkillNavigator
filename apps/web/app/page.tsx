@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { AppShell } from "../components/AppShell";
 import { SkillCard } from "../components/SkillCard";
+import { skillnavHomeCliExamples } from "../lib/cli-examples";
 import { getLeaderboard } from "../lib/api";
 import type { SkillSearchResult } from "../lib/types";
 
@@ -209,10 +210,9 @@ export default function HomePage() {
               CLI publish & sync
             </span>
             <h2>Bring your skills to the registry.</h2>
-            <p>登录后发布文件夹或 zip 包，平台会自动审查并保留版本历史。</p>
+            <p>在 Web 创建 API Key 登录 skillnav 后，可发布文件夹或 zip 包；平台会自动审查并保留版本历史。</p>
           </div>
-          <pre>{`$ npm run skill -- publish ./my-skill --token <token>
-$ npm run skill -- download demo-skill demo-skill.zip`}</pre>
+          <pre>{skillnavHomeCliExamples()}</pre>
         </section>
       </div>
     </AppShell>

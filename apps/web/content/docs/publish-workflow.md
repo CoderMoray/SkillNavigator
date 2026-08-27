@@ -100,10 +100,11 @@ Skill **所有者** 可在详情页右侧 **当前查看版本** 卡片中：
 
 ## CLI 发布（可选）
 
-已登录用户可在本地使用 CLI（需配置 API 与 token）：
+在 Web **账户 → API Keys** 创建密钥后，本地使用 skillnav CLI：
 
 ```bash
-npm run skill -- publish ./my-skill --token <token>
+skillnav login --api-key sk_…
+skillnav publish ./my-skill
 ```
 
 CLI 与 Web 共用同一 API 与审查逻辑；Web 发布额外校验分类等表单字段。

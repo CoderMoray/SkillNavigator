@@ -1,3 +1,7 @@
+import {
+  skillnavInstallWithRegistryExample,
+  skillnavLoginExample,
+} from "./cli-examples";
 import type { RegistrySkill } from "./types";
 
 const REGISTRY_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3000";
@@ -10,7 +14,7 @@ export function buildSkillInstallPrompt(input: {
 }): string {
   const { skill, version, pageUrl } = input;
   const registryUrl = input.registryUrl ?? REGISTRY_API_URL;
-  const installCommand = `npm run skill -- install ${skill.slug} --version ${version} --registry ${registryUrl}`;
+  const installCommand = skillnavInstallWithRegistryExample(skill.slug, version, registryUrl);
   const author = skill.versions[version]?.manifest.author ?? "未声明";
 
   return [
@@ -25,9 +29,9 @@ export function buildSkillInstallPrompt(input: {
     `- Registry API：${registryUrl}`,
     "",
     "安装步骤：",
-    "1. ",
-    `2. `,
-    "3. ",
+    "1. 安装 skillnav CLI（pipx install skillnav 或 pip install skillnav）",
+    `2. ${skillnavLoginExample("<从 Web 账户创建的 API Key>")}`,
+    `3. ${installCommand}`,
     "",
     "约束：",
     "- 仅安装上述 Skill，不要修改无关项目文件。",

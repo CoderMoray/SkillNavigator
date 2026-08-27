@@ -40,6 +40,7 @@ import { SkillCategoryLabel } from "../../../components/SkillCategoryIcon";
 import { EvaluationBadge, SeverityBadge, VerdictBadge } from "../../../components/StatusBadge";
 import { findSkillContributorByHandle, isSkillContributor, isSkillOwner } from "../../../lib/skill-contributors";
 import { buildSkillInstallPrompt } from "../../../lib/skill-install-prompt";
+import { skillnavInstallExample } from "../../../lib/cli-examples";
 import {
   addSkillContributor,
   addSkillRating,
@@ -456,7 +457,7 @@ export default function SkillDetailPage() {
     }
   ];
   const isUnpublished = skill.published === false;
-  const installCommand = `npm run skill -- install ${skill.slug}`;
+  const installCommand = skillnavInstallExample(skill.slug);
 
   function openIssueModal() {
     setIssueError(null);
@@ -1103,7 +1104,9 @@ export default function SkillDetailPage() {
 
                   <div className="detail-subsection">
                     <h3>安装</h3>
-                    <p className="description">在 API 服务运行时，可以通过 CLI 安装最新版本。</p>
+                    <p className="description">
+                      在 Web 创建 API Key 并执行 <code className="inline-code">skillnav login --api-key sk_…</code> 后，可通过 CLI 安装最新版本。
+                    </p>
                     <pre className="pre">{installCommand}</pre>
                     <div className="tag-row">
                       <span className="badge">

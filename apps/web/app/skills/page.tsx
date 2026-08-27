@@ -8,6 +8,7 @@ import { SkillCategoryLabel } from "../../components/SkillCategoryIcon";
 import { PillSelect } from "../../components/PillSelect";
 import { SkillCard } from "../../components/SkillCard";
 import { getLeaderboard, getSkills } from "../../lib/api";
+import { skillnavPublishExample } from "../../lib/cli-examples";
 import {
   normalizeSkillCategoryFilters,
   SKILL_CATEGORY_OPTIONS
@@ -177,7 +178,7 @@ export default function SkillsPage() {
           <div className="empty">
             {activeCategories.length > 0
               ? "暂无匹配所选分类的 Skill。"
-              : "暂无匹配 Skill。可以先登录后运行 npm run skill -- publish examples/demo-skill。"}
+              : `暂无匹配 Skill。可在 Web 创建 API Key 后运行 ${skillnavPublishExample("examples/demo-skill")}。`}
           </div>
         ) : (
           <div className="claw-list">
