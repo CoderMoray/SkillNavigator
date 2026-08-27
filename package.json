@@ -28,7 +28,7 @@
     "test:e2e": "playwright test",
     "vt:stress": "tsx scripts/vt-lookup-stress.mjs --phase all --count 6",
     "test:watch": "vitest",
-    "skillnav:test": "cd cli-py && pip install -e \".[dev]\" && pytest -v",
+    "skillnav:test": "pip install -e \"cli-py[dev]\" && pytest tests/skillnav -v",
     "setup": "bash scripts/setup.sh",
     "setup:skillspector": "bash scripts/install-skillspector.sh"
   },

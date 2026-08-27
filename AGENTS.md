@@ -70,7 +70,7 @@ npx drizzle-kit migrate    # 执行迁移
 - 改表结构必须走 Drizzle 迁移流程：改 `schema/*.ts` → `generate` → `migrate`。
 - 修改 API 路由、响应或标识语义后，更新 CLI、Web 路由和 README。
 - 改代码后验证：
-  1. `npm run typecheck` — TypeScript 编译检查，零报错
-  2. `npm run test` — 8 个 API 烟雾测试，全过即合。
-     （当前覆盖正常流程，错误分支如重复注册、token 过期、不存在 slug 等尚未覆盖）
+ 1. `npm run typecheck` — TypeScript 编译检查，零报错
+ 2. `npm run test` — API 烟雾 + 单元测试
+ 3. `npm run skillnav:test` — skillnav CLI pytest（`tests/skillnav/`，集成测试需本地 API）
 - 不要提交 `.env`、凭证、token、数据库备份或 MinIO 导出文件。

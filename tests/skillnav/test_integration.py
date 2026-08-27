@@ -11,10 +11,10 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from conftest import REPO_ROOT, cli_output
 from skillnav.cli import app
 
 API = os.environ.get("SKILLNAV_TEST_REGISTRY", "http://127.0.0.1:3000")
-REPO_ROOT = Path(__file__).resolve().parents[2]
 DEMO_SKILL = REPO_ROOT / "examples" / "demo-skill"
 
 
@@ -29,22 +29,6 @@ def api_available() -> bool:
 pytestmark = pytest.mark.skipif(not api_available(), reason="API not running at SKILLNAV_TEST_REGISTRY")
 
 
-@pytest.fixture()
-def runner() -> CliRunner:
-    return CliRunner(mix_stderr=True)
-
-
-def _output(result) -> str:
-    return getattr(result, "output", None) or (result.stdout or "") + (result.stderr or "")
-
-
-@pytest.fixture()
-def isolated_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    path = tmp_path / "config.json"
-    monkeypatch.setenv("SKILLNAV_CONFIG", str(path))
-    return path
-
-
 def test_version(runner: CliRunner) -> None:
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
@@ -53,7 +37,7 @@ def test_version(runner: CliRunner) -> None:
 
 def test_config_test(runner: CliRunner, isolated_config: Path) -> None:
     result = runner.invoke(app, ["--registry", API, "config", "test"])
-    assert result.exit_code == 0, _output(result)
+    assert result.exit_code == 0, cli_output(result)
     assert "OK" in result.stdout
 
 
@@ -70,28 +54,28 @@ def test_login_and_whoami(runner: CliRunner, isolated_config: Path) -> None:
             "password123",
         ],
     )
-    assert result.exit_code == 0, _output(result)
+    assert result.exit_code == 0, cli_output(result)
     assert "Logged in" in result.stdout
 
     whoami = runner.invoke(app, ["--registry", API, "whoami"])
-    assert whoami.exit_code == 0, _output(whoami)
+    assert whoami.exit_code == 0, cli_output(whoami)
     assert "alice" in whoami.stdout
 
 
 def test_search_and_info(runner: CliRunner) -> None:
     search = runner.invoke(app, ["--registry", API, "--json", "search", "demo"])
-    assert search.exit_code == 0, _output(search)
+    assert search.exit_code == 0, cli_output(search)
     body = json.loads(search.stdout)
     assert body.get("items")
 
     info = runner.invoke(app, ["--registry", API, "--json", "info", "demo-skill"])
-    assert info.exit_code == 0, _output(info)
+    assert info.exit_code == 0, cli_output(info)
     assert json.loads(info.stdout).get("slug") == "demo-skill"
 
 
 def test_top(runner: CliRunner) -> None:
     result = runner.invoke(app, ["--registry", API, "top", "--limit", "5"])
-    assert result.exit_code == 0, _output(result)
+    assert result.exit_code == 0, cli_output(result)
 
 
 def test_review_demo_skill(runner: CliRunner, isolated_config: Path) -> None:
@@ -101,13 +85,13 @@ def test_review_demo_skill(runner: CliRunner, isolated_config: Path) -> None:
         app,
         ["--registry", API, "login", "--username", "alice", "--password", "password123"],
     )
-    assert login.exit_code == 0, _output(login)
+    assert login.exit_code == 0, cli_output(login)
 
     result = runner.invoke(
         app,
         ["--registry", API, "--json", "review", str(DEMO_SKILL)],
     )
-    assert result.exit_code == 0, _output(result)
+    assert result.exit_code == 0, cli_output(result)
     body = json.loads(result.stdout)
     assert body.get("review")
 
@@ -120,7 +104,7 @@ def test_review_requires_login(runner: CliRunner, isolated_config: Path) -> None
         ["--registry", API, "--no-input", "review", str(DEMO_SKILL)],
     )
     assert result.exit_code == 2
-    assert "not logged in" in _output(result)
+    assert "not logged in" in cli_output(result)
 
 
 def test_publish_dry_run(runner: CliRunner, isolated_config: Path) -> None:
@@ -130,13 +114,13 @@ def test_publish_dry_run(runner: CliRunner, isolated_config: Path) -> None:
         app,
         ["--registry", API, "login", "--username", "alice", "--password", "password123"],
     )
-    assert login.exit_code == 0, _output(login)
+    assert login.exit_code == 0, cli_output(login)
 
     result = runner.invoke(
         app,
         ["--registry", API, "--json", "publish", str(DEMO_SKILL), "--dry-run"],
     )
-    assert result.exit_code == 0, _output(result)
+    assert result.exit_code == 0, cli_output(result)
     body = json.loads(result.stdout)
     assert body.get("entryPath") or body.get("frontmatter") is not None
 
@@ -147,7 +131,7 @@ def test_not_logged_in_exit_code(runner: CliRunner, isolated_config: Path) -> No
         ["--registry", API, "--no-input", "publish", str(DEMO_SKILL or ".")],
     )
     assert result.exit_code == 2
-    assert "not logged in" in _output(result)
+    assert "not logged in" in cli_output(result)
 
 
 def _ensure_user(username: str, password: str, email: str) -> None:
@@ -210,7 +194,7 @@ def test_add_and_remove_contributor(runner: CliRunner, isolated_config: Path) ->
         app,
         ["--registry", API, "login", "--username", "alice", "--password", "password123"],
     )
-    assert login.exit_code == 0, _output(login)
+    assert login.exit_code == 0, cli_output(login)
 
     add = runner.invoke(
         app,
@@ -224,7 +208,7 @@ def test_add_and_remove_contributor(runner: CliRunner, isolated_config: Path) ->
             "testuser",
         ],
     )
-    assert add.exit_code == 0, _output(add)
+    assert add.exit_code == 0, cli_output(add)
     added = json.loads(add.stdout)
     assert added.get("contributor", {}).get("username") == "testuser"
 
@@ -239,11 +223,11 @@ def test_add_and_remove_contributor(runner: CliRunner, isolated_config: Path) ->
             "testuser",
         ],
     )
-    assert remove.exit_code == 0, _output(remove)
+    assert remove.exit_code == 0, cli_output(remove)
     assert "Contributor removed: testuser" in remove.stdout
 
     info = runner.invoke(app, ["--registry", API, "--json", "info", "demo-skill"])
-    assert info.exit_code == 0, _output(info)
+    assert info.exit_code == 0, cli_output(info)
     contributors = json.loads(info.stdout).get("contributors") or []
     assert not any(item.get("username") == "testuser" for item in contributors)
 
@@ -254,7 +238,7 @@ def test_add_contributor_requires_owner(runner: CliRunner, isolated_config: Path
         app,
         ["--registry", API, "login", "--username", "testuser", "--password", "test123456"],
     )
-    assert login.exit_code == 0, _output(login)
+    assert login.exit_code == 0, cli_output(login)
 
     result = runner.invoke(
         app,
@@ -267,5 +251,5 @@ def test_add_contributor_requires_owner(runner: CliRunner, isolated_config: Path
             "alice",
         ],
     )
-    assert result.exit_code == 2, _output(result)
-    assert "only_owner_can_add_contributors" in _output(result)
+    assert result.exit_code == 2, cli_output(result)
+    assert "only_owner_can_add_contributors" in cli_output(result)

@@ -146,6 +146,6 @@ npm run setup       # 种子用户 + Demo Skill
 | 迁移 | `packages/storage/drizzle/` |
 | CLI 设计 | `docs/cli-design.md` |
 | 平台集成指南 | `docs/platform-integration.md` |
-| Python CLI | `cli-py/`（skillnav，PyPI） |
+| Python CLI | `cli-py/`（skillnav，PyPI）；测试 `tests/skillnav/` |
 | PyPI 发布 | `.github/workflows/pypi.yml`（push `skillnav-*` tag 触发） |
 | 品牌配置 | `brand.yaml` |

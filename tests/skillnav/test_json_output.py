@@ -8,23 +8,8 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from conftest import cli_output
 from skillnav.cli import app
-
-
-@pytest.fixture()
-def runner() -> CliRunner:
-    return CliRunner(mix_stderr=True)
-
-
-def _output(result) -> str:
-    return getattr(result, "output", None) or (result.stdout or "") + (result.stderr or "")
-
-
-@pytest.fixture()
-def isolated_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    path = tmp_path / "config.json"
-    monkeypatch.setenv("SKILLNAV_CONFIG", str(path))
-    return path
 
 
 def test_config_add_json(runner: CliRunner, isolated_config: Path) -> None:
@@ -50,5 +35,5 @@ def test_config_use_json(runner: CliRunner, isolated_config: Path) -> None:
 def test_config_use_unknown_profile_json_error(runner: CliRunner, isolated_config: Path) -> None:
     result = runner.invoke(app, ["--json", "config", "use", "missing"])
     assert result.exit_code == 1
-    payload = json.loads(_output(result))
+    payload = json.loads(cli_output(result))
     assert payload["error"] == "Unknown profile: missing"

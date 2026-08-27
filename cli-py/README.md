@@ -36,9 +36,14 @@ Environment: `SKILLNAV_REGISTRY`, `SKILLNAV_PROFILE`, `SKILLNAV_TOKEN`.
 Requires a running API at `http://127.0.0.1:3000` (`npm run dev:api`):
 
 ```bash
-cd cli-py
-pip install -e ".[dev]"
-pytest -v
+pip install -e "cli-py[dev]"
+npm run skillnav:test
+```
+
+Unit tests only (no API):
+
+```bash
+pytest tests/skillnav -v --ignore=tests/skillnav/test_integration.py
 ```
 
 ## License
