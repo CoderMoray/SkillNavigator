@@ -88,7 +88,9 @@ skillnav
 │  ├─ whoami                                   # GET /auth/me，打印当前身份
 │  └─ token                                    # 打印已存 token（CI 调试）
 ├─ 发布与审查（服务端执行）
-│  ├─ publish <dir|zip> [--version] [--changelog] [--dry-run] [--json]
+│  ├─ publish <dir|zip> [--version] [--display-name] [--slug] [--description]
+│  │                  [--category C ...] [--topic T ...] [--release-tag TAG ...]
+│  │                  [--changelog] [--dry-run] [--json]
 │  ├─ review   <dir|zip> [--version] [--json]  # 远程审查不发布 → POST /reviews/run（需登录）
 │  ├─ status   <slug> [--json]                 # 发布状态 + 各版本审查结论 → GET /skills/:slug
 │  └─ report   <slug> [--version] [--json]     # 安全/质量报告 → GET /skills/:slug/versions/:version
@@ -113,7 +115,9 @@ skillnav
 ### `publish`
 
 - 读取本地目录（须含 `SKILL.md`）或 `.zip`，原样上传（不解析内容，由服务端校验）。
-- `--dry-run`：调用 `POST /skills/publish/preview`（服务端预检：元数据 + 打包校验），不落库、不发版。
+- **Metadata 与 Web 发布对齐**：必填 `displayName`、`slug`、`summary`（description）、`categories`（≥1，最多 3）、`version`（SemVer）、`releaseTags`（≥1，首版须含 `latest`）。可从 SKILL.md frontmatter 读取，亦可用 CLI flag 覆盖：`--display-name`、`--slug`、`--description`、`--category`（可重复）、`--topic`（可重复）、`--release-tag`（可重复）、`--version`。
+- 请求体携带 `metadata` 对象，服务端 `applySkillPublishMetadata` 写入 frontmatter；`author` 由服务端写入当前登录用户。
+- `--dry-run`：调用 `POST /skills/publish/preview`（服务端预检：元数据 + 打包校验），不落库、不发版；CLI 本地先校验 metadata 完整性。
 - 成功（201）：打印 slug、version、status、contentHash，并按需展示 review / evaluation 摘要；`--json` 输出完整响应体。
 - 失败语义：`skill_in_recycle_bin` → 提示先恢复；`Only skill contributors can publish new versions` → 提示需要贡献者权限；`review_pipeline_incomplete`（503）→ 提示可重试。
 

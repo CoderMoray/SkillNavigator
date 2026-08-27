@@ -43,6 +43,7 @@ from skillnav.output import (
     unwrap_resource_id,
 )
 from skillnav.packages import extract_zip_to_directory, package_to_base64, resolve_user_path
+from skillnav.publish_metadata import build_publish_metadata, read_frontmatter_hints, resolve_package_path
 from skillnav.urls import join_registry_url, slug_path
 
 app = typer.Typer(
@@ -449,7 +450,23 @@ def report_cmd(
 @app.command("publish")
 def publish_cmd(
     package: Annotated[str, typer.Argument(help="Skill directory or .zip")],
-    version: Annotated[Optional[str], typer.Option("--version", help="Version to publish")] = None,
+    version: Annotated[Optional[str], typer.Option("--version", help="SemVer version to publish")] = None,
+    display_name: Annotated[
+        Optional[str], typer.Option("--display-name", help="Display name (overrides SKILL.md name)")
+    ] = None,
+    slug: Annotated[Optional[str], typer.Option("--slug", help="Skill slug (overrides SKILL.md slug)")] = None,
+    description: Annotated[
+        Optional[str], typer.Option("--description", help="Skill summary (overrides SKILL.md description)")
+    ] = None,
+    category: Annotated[
+        Optional[list[str]], typer.Option("--category", help="Category label (repeatable, max 3)")
+    ] = None,
+    topic: Annotated[
+        Optional[list[str]], typer.Option("--topic", help="Topic tag (repeatable)")
+    ] = None,
+    release_tag: Annotated[
+        Optional[list[str]], typer.Option("--release-tag", help="Release tag (repeatable; default: latest)")
+    ] = None,
     changelog: Annotated[Optional[str], typer.Option("--changelog", help="Changelog text")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview without publishing")] = False,
 ) -> None:
@@ -457,10 +474,20 @@ def publish_cmd(
     try:
         cli = _ctx()
         token = cli.require_token()
-        archive_base64 = package_to_base64(resolve_user_path(package))
-        body: dict[str, Any] = {"archiveBase64": archive_base64}
-        if version:
-            body["version"] = version
+        package_path = resolve_package_path(package)
+        hints = read_frontmatter_hints(package_path)
+        metadata = build_publish_metadata(
+            hints,
+            display_name=display_name,
+            slug=slug,
+            description=description,
+            categories=category,
+            topics=topic,
+            version=version,
+            release_tags=release_tag,
+        )
+        archive_base64 = package_to_base64(package_path)
+        body: dict[str, Any] = {"archiveBase64": archive_base64, "metadata": metadata}
         if changelog:
             body["changelog"] = changelog
         path = "/skills/publish/preview" if dry_run else "/skills/publish"
@@ -474,15 +501,18 @@ def publish_cmd(
             message = _friendly_publish_error(api_error_message(payload))
             raise SkillnavError(message)
         if cli.json_output:
-            emit_json(payload)
+            emit_json(payload if not dry_run else {"metadata": metadata, **payload})
             return
         if dry_run:
             typer.echo("Dry-run preview OK.")
+            typer.echo(
+                f"Metadata: {metadata['slug']}@{metadata['version']} "
+                f"({metadata['displayName']})"
+            )
+            typer.echo(f"Categories: {', '.join(metadata['categories'])}")
+            typer.echo(f"Release tags: {', '.join(metadata['releaseTags'])}")
             if payload.get("entryPath"):
                 typer.echo(f"Entry: {payload['entryPath']}")
-            frontmatter = payload.get("frontmatter")
-            if frontmatter:
-                typer.echo(f"Frontmatter keys: {', '.join(frontmatter.keys())}")
             return
         typer.echo(
             f"Published {payload.get('name')} ({payload.get('slug')})@{payload.get('version')}"

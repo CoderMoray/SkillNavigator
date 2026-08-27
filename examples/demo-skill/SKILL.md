@@ -1,8 +1,20 @@
 ---
+name: Demo
+slug: demo-hey
+description: Hey
+categories: test
+version: 0.0.1
+---
+
+<!-- ---
 slug: demo-skill
 name: Demo Skill
 description: Reviews a short product idea and returns structured feedback. Use when the user asks for a lightweight product idea critique.
 version: 0.1.0
+categories:
+  - Developer Tools
+release-tags:
+  - latest
 author: skill-platform
 license: MIT
 tags:
@@ -12,7 +24,7 @@ supportedAgents:
   - cursor
 allowed-tools:
   - Read
----
+--- -->
 
 # Demo Skill
 
