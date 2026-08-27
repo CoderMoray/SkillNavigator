@@ -1,4 +1,4 @@
-"""Runtime CLI context: registry, token, output mode."""
+"""Runtime CLI context: registry, API key, output mode."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from skillnav.config import (
     clear_profile_auth,
     get_profile,
     load_config,
+    resolve_profile_api_key,
     save_config,
     set_profile_identity,
 )
@@ -20,10 +21,14 @@ from skillnav.errors import AuthError
 class CliContext:
     registry: str
     profile_name: str
-    token: str | None
+    api_key: str | None
     json_output: bool
     no_input: bool
     config: ConfigFile
+
+    @property
+    def token(self) -> str | None:
+        return self.api_key
 
     @classmethod
     def resolve(
@@ -47,31 +52,39 @@ class CliContext:
             or profile.get("registry")
             or "http://127.0.0.1:3000"
         )
-        token = os.environ.get("SKILLNAV_TOKEN") or profile.get("token")
+        api_key = (
+            os.environ.get("SKILLNAV_API_KEY")
+            or os.environ.get("SKILLNAV_TOKEN")
+            or resolve_profile_api_key(profile)
+        )
         return cls(
             registry=registry.rstrip("/"),
             profile_name=profile_name,
-            token=token,
+            api_key=api_key,
             json_output=json_output,
             no_input=no_input,
             config=config,
         )
 
     def require_token(self) -> str:
-        if not self.token:
-            raise AuthError("not logged in (run: skillnav login)")
-        return self.token
+        if not self.api_key:
+            raise AuthError("not logged in (run: skillnav login --api-key KEY)")
+        return self.api_key
 
-    def persist_token(self, token: str, me_body: dict) -> None:
+    def persist_api_key(self, api_key: str, me_body: dict) -> None:
         profile = get_profile(self.config, self.profile_name)
         profile["registry"] = self.registry
-        profile["token"] = token
+        profile["apiKey"] = api_key
+        profile.pop("token", None)
         set_profile_identity(profile, me_body)
         save_config(self.config)
-        self.token = token
+        self.api_key = api_key
+
+    def persist_token(self, token: str, me_body: dict) -> None:
+        self.persist_api_key(token, me_body)
 
     def clear_auth(self) -> None:
         profile = get_profile(self.config, self.profile_name)
         clear_profile_auth(profile)
         save_config(self.config)
-        self.token = None
+        self.api_key = None

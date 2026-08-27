@@ -286,6 +286,9 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
 
           {isOwner ? (
             <div className="hero-actions">
+              <Link className="button secondary" href="/account/api-keys">
+                <KeyRound size={15} /> API Keys
+              </Link>
               <Link className="button secondary" href="/account/change-password">
                 <KeyRound size={15} /> 修改密码
               </Link>

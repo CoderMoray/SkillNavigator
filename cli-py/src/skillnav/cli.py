@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import getpass
 import sys
 from pathlib import Path
 from typing import Annotated, Any, Optional
@@ -198,7 +197,7 @@ def config_list() -> None:
         for name, profile in profiles.items():
             marker = " (default)" if name == default else ""
             registry = profile.get("registry", "?")
-            logged_in = "logged in" if profile.get("token") else "anonymous"
+            logged_in = "logged in" if resolve_profile_api_key(profile) else "anonymous"
             typer.echo(f"- {name}{marker}: {registry} [{logged_in}]")
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
@@ -231,52 +230,38 @@ def config_test(
 
 @app.command("login")
 def login_cmd(
-    token: Annotated[Optional[str], typer.Option("--token", help="Bearer token (skillhub-style)")] = None,
+    api_key: Annotated[
+        Optional[str],
+        typer.Option(
+            "--api-key",
+            "--token",
+            help="Platform API key (create one in the Web account settings)",
+        ),
+    ] = None,
     registry: Annotated[
         Optional[str], typer.Option("--registry", help="Registry URL for this login")
     ] = None,
-    username: Annotated[Optional[str], typer.Option("--username", help="Account username")] = None,
-    password: Annotated[Optional[str], typer.Option("--password", help="Account password")] = None,
 ) -> None:
-    """Log in and save credentials to the active profile."""
+    """Validate an API key and save it to the active profile."""
     try:
         cli = _ctx()
         if registry:
             cli.registry = registry.rstrip("/")
-        auth_token = token
-        if not auth_token:
-            if username and password:
-                status, body = request_json(
-                    "POST",
-                    join_registry_url(cli.registry, "/auth/login"),
-                    body={"username": username, "password": password},
-                )
-                if status >= 400:
-                    raise AuthError(api_error_message(body))
-                auth_token = body.get("token")
-            elif cli.no_input:
-                raise AuthError("not logged in (run: skillnav login --token TOKEN)")
-            else:
-                username = username or typer.prompt("Username")
-                password = password or getpass.getpass("Password: ")
-                status, body = request_json(
-                    "POST",
-                    join_registry_url(cli.registry, "/auth/login"),
-                    body={"username": username, "password": password},
-                )
-                if status >= 400:
-                    raise AuthError(api_error_message(body))
-                auth_token = body.get("token")
-        if not auth_token:
-            raise AuthError("login did not return a token")
+        credential = api_key
+        if not credential:
+            if cli.no_input:
+                raise AuthError("not logged in (run: skillnav login --api-key KEY)")
+            credential = typer.prompt("API key", hide_input=True).strip()
+        if not credential:
+            raise AuthError("API key is required")
         status, me_body = request_json(
             "GET",
             join_registry_url(cli.registry, "/auth/me"),
-            token=auth_token,
+            token=credential,
         )
         if status >= 400:
             raise AuthError(api_error_message(me_body))
-        cli.persist_token(auth_token, me_body)
+        cli.persist_api_key(credential, me_body)
         user = me_body.get("user") or {}
         if cli.json_output:
             emit_json({"user": user, "profile": cli.profile_name, "registry": cli.registry})
@@ -288,15 +273,9 @@ def login_cmd(
 
 @app.command("logout")
 def logout_cmd() -> None:
-    """Log out and clear stored token."""
+    """Clear the stored API key for the active profile."""
     try:
         cli = _ctx()
-        if cli.token:
-            request_json(
-                "POST",
-                join_registry_url(cli.registry, "/auth/logout"),
-                token=cli.token,
-            )
         cli.clear_auth()
         if cli.json_output:
             emit_json({"ok": True})
@@ -319,20 +298,6 @@ def whoami_cmd() -> None:
             typer.echo(f"userId: {user.get('id', '?')}")
             typer.echo(f"profile: {_ctx().profile_name}")
             typer.echo(f"registry: {_ctx().registry}")
-    except Exception as exc:  # noqa: BLE001
-        _handle_error(exc)
-
-
-@app.command("token")
-def token_cmd() -> None:
-    """Print the stored token (CI debugging)."""
-    try:
-        cli = _ctx()
-        token = cli.require_token()
-        if cli.json_output:
-            emit_json({"token": token})
-        else:
-            typer.echo(token)
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
 

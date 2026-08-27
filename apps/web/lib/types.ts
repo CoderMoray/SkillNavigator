@@ -234,3 +234,13 @@ export interface PublicUser {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface ApiKeySummary {
+  id: string;
+  name: string;
+  prefix: string;
+  isActive: boolean;
+  createdAt: string;
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+}

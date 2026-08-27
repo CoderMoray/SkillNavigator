@@ -6,6 +6,7 @@ export {
   normalizeContributorRole,
 } from "./contributors";
 export { assertPublishPreflight, PublishPreflightError } from "./publish-preflight.js";
+export * from "./api-keys.js";
 export * from "./auth";
 
 export {

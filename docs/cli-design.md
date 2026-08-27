@@ -9,7 +9,7 @@ Skill 管理平台（MonoSkillNavigator）对外提供 Web UI 与 HTTP API。`sk
 
 - **纯 API 客户端**：所有审查（SkillSpector 安全扫描）、评估（HaluCatch 质量评估）均在服务端同步执行，CLI 不包含任何本地审查逻辑。
 - **职责边界**：鉴权、上传发布、查询状态、获取安全/质量报告、搜索、下载、社区交互（评分/Issue/贡献者）。
-- 对标调研：skillhub CLI（Python/argparse）、clawhub CLI（Node/Commander）。吸收点：`--dry-run` 预检、`--no-input`（Agent 场景）、`token`/`whoami`（CI 调试）、`--registry` 多环境指向。
+- 对标调研：skillhub CLI（Python/argparse）、clawhub CLI（Node/Commander）。吸收点：`--dry-run` 预检、`--no-input`（Agent 场景）、API Key 登录 / `whoami`（CI 调试）、`--registry` 多环境指向。
 
 ## 2. 命名与分发
 
@@ -38,7 +38,7 @@ Skill 管理平台（MonoSkillNavigator）对外提供 Web UI 与 HTTP API。`sk
 
 - `SKILLNAV_REGISTRY`：API base URL（覆盖 profile 的 registry）
 - `SKILLNAV_PROFILE`：指定平台 profile
-- `SKILLNAV_TOKEN`：直接提供 token（CI 场景，不落盘）
+- `SKILLNAV_API_KEY`：直接提供 API Key（CI 场景，不落盘；兼容旧名 `SKILLNAV_TOKEN`）
 
 ## 4. 配置与鉴权（多 Profile 模型）
 
@@ -50,7 +50,7 @@ Skill 管理平台（MonoSkillNavigator）对外提供 Web UI 与 HTTP API。`sk
   "profiles": {
     "prod": {
       "registry": "https://api.skillnav.example.com",
-      "token": "sk_...",
+      "apiKey": "sk_...",
       "identity": { "username": "alice", "userId": 1 }
     },
     "corp": {
@@ -66,12 +66,19 @@ Skill 管理平台（MonoSkillNavigator）对外提供 Web UI 与 HTTP API。`sk
 
 **URL 拼接约定（重要）**：请求端点一律用**字符串拼接** `f"{registry}/skills/publish"`，**禁止**使用 `urljoin` / `new URL()` 等规范化函数——它们会丢弃 registry 的路径前缀，导致带前缀的嵌入 API 请求 404。
 
+**鉴权模型**：
+
+- **Web 登录**：用户名 + 密码 → 会话 token（`skp_…`），用于浏览器 Cookie / Bearer。
+- **CLI 登录**：用户在 Web「账户 → API Keys」创建 API Key（`sk_…`），CLI 通过 `skillnav login --api-key sk_…` 写入当前 profile；也可用 `SKILLNAV_API_KEY` 环境变量临时注入。
+- API Key 支持多个、可设失效时间、可停用（`isActive`）；停用或过期后 CLI 请求返回 401。
+- `skillnav logout` 仅清除本地 profile 中的 key，不会在服务端吊销 key（需在 Web 停用/删除）。
+
 **命令行为**：
 
-- `skillnav login` 写入当前 profile 的 token + identity（identity 来自 `GET /auth/me`）。
-- `skillnav logout` 清除当前 profile 的 token 与 identity。
+- `skillnav login --api-key KEY` 写入当前 profile 的 `apiKey` + identity（identity 来自 `GET /auth/me`）；`--token` 为 `--api-key` 别名（skillhub 兼容）。
+- `skillnav logout` 清除当前 profile 的 apiKey 与 identity。
 - `skillnav config add <name> --registry <url>`：添加平台实例；`config use <name>`：切换默认；`config list`：列出；`config test [name]`：调 `GET {registry}/health` 验证连通性。
-- 需要鉴权的命令未登录时：报错 `not logged in (run: skillnav login)`，退出码 2；若带 `--no-input` 直接失败，不提示。
+- 需要鉴权的命令未登录时：报错 `not logged in (run: skillnav login --api-key KEY)`，退出码 2；若带 `--no-input` 直接失败，不提示。
 
 ## 5. 命令树
 
@@ -83,10 +90,9 @@ skillnav
 │  ├─ config list                              # 列出平台实例
 │  └─ config test [name]                       # 验证连通性（GET /health）
 ├─ 登录与身份
-│  ├─ login [--token KEY] [--registry URL]     # token 直传（skillhub 式）；后续可加 --device Device Flow
-│  ├─ logout
-│  ├─ whoami                                   # GET /auth/me，打印当前身份
-│  └─ token                                    # 打印已存 token（CI 调试）
+│  ├─ login [--api-key KEY] [--registry URL]   # API Key 直传（skillhub 式 --token 别名）
+│  ├─ logout                                   # 清除本地 apiKey（不吊销服务端 key）
+│  └─ whoami                                   # GET /auth/me，打印当前身份
 ├─ 发布与审查（服务端执行）
 │  ├─ publish <dir|zip> [--version] [--display-name] [--slug] [--description]
 │  │                  [--category C ...] [--topic T ...] [--release-tag TAG ...]
@@ -166,8 +172,8 @@ skillnav
 
 | skillnav 命令 | API 端点 | 鉴权 |
 |---|---|---|
-| login | `POST /auth/login` | 公开 |
-| logout | `POST /auth/logout` | Bearer |
+| login | `GET /auth/me`（校验 API Key） | Bearer `sk_…` |
+| logout | —（本地清除） | — |
 | whoami | `GET /auth/me` | Bearer |
 | config test | `GET /health` | 公开 |
 | publish | `POST /skills/publish` | Bearer |
@@ -187,13 +193,13 @@ skillnav
 ## 9. 版本与里程碑
 
 - `0.0.1`（已发布）：PyPI 占位壳，可安装、`skillnav --version`、`--help`。
-- `0.1.0`：平台配置（config add/use/list/test）+ 登录与身份（login/logout/whoami/token）+ 检索（search/top/info/status）。
+- `0.1.0`：平台配置（config add/use/list/test）+ 登录与身份（login/logout/whoami）+ 检索（search/top/info/status）。
 - `0.2.0`：发布流（publish/--dry-run/review）+ report 完整展示。
 - `0.3.0`：分发（download/install）+ 社区（rate/issue/issues/add-contributor）。
 - `1.0.0`：冻结命令集；错误处理与帮助文档 polish；`apps/cli` TS 版下线。（`--json` 已覆盖全部 22 个子命令。）
 
 ## 10. 待定事项
 
-- 登录方式：先 `--token` 直传；后续评估 `--device` Device Flow（服务端需支持 OAuth 设备授权）。
+- Web 端 API Key 管理：`GET/POST/PATCH/DELETE /auth/api-keys`（需会话 `skp_…` 登录）。
 - `--registry` 默认值：上线后改为正式域名。
 - 是否增加 `sync`（扫描本地 skills 批量发布/更新，clawhub 有）：留作 P1。

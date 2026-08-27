@@ -158,6 +158,15 @@ export function AuthStatus() {
           </Link>
           <Link
             className="user-menu-item"
+            href="/account/api-keys"
+            onClick={() => setMenuOpen(false)}
+            role="menuitem"
+          >
+            <KeyRound size={15} />
+            API Keys
+          </Link>
+          <Link
+            className="user-menu-item"
             href="/account/change-password"
             onClick={() => setMenuOpen(false)}
             role="menuitem"

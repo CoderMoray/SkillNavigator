@@ -41,18 +41,45 @@ def test_config_test(runner: CliRunner, isolated_config: Path) -> None:
     assert "OK" in result.stdout
 
 
+def _login_session(username: str = "alice", password: str = "password123") -> str:
+    payload = json.dumps({"username": username, "password": password}).encode()
+    req = urllib.request.Request(
+        f"{API}/auth/login",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=5) as resp:
+        body = json.loads(resp.read().decode())
+    token = body.get("token")
+    assert token
+    return str(token)
+
+
+def _create_api_key(session_token: str, name: str = "pytest-cli") -> str:
+    payload = json.dumps({"name": name}).encode()
+    req = urllib.request.Request(
+        f"{API}/auth/api-keys",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {session_token}",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=5) as resp:
+        body = json.loads(resp.read().decode())
+    secret = body.get("secret")
+    assert secret
+    return str(secret)
+
+
 def test_login_and_whoami(runner: CliRunner, isolated_config: Path) -> None:
+    session = _login_session()
+    api_key = _create_api_key(session)
     result = runner.invoke(
         app,
-        [
-            "--registry",
-            API,
-            "login",
-            "--username",
-            "alice",
-            "--password",
-            "password123",
-        ],
+        ["--registry", API, "login", "--api-key", api_key],
     )
     assert result.exit_code == 0, cli_output(result)
     assert "Logged in" in result.stdout
@@ -81,10 +108,9 @@ def test_top(runner: CliRunner) -> None:
 def test_review_demo_skill(runner: CliRunner, isolated_config: Path) -> None:
     if not DEMO_SKILL.is_dir():
         pytest.skip("examples/demo-skill not found")
-    login = runner.invoke(
-        app,
-        ["--registry", API, "login", "--username", "alice", "--password", "password123"],
-    )
+    session = _login_session()
+    api_key = _create_api_key(session)
+    login = runner.invoke(app, ["--registry", API, "login", "--api-key", api_key])
     assert login.exit_code == 0, cli_output(login)
 
     result = runner.invoke(
@@ -110,19 +136,29 @@ def test_review_requires_login(runner: CliRunner, isolated_config: Path) -> None
 def test_publish_dry_run(runner: CliRunner, isolated_config: Path) -> None:
     if not DEMO_SKILL.is_dir():
         pytest.skip("examples/demo-skill not found")
-    login = runner.invoke(
-        app,
-        ["--registry", API, "login", "--username", "alice", "--password", "password123"],
-    )
+    session = _login_session()
+    api_key = _create_api_key(session)
+    login = runner.invoke(app, ["--registry", API, "login", "--api-key", api_key])
     assert login.exit_code == 0, cli_output(login)
 
+    dry_run_version = "99.99.99-dryrun"
     result = runner.invoke(
         app,
-        ["--registry", API, "--json", "publish", str(DEMO_SKILL), "--dry-run"],
+        [
+            "--registry",
+            API,
+            "--json",
+            "publish",
+            str(DEMO_SKILL),
+            "--dry-run",
+            "--version",
+            dry_run_version,
+        ],
     )
     assert result.exit_code == 0, cli_output(result)
     body = json.loads(result.stdout)
     assert body.get("entryPath") or body.get("frontmatter") is not None
+    assert body.get("metadata", {}).get("version") == dry_run_version
 
 
 def test_not_logged_in_exit_code(runner: CliRunner, isolated_config: Path) -> None:
@@ -187,13 +223,12 @@ def _remove_contributor_if_present(slug: str, username: str, token: str) -> None
 
 def test_add_and_remove_contributor(runner: CliRunner, isolated_config: Path) -> None:
     _ensure_user("testuser", "test123456", "testuser@example.com")
-    alice_token = _login_token("alice", "password123")
+    session = _login_session("alice", "password123")
+    api_key = _create_api_key(session)
+    alice_token = session
     _remove_contributor_if_present("demo-skill", "testuser", alice_token)
 
-    login = runner.invoke(
-        app,
-        ["--registry", API, "login", "--username", "alice", "--password", "password123"],
-    )
+    login = runner.invoke(app, ["--registry", API, "login", "--api-key", api_key])
     assert login.exit_code == 0, cli_output(login)
 
     add = runner.invoke(
@@ -234,10 +269,9 @@ def test_add_and_remove_contributor(runner: CliRunner, isolated_config: Path) ->
 
 def test_add_contributor_requires_owner(runner: CliRunner, isolated_config: Path) -> None:
     _ensure_user("testuser", "test123456", "testuser@example.com")
-    login = runner.invoke(
-        app,
-        ["--registry", API, "login", "--username", "testuser", "--password", "test123456"],
-    )
+    session = _login_session("testuser", "test123456")
+    api_key = _create_api_key(session)
+    login = runner.invoke(app, ["--registry", API, "login", "--api-key", api_key])
     assert login.exit_code == 0, cli_output(login)
 
     result = runner.invoke(

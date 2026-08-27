@@ -26,6 +26,7 @@ import {
   createEmptyCreatorSummary,
   createRegistryStoreFromEnv,
   getApiBodyLimitBytes,
+  isSessionCredential,
   isSkillContributor,
   isSkillOwner,
   listCreators,
@@ -120,6 +121,19 @@ interface ChangePasswordBody {
 
 interface DeleteAccountBody {
   password: string;
+}
+
+interface CreateApiKeyBody {
+  name?: string;
+  expiresAt?: string | null;
+}
+
+interface UpdateApiKeyBody {
+  isActive?: boolean;
+}
+
+interface ApiKeyParams {
+  keyId: string;
 }
 
 interface VerifyEmailBody {
@@ -424,10 +438,80 @@ export function buildServer() {
     return { user };
   });
 
+  app.get("/auth/api-keys", async (request, reply) => {
+    const sessionToken = readSessionToken(request.headers.authorization);
+    if (!sessionToken) {
+      return reply.code(401).send({ error: "Session login required" });
+    }
+    try {
+      const items = await authStore.listApiKeys(sessionToken);
+      return { items };
+    } catch (error) {
+      const message = errorMessage(error);
+      return reply.code(message === "Unauthorized" ? 401 : 400).send({ error: message });
+    }
+  });
+
+  app.post<{ Body: CreateApiKeyBody }>("/auth/api-keys", async (request, reply) => {
+    const sessionToken = readSessionToken(request.headers.authorization);
+    if (!sessionToken) {
+      return reply.code(401).send({ error: "Session login required" });
+    }
+    try {
+      const created = await authStore.createApiKey(sessionToken, {
+        name: request.body.name ?? "",
+        expiresAt: request.body.expiresAt
+      });
+      return reply.code(201).send(created);
+    } catch (error) {
+      const message = errorMessage(error);
+      const status =
+        message === "API key name already exists"
+          ? 409
+          : message === "API key name is required" || message.includes("API key name must be")
+            ? 400
+            : 400;
+      return reply.code(status).send({ error: message });
+    }
+  });
+
+  app.patch<{ Params: ApiKeyParams; Body: UpdateApiKeyBody }>(
+    "/auth/api-keys/:keyId",
+    async (request, reply) => {
+      const sessionToken = readSessionToken(request.headers.authorization);
+      if (!sessionToken) {
+        return reply.code(401).send({ error: "Session login required" });
+      }
+      try {
+        const apiKey = await authStore.updateApiKey(sessionToken, request.params.keyId, {
+          isActive: request.body.isActive
+        });
+        return { apiKey };
+      } catch (error) {
+        const message = errorMessage(error);
+        return reply.code(message === "API key not found" ? 404 : 400).send({ error: message });
+      }
+    }
+  );
+
+  app.delete<{ Params: ApiKeyParams }>("/auth/api-keys/:keyId", async (request, reply) => {
+    const sessionToken = readSessionToken(request.headers.authorization);
+    if (!sessionToken) {
+      return reply.code(401).send({ error: "Session login required" });
+    }
+    try {
+      await authStore.deleteApiKey(sessionToken, request.params.keyId);
+      return { ok: true };
+    } catch (error) {
+      const message = errorMessage(error);
+      return reply.code(message === "API key not found" ? 404 : 400).send({ error: message });
+    }
+  });
+
   app.post<{ Body: ChangePasswordBody }>("/auth/change-password", async (request, reply) => {
-    const token = readBearerToken(request.headers.authorization);
+    const token = readSessionToken(request.headers.authorization);
     if (!token) {
-      return reply.code(401).send({ error: "Unauthorized" });
+      return reply.code(401).send({ error: "Session login required" });
     }
 
     try {
@@ -444,9 +528,9 @@ export function buildServer() {
   });
 
   app.post<{ Body: DeleteAccountBody }>("/auth/delete-account", async (request, reply) => {
-    const token = readBearerToken(request.headers.authorization);
+    const token = readSessionToken(request.headers.authorization);
     if (!token) {
-      return reply.code(401).send({ error: "Unauthorized" });
+      return reply.code(401).send({ error: "Session login required" });
     }
 
     const user = await authStore.getUserByToken(token);
@@ -1157,6 +1241,14 @@ function readBearerToken(authorization: string | undefined): string | undefined 
     return undefined;
   }
   return authorization.slice("Bearer ".length).trim();
+}
+
+function readSessionToken(authorization: string | undefined): string | undefined {
+  const token = readBearerToken(authorization);
+  if (!token || !isSessionCredential(token)) {
+    return undefined;
+  }
+  return token;
 }
 
 function errorMessage(error: unknown): string {

@@ -3,6 +3,20 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import pg from "pg";
 import { isLoginErrorStrict, isRegistrationEmailVerificationRequired } from "./env";
+import {
+  assertApiKeyExpiry,
+  assertRequiredApiKeyName,
+  type ApiKeySummary,
+  type CreateApiKeyOptions,
+  type CreateApiKeyResult,
+  generateApiKeySecret,
+  hashApiKey,
+  isApiKeyCredential,
+  isApiKeyCurrentlyValid,
+  isDuplicateApiKeyName,
+  isSessionCredential,
+  apiKeyPrefix
+} from "./api-keys.js";
 
 export interface PublicUser {
   id: string;
@@ -35,9 +49,22 @@ interface StoredSession {
   expiresAt: string;
 }
 
+interface StoredApiKey {
+  id: string;
+  userId: string;
+  name: string;
+  keyHash: string;
+  keyPrefix: string;
+  isActive: boolean;
+  createdAt: string;
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+}
+
 interface AuthData {
   users: Record<string, StoredUser>;
   sessions: Record<string, StoredSession>;
+  apiKeys: Record<string, StoredApiKey>;
 }
 
 export interface LoginResult {
@@ -62,6 +89,10 @@ export interface AuthStore {
   purgeExpiredUnverifiedUsers(retentionDays: number): Promise<number>;
   requestPasswordReset(identifier: string, expiresMs: number): Promise<{ user: PublicUser; token: string }>;
   resetPassword(token: string, newPassword: string): Promise<PublicUser>;
+  createApiKey(sessionToken: string, options: CreateApiKeyOptions): Promise<CreateApiKeyResult>;
+  listApiKeys(sessionToken: string): Promise<ApiKeySummary[]>;
+  updateApiKey(sessionToken: string, keyId: string, patch: { isActive?: boolean }): Promise<ApiKeySummary>;
+  deleteApiKey(sessionToken: string, keyId: string): Promise<void>;
 }
 
 export interface RegisterOptions {
@@ -70,7 +101,8 @@ export interface RegisterOptions {
 
 const emptyAuthData: AuthData = {
   users: {},
-  sessions: {}
+  sessions: {},
+  apiKeys: {}
 };
 
 abstract class JsonAuthStore implements AuthStore {
@@ -160,6 +192,9 @@ abstract class JsonAuthStore implements AuthStore {
   }
 
   async logout(token: string): Promise<void> {
+    if (isApiKeyCredential(token)) {
+      return;
+    }
     const data = await this.load();
     const tokenHash = hashToken(token);
 
@@ -174,6 +209,9 @@ abstract class JsonAuthStore implements AuthStore {
 
   async getUserByToken(token: string): Promise<PublicUser | undefined> {
     const data = await this.load();
+    if (isApiKeyCredential(token)) {
+      return this.getUserByApiKey(token, data);
+    }
     pruneExpiredSessions(data);
     const tokenHash = hashToken(token);
     const session = Object.values(data.sessions).find((item) => item.tokenHash === tokenHash);
@@ -426,6 +464,101 @@ abstract class JsonAuthStore implements AuthStore {
     return userIdsToDelete.length;
   }
 
+  async createApiKey(sessionToken: string, options: CreateApiKeyOptions): Promise<CreateApiKeyResult> {
+    const data = await this.load();
+    const user = await this.requireSessionUser(sessionToken, data);
+    const name = assertRequiredApiKeyName(options.name);
+    const existingNames = Object.values(data.apiKeys)
+      .filter((item) => item.userId === user.id)
+      .map((item) => item.name);
+    if (isDuplicateApiKeyName(name, existingNames)) {
+      throw new Error("API key name already exists");
+    }
+    const secret = generateApiKeySecret();
+    const now = new Date().toISOString();
+    const record: StoredApiKey = {
+      id: randomUUID(),
+      userId: user.id,
+      name,
+      keyHash: hashApiKey(secret),
+      keyPrefix: apiKeyPrefix(secret),
+      isActive: true,
+      createdAt: now,
+      expiresAt: assertApiKeyExpiry(options.expiresAt),
+      lastUsedAt: null
+    };
+    data.apiKeys[record.id] = record;
+    await this.save(data);
+    return { apiKey: toApiKeySummary(record), secret };
+  }
+
+  async listApiKeys(sessionToken: string): Promise<ApiKeySummary[]> {
+    const data = await this.load();
+    const user = await this.requireSessionUser(sessionToken, data);
+    return Object.values(data.apiKeys)
+      .filter((item) => item.userId === user.id)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map(toApiKeySummary);
+  }
+
+  async updateApiKey(
+    sessionToken: string,
+    keyId: string,
+    patch: { isActive?: boolean }
+  ): Promise<ApiKeySummary> {
+    const data = await this.load();
+    const user = await this.requireSessionUser(sessionToken, data);
+    const record = data.apiKeys[keyId];
+    if (!record || record.userId !== user.id) {
+      throw new Error("API key not found");
+    }
+    if (patch.isActive !== undefined) {
+      record.isActive = patch.isActive;
+    }
+    await this.save(data);
+    return toApiKeySummary(record);
+  }
+
+  async deleteApiKey(sessionToken: string, keyId: string): Promise<void> {
+    const data = await this.load();
+    const user = await this.requireSessionUser(sessionToken, data);
+    const record = data.apiKeys[keyId];
+    if (!record || record.userId !== user.id) {
+      throw new Error("API key not found");
+    }
+    delete data.apiKeys[keyId];
+    await this.save(data);
+  }
+
+  private async requireSessionUser(sessionToken: string, data: AuthData): Promise<StoredUser> {
+    if (!isSessionCredential(sessionToken)) {
+      throw new Error("Session login required");
+    }
+    pruneExpiredSessions(data);
+    const tokenHash = hashToken(sessionToken);
+    const session = Object.values(data.sessions).find((item) => item.tokenHash === tokenHash);
+    if (!session) {
+      throw new Error("Unauthorized");
+    }
+    const user = data.users[session.userId];
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
+    return user;
+  }
+
+  private async getUserByApiKey(secret: string, data: AuthData): Promise<PublicUser | undefined> {
+    const tokenHash = hashApiKey(secret);
+    const record = Object.values(data.apiKeys).find((item) => item.keyHash === tokenHash);
+    if (!record || !isApiKeyCurrentlyValid(record)) {
+      return undefined;
+    }
+    record.lastUsedAt = new Date().toISOString();
+    const user = data.users[record.userId];
+    await this.save(data);
+    return user ? toPublicUser(user) : undefined;
+  }
+
   protected abstract load(): Promise<AuthData>;
   protected abstract save(data: AuthData): Promise<void>;
 }
@@ -599,12 +732,18 @@ export class PostgresAuthStore implements AuthStore {
   }
 
   async logout(token: string): Promise<void> {
+    if (isApiKeyCredential(token)) {
+      return;
+    }
     await this.ensureSchema();
     await this.pool.query("delete from auth_sessions where token_hash = $1", [hashToken(token)]);
   }
 
   async getUserByToken(token: string): Promise<PublicUser | undefined> {
     await this.ensureSchema();
+    if (isApiKeyCredential(token)) {
+      return this.getUserByApiKey(token);
+    }
     await this.pool.query("delete from auth_sessions where expires_at <= now()");
     const result = await this.pool.query<DatabaseUserRow>(
       `select u.id, u.username, u.email, u.email_verified_at, u.role, u.password_hash, u.created_at, u.updated_at
@@ -985,6 +1124,153 @@ export class PostgresAuthStore implements AuthStore {
     return result.rowCount ?? result.rows.length;
   }
 
+  async createApiKey(sessionToken: string, options: CreateApiKeyOptions): Promise<CreateApiKeyResult> {
+    await this.ensureSchema();
+    const user = await this.requireSessionUser(sessionToken);
+    const name = assertRequiredApiKeyName(options.name);
+    const existing = await this.pool.query<{ name: string }>(
+      `select name from api_keys where user_id = $1 and lower(name) = lower($2) limit 1`,
+      [user.id, name]
+    );
+    if (existing.rows.length > 0) {
+      throw new Error("API key name already exists");
+    }
+    const secret = generateApiKeySecret();
+    const now = new Date().toISOString();
+    const id = randomUUID();
+    const expiresAt = assertApiKeyExpiry(options.expiresAt);
+    try {
+      await this.pool.query(
+        `insert into api_keys (id, user_id, name, key_hash, key_prefix, is_active, created_at, expires_at, last_used_at)
+         values ($1, $2, $3, $4, $5, true, $6, $7, null)`,
+        [id, user.id, name, hashApiKey(secret), apiKeyPrefix(secret), now, expiresAt]
+      );
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new Error("API key name already exists");
+      }
+      throw error;
+    }
+    return {
+      apiKey: {
+        id,
+        name,
+        prefix: apiKeyPrefix(secret),
+        isActive: true,
+        createdAt: now,
+        expiresAt,
+        lastUsedAt: null
+      },
+      secret
+    };
+  }
+
+  async listApiKeys(sessionToken: string): Promise<ApiKeySummary[]> {
+    await this.ensureSchema();
+    const user = await this.requireSessionUser(sessionToken);
+    const result = await this.pool.query<DatabaseApiKeyRow>(
+      `select id, name, key_prefix, is_active, created_at, expires_at, last_used_at
+       from api_keys
+       where user_id = $1
+       order by created_at desc`,
+      [user.id]
+    );
+    return result.rows.map(toApiKeySummaryFromRow);
+  }
+
+  async updateApiKey(
+    sessionToken: string,
+    keyId: string,
+    patch: { isActive?: boolean }
+  ): Promise<ApiKeySummary> {
+    await this.ensureSchema();
+    const user = await this.requireSessionUser(sessionToken);
+    if (patch.isActive === undefined) {
+      throw new Error("Nothing to update");
+    }
+    const result = await this.pool.query<DatabaseApiKeyRow>(
+      `update api_keys
+       set is_active = $1
+       where id = $2 and user_id = $3
+       returning id, name, key_prefix, is_active, created_at, expires_at, last_used_at`,
+      [patch.isActive, keyId, user.id]
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw new Error("API key not found");
+    }
+    return toApiKeySummaryFromRow(row);
+  }
+
+  async deleteApiKey(sessionToken: string, keyId: string): Promise<void> {
+    await this.ensureSchema();
+    const user = await this.requireSessionUser(sessionToken);
+    const result = await this.pool.query(
+      `delete from api_keys where id = $1 and user_id = $2`,
+      [keyId, user.id]
+    );
+    if ((result.rowCount ?? 0) === 0) {
+      throw new Error("API key not found");
+    }
+  }
+
+  private async requireSessionUser(sessionToken: string): Promise<PublicUser> {
+    if (!isSessionCredential(sessionToken)) {
+      throw new Error("Session login required");
+    }
+    await this.pool.query("delete from auth_sessions where expires_at <= now()");
+    const result = await this.pool.query<DatabaseUserRow>(
+      `select u.id, u.username, u.email, u.email_verified_at, u.role, u.password_hash, u.created_at, u.updated_at
+       from auth_sessions s
+       join platform_users u on u.id = s.user_id
+       where s.token_hash = $1 and s.expires_at > now()
+       limit 1`,
+      [hashToken(sessionToken)]
+    );
+    const user = result.rows[0];
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
+    return toPublicDatabaseUser(user);
+  }
+
+  private async getUserByApiKey(secret: string): Promise<PublicUser | undefined> {
+    const result = await this.pool.query<DatabaseApiKeyRow>(
+      `select id, user_id, name, key_prefix, is_active, created_at, expires_at, last_used_at
+       from api_keys
+       where key_hash = $1
+       limit 1`,
+      [hashApiKey(secret)]
+    );
+    const key = result.rows[0];
+    if (!key) {
+      return undefined;
+    }
+    if (
+      !isApiKeyCurrentlyValid({
+        isActive: key.is_active,
+        expiresAt: toIso(key.expires_at)
+      })
+    ) {
+      return undefined;
+    }
+
+    const userResult = await this.pool.query<DatabaseUserRow>(
+      `select id, username, email, email_verified_at, role, password_hash, created_at, updated_at
+       from platform_users
+       where id = $1
+       limit 1`,
+      [key.user_id]
+    );
+    const user = userResult.rows[0];
+    if (!user) {
+      return undefined;
+    }
+
+    await this.pool.query(`update api_keys set last_used_at = now() where id = $1`, [key.id]);
+    return toPublicDatabaseUser(user);
+  }
+
   private async migrateLegacyAuth(client: pg.PoolClient): Promise<void> {
     const migrationName = "auth-json-to-relational-v1";
     const applied = await client.query<{ name: string }>(
@@ -1143,6 +1429,83 @@ export class PostgresAuthStore implements AuthStore {
     );
   }
 
+  private async migrateApiKeys(client: pg.PoolClient): Promise<void> {
+    const migrationName = "auth-api-keys-v1";
+    const applied = await client.query<{ name: string }>(
+      "select name from platform_schema_migrations where name = $1",
+      [migrationName]
+    );
+    if (applied.rows.length > 0) {
+      return;
+    }
+
+    await client.query(`
+      create table if not exists api_keys (
+        id text primary key,
+        user_id text not null references platform_users(id) on delete cascade,
+        name text not null default '',
+        key_hash text not null unique,
+        key_prefix text not null,
+        is_active boolean not null default true,
+        created_at timestamptz not null,
+        expires_at timestamptz,
+        last_used_at timestamptz
+      )
+    `);
+    await client.query(
+      `create index if not exists api_keys_user_id_idx on api_keys (user_id)`
+    );
+
+    await client.query(
+      `insert into platform_schema_migrations (name, applied_at)
+       values ($1, now())
+       on conflict (name) do nothing`,
+      [migrationName]
+    );
+  }
+
+  private async migrateApiKeyUniqueNames(client: pg.PoolClient): Promise<void> {
+    const migrationName = "auth-api-keys-unique-name-v1";
+    const applied = await client.query<{ name: string }>(
+      "select name from platform_schema_migrations where name = $1",
+      [migrationName]
+    );
+    if (applied.rows.length > 0) {
+      return;
+    }
+
+    await client.query(`
+      update api_keys
+      set name = 'Key ' || substr(id, 1, 8)
+      where trim(name) = ''
+    `);
+    await client.query(`
+      with ranked as (
+        select
+          id,
+          name,
+          row_number() over (partition by user_id, lower(name) order by created_at, id) as rn
+        from api_keys
+      )
+      update api_keys as keys
+      set name = ranked.name || ' (' || ranked.rn || ')'
+      from ranked
+      where keys.id = ranked.id
+        and ranked.rn > 1
+    `);
+    await client.query(`
+      create unique index if not exists api_keys_user_id_name_lower_key
+      on api_keys (user_id, lower(name))
+    `);
+
+    await client.query(
+      `insert into platform_schema_migrations (name, applied_at)
+       values ($1, now())
+       on conflict (name) do nothing`,
+      [migrationName]
+    );
+  }
+
   private ensureSchema(): Promise<void> {
     this.schemaReady ??= (async () => {
       const client = await this.pool.connect();
@@ -1154,6 +1517,8 @@ export class PostgresAuthStore implements AuthStore {
         await this.migrateEmailColumn(client);
         await this.migrateEmailVerification(client);
         await this.migratePasswordReset(client);
+        await this.migrateApiKeys(client);
+        await this.migrateApiKeyUniqueNames(client);
         await client.query("commit");
       } catch (error) {
         await client.query("rollback").catch(() => undefined);
@@ -1376,7 +1741,50 @@ function normalizeAuthData(data: AuthData): AuthData {
 
   return {
     users,
-    sessions: data.sessions ?? {}
+    sessions: data.sessions ?? {},
+    apiKeys: data.apiKeys ?? {}
+  };
+}
+
+interface DatabaseApiKeyRow {
+  id: string;
+  user_id: string;
+  name: string;
+  key_prefix: string;
+  is_active: boolean;
+  created_at: AuthDatabaseTimestamp;
+  expires_at: AuthDatabaseTimestamp | null;
+  last_used_at: AuthDatabaseTimestamp | null;
+}
+
+function toIso(value: AuthDatabaseTimestamp | null | undefined): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  return toAuthIsoString(value);
+}
+
+function toApiKeySummary(record: StoredApiKey): ApiKeySummary {
+  return {
+    id: record.id,
+    name: record.name,
+    prefix: record.keyPrefix,
+    isActive: record.isActive,
+    createdAt: record.createdAt,
+    expiresAt: record.expiresAt,
+    lastUsedAt: record.lastUsedAt
+  };
+}
+
+function toApiKeySummaryFromRow(row: DatabaseApiKeyRow): ApiKeySummary {
+  return {
+    id: row.id,
+    name: row.name,
+    prefix: row.key_prefix,
+    isActive: row.is_active,
+    createdAt: toAuthIsoString(row.created_at),
+    expiresAt: toIso(row.expires_at),
+    lastUsedAt: toIso(row.last_used_at)
   };
 }
 

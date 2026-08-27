@@ -1,4 +1,5 @@
 import type {
+  ApiKeySummary,
   FunctionalEvaluationReport,
   PublicUser,
   RegistryContributor,
@@ -249,6 +250,45 @@ export async function deleteAccount(token: string, password: string): Promise<vo
     method: "POST",
     token,
     body: JSON.stringify({ password })
+  });
+}
+
+export async function listApiKeys(token: string): Promise<ApiKeySummary[]> {
+  const data = await request<{ items: ApiKeySummary[] }>(apiUrl("/auth/api-keys"), { token });
+  return data.items;
+}
+
+export async function createApiKey(
+  token: string,
+  input: { name: string; expiresAt?: string | null }
+): Promise<{ apiKey: ApiKeySummary; secret: string }> {
+  return request<{ apiKey: ApiKeySummary; secret: string }>(apiUrl("/auth/api-keys"), {
+    method: "POST",
+    token,
+    body: JSON.stringify(input)
+  });
+}
+
+export async function updateApiKey(
+  token: string,
+  keyId: string,
+  patch: { isActive: boolean }
+): Promise<ApiKeySummary> {
+  const data = await request<{ apiKey: ApiKeySummary }>(
+    apiUrl(`/auth/api-keys/${encodeURIComponent(keyId)}`),
+    {
+      method: "PATCH",
+      token,
+      body: JSON.stringify(patch)
+    }
+  );
+  return data.apiKey;
+}
+
+export async function deleteApiKey(token: string, keyId: string): Promise<void> {
+  await request<{ ok: boolean }>(apiUrl(`/auth/api-keys/${encodeURIComponent(keyId)}`), {
+    method: "DELETE",
+    token
   });
 }
 

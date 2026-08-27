@@ -17,7 +17,8 @@ pip install -e "cli-py[dev]"
 ```bash
 skillnav --version
 skillnav config test
-skillnav login --username alice --password password123
+# Create an API key in the Web UI (Account → API Keys), then:
+skillnav login --api-key sk_...
 skillnav search demo
 skillnav info demo-skill
 skillnav review examples/demo-skill
@@ -27,9 +28,9 @@ skillnav download demo-skill -o /tmp/demo.zip
 
 Global flags: `--registry`, `--profile`, `--json`, `--no-input`.
 
-Configuration: `~/.config/skillnav/config.json` (multi-profile).
+Configuration: `~/.config/skillnav/config.json` (multi-profile; stores `apiKey` per profile).
 
-Environment: `SKILLNAV_REGISTRY`, `SKILLNAV_PROFILE`, `SKILLNAV_TOKEN`.
+Environment: `SKILLNAV_REGISTRY`, `SKILLNAV_PROFILE`, `SKILLNAV_API_KEY` (legacy alias: `SKILLNAV_TOKEN`).
 
 ## Test
 

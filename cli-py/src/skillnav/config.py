@@ -15,7 +15,8 @@ class Identity(TypedDict, total=False):
 
 class Profile(TypedDict, total=False):
     registry: str
-    token: str
+    apiKey: str
+    token: str  # legacy; migrated to apiKey on read
     identity: Identity
 
 
@@ -88,5 +89,13 @@ def set_profile_identity(profile: Profile, identity: dict[str, Any]) -> None:
 
 
 def clear_profile_auth(profile: Profile) -> None:
+    profile.pop("apiKey", None)
     profile.pop("token", None)
     profile.pop("identity", None)
+
+
+def resolve_profile_api_key(profile: Profile) -> str | None:
+    api_key = profile.get("apiKey") or profile.get("token")
+    if isinstance(api_key, str) and api_key.strip():
+        return api_key.strip()
+    return None
