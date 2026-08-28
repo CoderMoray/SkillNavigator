@@ -1458,16 +1458,18 @@ button {
 }
 
 .profile-stat-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
 .profile-stat-grid div {
+  flex: 0 0 auto;
+  min-width: 92px;
   border: 1px solid var(--border);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.62);
-  padding: 12px;
+  padding: 10px 14px;
 }
 
 .profile-stat-grid strong {
@@ -4141,10 +4143,6 @@ button {
 
   .skill-row-metrics {
     justify-content: flex-start;
-  }
-
-  .profile-stat-grid {
-    grid-template-columns: 1fr;
   }
 
   .profile-card {
