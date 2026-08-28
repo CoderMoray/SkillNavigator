@@ -480,7 +480,6 @@ export default function ApiKeysPage() {
                           <strong>{displayName}</strong>
                           <span className="mono api-key-prefix">{item.prefix}…</span>
                         </div>
-                        <span className={`badge ${keyStatusClass(item)}`}>{keyStatusLabel(item)}</span>
                       </div>
                       <dl className="api-key-meta">
                         <div>
@@ -501,6 +500,7 @@ export default function ApiKeysPage() {
                       </dl>
                     </div>
                     <div className="api-key-item-actions">
+                      <span className={`badge ${keyStatusClass(item)}`}>{keyStatusLabel(item)}</span>
                       <button
                         className="button secondary compact"
                         disabled={busy}
