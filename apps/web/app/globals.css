@@ -1424,6 +1424,7 @@ button {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 18px 32px;
   align-items: start;
+  margin-top: 8px;
 }
 
 .profile-card > .profile-stat-grid {
