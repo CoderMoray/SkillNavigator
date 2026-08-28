@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownUp, BadgeCheck, KeyRound, LogOut, RotateCcw, Search, Trash2, UserX } from "lucide-react";
+import { ArrowDownUp, BadgeCheck, Download, KeyRound, LogOut, Package, RotateCcw, Search, Star, Trash2, UserX } from "lucide-react";
 import { SkillCard } from "./SkillCard";
 import { ConfirmToast } from "./ConfirmToast";
 import { ErrorToast } from "./ErrorToast";
@@ -238,27 +238,38 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
 
       <section className="profile-layout">
         <aside className="profile-card">
-          <div className="profile-avatar">{creator.name.slice(0, 1).toUpperCase()}</div>
-          <div className="profile-identity">
-            <div className="profile-name-row">
-              <h1>{creator.name}</h1>
-              {isOwner && viewer?.role === "admin" ? <BadgeCheck color="var(--blue)" size={20} /> : null}
+          <div className="profile-card-leading">
+            <div className="profile-avatar">{creator.name.slice(0, 1).toUpperCase()}</div>
+            <div className="profile-identity">
+              <div className="profile-name-row">
+                <h1>{creator.name}</h1>
+                {isOwner && viewer?.role === "admin" ? <BadgeCheck color="var(--blue)" size={20} /> : null}
+              </div>
+              <p>@{creator.handle}</p>
             </div>
-            <p>@{creator.handle}</p>
-          </div>
 
-          <div className="profile-stat-grid">
-            <div>
-              <strong>{formatNumber(creator.downloads)}</strong>
-              <span>downloads</span>
-            </div>
-            <div>
-              <strong>{creator.averageRating ? creator.averageRating.toFixed(1) : "new"}</strong>
-              <span>stars</span>
-            </div>
-            <div>
-              <strong>{formatNumber(creator.published)}</strong>
-              <span>published</span>
+            <div className="profile-stat-grid">
+              <div className="profile-stat">
+                <div className="profile-stat-main">
+                  <Download aria-hidden className="profile-stat-icon" size={18} strokeWidth={1.75} />
+                  <strong>{formatNumber(creator.downloads)}</strong>
+                </div>
+                <span>downloads</span>
+              </div>
+              <div className="profile-stat">
+                <div className="profile-stat-main">
+                  <Star aria-hidden className="profile-stat-icon" size={18} strokeWidth={1.75} />
+                  <strong>{creator.averageRating ? creator.averageRating.toFixed(1) : "new"}</strong>
+                </div>
+                <span>stars</span>
+              </div>
+              <div className="profile-stat">
+                <div className="profile-stat-main">
+                  <Package aria-hidden className="profile-stat-icon" size={18} strokeWidth={1.75} />
+                  <strong>{formatNumber(creator.published)}</strong>
+                </div>
+                <span>published</span>
+              </div>
             </div>
           </div>
 
