@@ -45,5 +45,6 @@ MonoSkillNavigator（Skill 管理平台）是一个用于 **发布、审查、�
 ## 下一步阅读
 
 - 第一次使用平台 → [新手教程：快速上手](./quick-start-tutorial.md)
+- 用 CLI 从 0 到 1 开发 Skill → [CLI 开发指南](./cli-developer-guide.md)
 - 准备包结构 → [Skill 格式](./skill-format.md)
 - 准备上线 → [发布流程](./publish-workflow.md)

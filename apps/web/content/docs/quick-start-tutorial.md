@@ -312,6 +312,7 @@ Skill 所有者或 contributor 可在详情页右侧点击 **发布新版本**�
 
 ## 下一步
 
+- 用 CLI 完成全流程开发：[CLI 开发指南](./cli-developer-guide.md)
 - 准备合规的包结构：[Skill 格式](./skill-format.md)
 - 深入理解发布结果：[发布流程](./publish-workflow.md)
 - 阅读安全 finding 与 VirusTotal 说明：[安全检测](./security-scan.md)

@@ -24,6 +24,13 @@ export const DOC_NAV: DocNavItem[] = [
     filename: "quick-start-tutorial.md"
   },
   {
+    slug: "cli-developer-guide",
+    title: "CLI 开发指南：从 0 到 1 发布 Skill",
+    sidebarTitle: "CLI 开发指南",
+    href: "/docs/cli-developer-guide",
+    filename: "cli-developer-guide.md"
+  },
+  {
     slug: "skill-format",
     title: "Skill 格式",
     sidebarTitle: "Skill 格式",

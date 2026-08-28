@@ -109,6 +109,8 @@ skillnav publish ./my-skill
 
 CLI 与 Web 共用同一 API 与审查逻辑；Web 发布额外校验分类等表单字段。
 
+完整的 CLI 从 0 到 1 流程（安装、登录、AI 写包、预审查、发版、看报告、迭代）见 **[CLI 开发指南](./cli-developer-guide.md)**。
+
 ## 发布失败常见原因
 
 - **slug 冲突或版本已存在**：更换 slug 或提高 version。
