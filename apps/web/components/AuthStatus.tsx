@@ -163,7 +163,7 @@ export function AuthStatus() {
             role="menuitem"
           >
             <KeyRound size={15} />
-            API Keys
+            API密钥
           </Link>
           <Link
             className="user-menu-item"

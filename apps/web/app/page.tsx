@@ -210,7 +210,7 @@ export default function HomePage() {
               CLI publish & sync
             </span>
             <h2>Bring your skills to the registry.</h2>
-            <p>在 Web 创建 API Key 登录 skillnav 后，可发布文件夹或 zip 包；平台会自动审查并保留版本历史。</p>
+            <p>在 Web 创建 API 密钥登录 skillnav 后，可发布文件夹或 zip 包；平台会自动审查并保留版本历史。</p>
           </div>
           <pre>{skillnavHomeCliExamples()}</pre>
         </section>

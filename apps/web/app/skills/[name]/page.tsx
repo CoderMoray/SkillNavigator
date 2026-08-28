@@ -1115,7 +1115,7 @@ export default function SkillDetailPage() {
                   <div className="detail-subsection">
                     <h3>安装</h3>
                     <p className="description">
-                      在 Web 创建 API Key 并执行 <code className="inline-code">skillnav login --api-key sk_…</code> 后，可通过 CLI 安装最新版本。
+                      在 Web 创建 API 密钥并执行 <code className="inline-code">skillnav login --api-key sk_…</code> 后，可通过 CLI 安装最新版本。
                     </p>
                     <pre className="pre">{installCommand}</pre>
                     <div className="tag-row">

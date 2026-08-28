@@ -7,7 +7,7 @@
 ## 你将完成什么
 
 1. 安装 **skillnav** 并连接平台。
-2. 在 Web 注册账户、创建 **API Key**，在 CLI 登录。
+2. 在 Web 注册账户、创建 **API 密钥**，在 CLI 登录。
 3. 用 AI 助手生成符合规范的 Skill 目录与 `SKILL.md`。
 4. 通过 CLI **预审查 → 预览发布 → 正式发布**。
 5. 用 `status` / `report` 查看审查与质量结果。
@@ -16,7 +16,7 @@
 ## 生命周期概览
 
 ```text
-安装 CLI → Web 注册 & 创建 API Key → CLI 登录
+安装 CLI → Web 注册 & 创建 API 密钥 → CLI 登录
     ↓
 AI 编写 Skill 包（SKILL.md + 可选资源）
     ↓
@@ -72,7 +72,7 @@ skillnav update --check  # 仅检查是否有新版本
 
 ## 2. 在 Web 注册账户
 
-CLI 发布需要 API Key，Key 与 Web 登录账户绑定。若你还没有账户：
+CLI 发布需要 API 密钥，密钥与 Web 登录账户绑定。若你还没有账户：
 
 1. 打开平台 Web（默认 `http://127.0.0.1:3001`）。
 2. 点击右上角 **注册**，填写用户名、邮箱、密码。
@@ -84,12 +84,12 @@ CLI 发布需要 API Key，Key 与 Web 登录账户绑定。若你还没有账�
 
 ---
 
-## 3. 创建 API Key 并在 CLI 登录
+## 3. 创建 API 密钥并在 CLI 登录
 
-### 3.1 在 Web 创建 API Key
+### 3.1 在 Web 创建 API 密钥
 
-1. 登录 Web 后，进入 **账户 → API Keys**（路径 `/account/api-keys`）。
-2. 点击 **创建 API Key**，填写名称（例如 `my-laptop`），可选设置过期时间。
+1. 登录 Web 后，进入 **账户 → API密钥**（路径 `/account/api-keys`）。
+2. 点击 **创建 API 密钥**，填写名称（例如 `my-laptop`），可选设置过期时间。
 3. 创建成功后，页面会 **一次性** 显示完整密钥（形如 `sk_…`）。请立即复制保存；关闭弹窗后无法再次查看完整密钥。
 4. 页面通常提供「复制 CLI 登录命令」快捷按钮，可直接粘贴到终端。
 
@@ -97,7 +97,7 @@ CLI 发布需要 API Key，Key 与 Web 登录账户绑定。若你还没有账�
 
 - 不要将 `sk_…` 提交到 Git 或分享给他人。
 - 在 CI 中使用环境变量 `SKILLNAV_API_KEY`，不要写入配置文件并提交。
-- `skillnav logout` 仅清除本地保存的 Key，**不会** 在服务端吊销 Key；吊销请在 Web API Keys 页面停用或删除。
+- `skillnav logout` 仅清除本地保存的 Key，**不会** 在服务端吊销 Key；吊销请在 Web API密钥 页面停用或删除。
 
 ### 3.2 配置平台地址（可选）
 

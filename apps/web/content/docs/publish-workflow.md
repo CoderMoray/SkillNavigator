@@ -100,7 +100,7 @@ Skill **所有者** 可在详情页右侧 **当前查看版本** 卡片中：
 
 ## CLI 发布（可选）
 
-在 Web **账户 → API Keys** 创建密钥后，本地使用 skillnav CLI：
+在 Web **账户 → API密钥** 创建密钥后，本地使用 skillnav CLI：
 
 ```bash
 skillnav login --api-key sk_…

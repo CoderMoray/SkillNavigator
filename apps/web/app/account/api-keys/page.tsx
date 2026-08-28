@@ -142,7 +142,7 @@ function resetCreateForm(
 
 function formatCreateApiKeyError(message: string): string {
   if (message === "API key name is required") {
-    return "请填写 API Key 名称";
+    return "请填写 API 密钥名称";
   }
   if (message === "API key name already exists") {
     return "该名称已被使用，请换一个名称";
@@ -261,7 +261,7 @@ export default function ApiKeysPage() {
     setError(null);
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setError("请填写 API Key 名称");
+      setError("请填写 API 密钥名称");
       return;
     }
     if (items.some((item) => item.name.trim().toLowerCase() === trimmedName.toLowerCase())) {
@@ -359,7 +359,7 @@ export default function ApiKeysPage() {
 
   if (loading) {
     return (
-      <AppShell title="API Keys">
+      <AppShell title="API密钥">
         <div className="account-settings-page">
           <div className="skeleton settings-skeleton" />
         </div>
@@ -369,11 +369,11 @@ export default function ApiKeysPage() {
 
   if (!user) {
     return (
-      <AppShell title="API Keys">
+      <AppShell title="API密钥">
         <div className="auth-page">
           <section className="auth-card card">
-            <h1>API Keys</h1>
-            <p className="description">登录后可在 Web 创建 API Key，供 skillnav CLI 使用。</p>
+            <h1>API密钥</h1>
+            <p className="description">登录后可在 Web 创建 API 密钥，供 skillnav CLI 使用。</p>
             <div className="hero-actions">
               <Link className="button primary" href="/login">
                 登录
@@ -389,7 +389,7 @@ export default function ApiKeysPage() {
   }
 
   return (
-    <AppShell title="API Keys">
+    <AppShell title="API密钥">
       {deleteTarget ? (
         <ConfirmToast
           cancelLabel="取消"
@@ -397,14 +397,14 @@ export default function ApiKeysPage() {
           confirmLabel="确认删除"
           confirming={deleting}
           confirmingLabel="删除中…"
-          message={`确定删除 API Key「${deleteTarget.name?.trim() || deleteTarget.prefix}」吗？CLI 将无法继续使用该密钥，此操作不可恢复。`}
+          message={`确定删除 API 密钥「${deleteTarget.name?.trim() || deleteTarget.prefix}」吗？CLI 将无法继续使用该密钥，此操作不可恢复。`}
           onCancel={() => {
             if (!deleting) {
               setDeleteTarget(null);
             }
           }}
           onConfirm={() => void confirmDelete()}
-          title="删除 API Key"
+          title="删除 API 密钥"
         />
       ) : null}
       <div className="account-settings-page">
@@ -417,9 +417,9 @@ export default function ApiKeysPage() {
             <ArrowLeft size={16} />
             返回个人主页
           </Link>
-          <h1>API Keys</h1>
+          <h1>API密钥</h1>
           <p className="description">
-            为 skillnav CLI 创建独立密钥。每个 Key 可单独命名、设定失效时间或随时停用。
+            为 skillnav CLI 创建独立密钥。每个密钥可单独命名、设定失效时间或随时停用。
           </p>
         </header>
 
@@ -437,26 +437,26 @@ export default function ApiKeysPage() {
         <section className="card settings-panel api-keys-list-panel">
           <div className="card-head">
             <div>
-              <h2>已有 Keys</h2>
+              <h2>已有密钥</h2>
               <p className="description">{items.length} 个密钥</p>
             </div>
             <button className="button primary" onClick={openCreateModal} type="button">
               <Plus size={15} />
-              创建 API Key
+              创建 API 密钥
             </button>
           </div>
 
           {items.length === 0 ? (
             <div className="empty api-keys-empty">
               <KeyRound size={28} strokeWidth={1.5} />
-              <p>还没有 API Key</p>
-              <span>点击右上角「创建 API Key」，即可在 CLI 中登录。</span>
+              <p>还没有 API 密钥</p>
+              <span>点击右上角「创建 API 密钥」，即可在 CLI 中登录。</span>
             </div>
           ) : (
             <ul className="api-key-list">
               {items.map((item) => {
                 const busy = busyKeyId === item.id;
-                const displayName = item.name?.trim() || "未命名 Key";
+                const displayName = item.name?.trim() || "未命名密钥";
                 return (
                   <li className="api-key-item" key={item.id}>
                     <div className="api-key-item-icon" aria-hidden>
@@ -539,12 +539,12 @@ export default function ApiKeysPage() {
                   ) : (
                     <>
                       <KeyRound size={14} />
-                      New Key
+                      新建密钥
                     </>
                   )}
                 </span>
                 <h3 id="create-api-key-modal-title">
-                  {createdSecret ? "请立即保存你的 API Key" : "创建 API Key"}
+                  {createdSecret ? "请立即保存你的 API 密钥" : "创建 API 密钥"}
                 </h3>
               </div>
               {!createdSecret ? (
@@ -557,7 +557,7 @@ export default function ApiKeysPage() {
             {createdSecret ? (
               <div className="modal-form">
                 <p className="description">
-                  完整密钥不会再次显示。若遗失，请停用此 Key 并创建新的。
+                  完整密钥不会再次显示。若遗失，请停用此密钥并创建新的。
                 </p>
                 <div
                   className={`api-key-secret-box${copiedTarget === "secret" ? " copied" : ""}`}
@@ -570,7 +570,7 @@ export default function ApiKeysPage() {
                   }}
                   role="button"
                   tabIndex={0}
-                  title="点击复制 API Key"
+                  title="点击复制 API 密钥"
                 >
                   <code>{createdSecret}</code>
                   <span className="api-key-secret-copy-hint">
