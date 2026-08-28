@@ -7,7 +7,6 @@ import { ArrowLeft, KeyRound } from "lucide-react";
 import { AppShell } from "../../../components/AppShell";
 import { changePassword, getCurrentUser } from "../../../lib/api";
 import { clearAuthToken, getAuthToken } from "../../../lib/auth-token";
-import { creatorProfilePath } from "../../../lib/creators";
 import { saveFlashToast } from "../../../lib/flash-toast";
 import { clearPublishNotice } from "../../../lib/publish-notice";
 import type { PublicUser } from "../../../lib/types";
@@ -76,7 +75,7 @@ export default function ChangePasswordPage() {
       setConfirmPassword("");
       saveFlashToast("密码已更新");
       clearPublishNotice();
-      router.push(creatorProfilePath(updatedUser.username));
+      router.push("/account/settings");
     } catch (err) {
       setError(err instanceof Error ? err.message : "修改失败");
     } finally {
@@ -152,8 +151,8 @@ export default function ChangePasswordPage() {
             </form>
 
             <p className="description">
-              <Link className="text-link" href="/account">
-                <ArrowLeft size={14} style={{ verticalAlign: "-2px" }} /> 返回用户中心
+              <Link className="text-link" href="/account/settings">
+                <ArrowLeft size={14} style={{ verticalAlign: "-2px" }} /> 返回设置
               </Link>
             </p>
           </section>

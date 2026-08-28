@@ -8,7 +8,6 @@ import { AppShell } from "../../../components/AppShell";
 import { ConfirmToast } from "../../../components/ConfirmToast";
 import { deleteAccount, getCurrentUser } from "../../../lib/api";
 import { clearAuthToken, getAuthToken } from "../../../lib/auth-token";
-import { normalizeHandle } from "../../../lib/creators";
 import { clearPublishNotice } from "../../../lib/publish-notice";
 import type { PublicUser } from "../../../lib/types";
 
@@ -161,11 +160,8 @@ export default function DeleteAccountPage() {
             </form>
 
             <p className="description">
-              <Link
-                className="text-link"
-                href={`/creators/${encodeURIComponent(normalizeHandle(user.username))}`}
-              >
-                <ArrowLeft size={14} style={{ verticalAlign: "-2px" }} /> 返回个人中心
+              <Link className="text-link" href="/account/settings">
+                <ArrowLeft size={14} style={{ verticalAlign: "-2px" }} /> 返回设置
               </Link>
             </p>
           </section>

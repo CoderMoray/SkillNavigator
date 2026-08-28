@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownUp, BadgeCheck, Download, KeyRound, LogOut, Package, RotateCcw, Search, Star, Trash2, UserX } from "lucide-react";
+import { ArrowDownUp, BadgeCheck, Download, LogOut, Package, RotateCcw, Search, Settings, Star, Trash2 } from "lucide-react";
 import { SkillCard } from "./SkillCard";
 import { ConfirmToast } from "./ConfirmToast";
 import { ErrorToast } from "./ErrorToast";
@@ -297,14 +297,8 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
 
           {isOwner ? (
             <div className="hero-actions profile-actions">
-              <Link className="button secondary" href="/account/api-keys">
-                <KeyRound size={15} /> API密钥
-              </Link>
-              <Link className="button secondary" href="/account/change-password">
-                <KeyRound size={15} /> 修改密码
-              </Link>
-              <Link className="button secondary danger" href="/account/delete">
-                <UserX size={15} /> 注销账户
+              <Link className="button secondary" href="/account/settings">
+                <Settings size={15} /> 设置
               </Link>
               <button className="button secondary" onClick={handleLogout} type="button">
                 <LogOut size={15} /> 登出

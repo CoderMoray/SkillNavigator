@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, KeyRound, LogIn, LogOut, Monitor, Moon, PackagePlus, Sun, UserCircle, UserX } from "lucide-react";
+import { ChevronDown, LogIn, LogOut, Monitor, Moon, PackagePlus, Settings, Sun, UserCircle } from "lucide-react";
 import { getCurrentUser, logoutUser } from "../lib/api";
 import { AUTH_TOKEN_CHANGED_EVENT, clearAuthToken, getAuthToken } from "../lib/auth-token";
 import { creatorProfilePath } from "../lib/creators";
@@ -158,39 +158,21 @@ export function AuthStatus() {
           </Link>
           <Link
             className="user-menu-item"
-            href="/account/api-keys"
-            onClick={() => setMenuOpen(false)}
-            role="menuitem"
-          >
-            <KeyRound size={15} />
-            API密钥
-          </Link>
-          <Link
-            className="user-menu-item"
-            href="/account/change-password"
-            onClick={() => setMenuOpen(false)}
-            role="menuitem"
-          >
-            <KeyRound size={15} />
-            修改密码
-          </Link>
-          <Link
-            className="user-menu-item danger"
-            href="/account/delete"
-            onClick={() => setMenuOpen(false)}
-            role="menuitem"
-          >
-            <UserX size={15} />
-            注销账户
-          </Link>
-          <Link
-            className="user-menu-item"
             href="/skills/publish"
             onClick={() => setMenuOpen(false)}
             role="menuitem"
           >
             <PackagePlus size={15} />
             添加 Skill
+          </Link>
+          <Link
+            className="user-menu-item"
+            href="/account/settings"
+            onClick={() => setMenuOpen(false)}
+            role="menuitem"
+          >
+            <Settings size={15} />
+            设置
           </Link>
           <div aria-label="页面主题" className="theme-switcher" role="group">
             <button

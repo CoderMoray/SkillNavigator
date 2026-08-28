@@ -3615,6 +3615,76 @@ button {
   margin-top: 8px;
 }
 
+.settings-nav-list {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-nav-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.78);
+  padding: 16px 18px;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.settings-nav-item:hover {
+  border-color: rgba(26, 115, 232, 0.22);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.settings-nav-item.danger:hover {
+  border-color: rgba(220, 38, 38, 0.28);
+}
+
+.settings-nav-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.settings-nav-item.danger .settings-nav-item-icon {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.settings-nav-item-body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.settings-nav-item-body strong {
+  font-size: 15px;
+  font-weight: 720;
+  letter-spacing: -0.02em;
+}
+
+.settings-nav-item-body span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.settings-nav-item-chevron {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+:root[data-theme="dark"] .settings-nav-item {
+  background: rgba(24, 26, 36, 0.78);
+}
+
 .api-key-reveal {
   border-color: rgba(176, 96, 0, 0.22);
   background:

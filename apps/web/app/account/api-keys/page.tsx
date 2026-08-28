@@ -26,7 +26,6 @@ import {
   updateApiKey,
 } from "../../../lib/api";
 import { clearAuthToken, getAuthToken } from "../../../lib/auth-token";
-import { creatorProfilePath } from "../../../lib/creators";
 import { copyTextToClipboard } from "../../../lib/copy-text";
 import type { ApiKeySummary, PublicUser } from "../../../lib/types";
 
@@ -423,11 +422,11 @@ export default function ApiKeysPage() {
         <header className="settings-header">
           <Link
             className="button secondary"
-            href={creatorProfilePath(user.username)}
+            href="/account/settings"
             style={{ width: "fit-content" }}
           >
             <ArrowLeft size={16} />
-            返回个人主页
+            返回设置
           </Link>
           <h1>API密钥</h1>
           <p className="description">
