@@ -24,6 +24,8 @@ skillnav info demo-skill
 skillnav review examples/demo-skill
 skillnav publish examples/demo-skill --dry-run
 skillnav download demo-skill -o /tmp/demo.zip
+skillnav update              # upgrade when PyPI has a newer release
+skillnav update --check      # check only, do not install
 ```
 
 Global flags: `--registry`, `--profile`, `--json`, `--no-input`.

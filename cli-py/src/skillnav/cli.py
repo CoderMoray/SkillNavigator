@@ -774,6 +774,34 @@ def remove_contributor_cmd(
         _handle_error(exc)
 
 
+@app.command("update")
+def update_cmd(
+    check_only: Annotated[
+        bool,
+        typer.Option("--check", help="Only check for updates; do not install"),
+    ] = False,
+) -> None:
+    """Check PyPI and upgrade skillnav when a newer release is available."""
+    try:
+        from skillnav.self_update import format_update_message, perform_update
+
+        cli = _ctx()
+        result = perform_update(check_only=check_only)
+        if cli.json_output:
+            emit_json(
+                {
+                    "current": result.current,
+                    "latest": result.latest,
+                    "upToDate": result.up_to_date,
+                    "updated": result.updated,
+                }
+            )
+            return
+        typer.echo(format_update_message(result, check_only=check_only))
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
 def run(argv: list[str] | None = None) -> int:
     try:
         app(prog_name="skillnav", args=argv)

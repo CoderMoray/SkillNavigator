@@ -92,7 +92,8 @@ skillnav
 ├─ 登录与身份
 │  ├─ login [--api-key KEY] [--registry URL]   # API Key 直传（skillhub 式 --token 别名）
 │  ├─ logout                                   # 清除本地 apiKey（不吊销服务端 key）
-│  └─ whoami                                   # GET /auth/me，打印当前身份
+│  ├─ whoami                                   # GET /auth/me，打印当前身份
+│  └─ update [--check]                         # 检查/升级 skillnav 自身（PyPI）
 ├─ 发布与审查（服务端执行）
 │  ├─ publish <dir|zip> [--version] [--display-name] [--slug] [--description]
 │  │                  [--category C ...] [--topic T ...] [--release-tag TAG ...]
@@ -175,6 +176,7 @@ skillnav
 | login | `GET /auth/me`（校验 API Key） | Bearer `sk_…` |
 | logout | —（本地清除） | — |
 | whoami | `GET /auth/me` | Bearer |
+| update | PyPI `skillnav` JSON | 公开（本地 pip/pipx 升级） |
 | config test | `GET /health` | 公开 |
 | publish | `POST /skills/publish` | Bearer |
 | publish --dry-run | `POST /skills/publish/preview` | Bearer |

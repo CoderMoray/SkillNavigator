@@ -42,8 +42,7 @@ function DocAnchor({ href, children, ...rest }: ComponentPropsWithoutRef<"a">) {
 }
 
 function DocImage({ src, alt, ...rest }: ComponentPropsWithoutRef<"img">) {
-  // React 19 types img.src as string | Blob | undefined; markdown sources are always strings.
-  const resolved = resolveDocImageSrc(typeof src === "string" ? src : undefined);
+  const resolved = resolveDocImageSrc(src);
   return <img src={resolved} alt={alt} {...rest} />;
 }
 
