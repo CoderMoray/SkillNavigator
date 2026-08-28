@@ -3517,12 +3517,19 @@ button {
   text-align: left;
 }
 
+.main:has(.settings-shell) {
+  max-width: 1480px;
+  padding-left: 36px;
+  padding-right: 36px;
+}
+
 /* Account settings (ClawHub-style sidebar layout) */
 .settings-shell {
   display: grid;
   gap: 0;
   margin: 0 auto;
-  max-width: 1120px;
+  width: 100%;
+  max-width: none;
   padding-bottom: 48px;
 }
 
@@ -3550,14 +3557,14 @@ button {
 
 .settings-page-header .description {
   margin: 0;
-  max-width: 680px;
+  max-width: none;
 }
 
 .settings-layout {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr);
   align-items: start;
-  gap: 36px;
+  gap: 40px;
 }
 
 .settings-sidebar {
