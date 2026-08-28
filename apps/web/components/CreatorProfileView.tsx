@@ -247,6 +247,16 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
               </div>
               <p>@{creator.handle}</p>
             </div>
+            {isOwner ? (
+              <div className="hero-actions profile-actions">
+                <Link className="button secondary" href="/account/settings">
+                  <Settings size={15} /> 设置
+                </Link>
+                <button className="button secondary" onClick={handleLogout} type="button">
+                  <LogOut size={15} /> 登出
+                </button>
+              </div>
+            ) : null}
           </div>
 
           <div className="profile-card-body">
@@ -285,17 +295,6 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
               </div>
             </div>
           </div>
-
-          {isOwner ? (
-            <div className="hero-actions profile-actions">
-              <Link className="button secondary" href="/account/settings">
-                <Settings size={15} /> 设置
-              </Link>
-              <button className="button secondary" onClick={handleLogout} type="button">
-                <LogOut size={15} /> 登出
-              </button>
-            </div>
-          ) : null}
         </aside>
 
         <section className="profile-content">

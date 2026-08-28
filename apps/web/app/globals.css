@@ -1410,13 +1410,22 @@ button {
 
 .profile-card-header {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 18px 20px;
   align-items: start;
 }
 
 .profile-card-header > .profile-identity {
   align-self: center;
+}
+
+.profile-card-header > .profile-actions {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  align-self: start;
+  margin-top: 0;
+  gap: 8px;
 }
 
 .profile-card-body {
@@ -1429,10 +1438,6 @@ button {
 
 .profile-card > .profile-stat-grid {
   justify-content: flex-end;
-}
-
-.profile-card > .profile-actions {
-  margin-top: 4px;
 }
 
 .profile-avatar {
@@ -4253,7 +4258,13 @@ button {
   }
 
   .profile-card-header {
-    grid-template-columns: 1fr;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .profile-card-header > .profile-actions {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    justify-self: end;
   }
 
   .detail-meta-grid,
