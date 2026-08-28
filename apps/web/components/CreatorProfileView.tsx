@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownUp, BadgeCheck, Download, LogOut, Package, RotateCcw, Search, Settings, Star, Trash2 } from "lucide-react";
+import { ArrowDownUp, BadgeCheck, Download, Package, PackagePlus, RotateCcw, Search, SquarePen, Star, Trash2 } from "lucide-react";
 import { SkillCard } from "./SkillCard";
 import { ConfirmToast } from "./ConfirmToast";
 import { ErrorToast } from "./ErrorToast";
 import { SuccessToast } from "./SuccessToast";
 import { PillSelect } from "./PillSelect";
-import { clearAuthToken, getAuthToken } from "../lib/auth-token";
-import { getBookmarkedSkills, getRecycleBin, logoutUser, purgeRecycleBinSkill, restoreSkill, type RecycleBinSkill } from "../lib/api";
+import { getAuthToken } from "../lib/auth-token";
+import { getBookmarkedSkills, getRecycleBin, purgeRecycleBinSkill, restoreSkill, type RecycleBinSkill } from "../lib/api";
 import { normalizeHandle, type CreatorSummary } from "../lib/creators";
 import { formatDateTime, formatNumber } from "../lib/format";
 import {
@@ -144,15 +144,6 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
     };
   }, [isOwner]);
 
-  async function handleLogout() {
-    const token = getAuthToken();
-    clearAuthToken();
-    if (token) {
-      await logoutUser(token).catch(() => undefined);
-    }
-    window.location.href = "/";
-  }
-
   async function handleRestore(slug: string) {
     const token = getAuthToken();
     if (!token) {
@@ -250,11 +241,11 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
             {isOwner ? (
               <div className="hero-actions profile-actions">
                 <Link className="button secondary" href="/account/settings">
-                  <Settings size={15} /> 设置
+                  <SquarePen size={15} /> 编辑个人资料
                 </Link>
-                <button className="button secondary" onClick={handleLogout} type="button">
-                  <LogOut size={15} /> 登出
-                </button>
+                <Link className="button secondary" href="/skills/publish">
+                  <PackagePlus size={15} /> 添加 Skill
+                </Link>
               </div>
             ) : null}
           </div>
