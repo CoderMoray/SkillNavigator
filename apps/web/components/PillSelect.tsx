@@ -1,7 +1,8 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 export interface PillSelectOption {
   value: string;
@@ -16,6 +17,8 @@ interface PillSelectProps {
   icon?: ReactNode;
   ariaLabel: string;
   className?: string;
+  /** Render the menu with fixed positioning (for use inside overflow containers such as modals). */
+  menuFixed?: boolean;
 }
 
 export function PillSelect({
@@ -25,11 +28,42 @@ export function PillSelect({
   disabled = false,
   icon,
   ariaLabel,
-  className
+  className,
+  menuFixed = false,
 }: PillSelectProps) {
   const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
   const rootRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const selected = options.find((option) => option.value === value) ?? options[0];
+
+  useEffect(() => {
+    if (!open || !menuFixed || !rootRef.current) {
+      return;
+    }
+
+    function updateMenuPosition() {
+      const trigger = rootRef.current;
+      if (!trigger) {
+        return;
+      }
+      const rect = trigger.getBoundingClientRect();
+      setMenuStyle({
+        position: "fixed",
+        top: rect.bottom + 8,
+        left: rect.left,
+        width: rect.width,
+      });
+    }
+
+    updateMenuPosition();
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [open, menuFixed]);
 
   useEffect(() => {
     if (!open) {
@@ -37,7 +71,8 @@ export function PillSelect({
     }
 
     function handlePointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) {
         setOpen(false);
       }
     }
@@ -62,6 +97,31 @@ export function PillSelect({
     }
   }, [disabled]);
 
+  const menu = open && !disabled ? (
+    <div
+      className={`pill-select-menu${menuFixed ? " pill-select-menu-fixed" : ""}`}
+      ref={menuRef}
+      role="listbox"
+      style={menuFixed ? menuStyle : undefined}
+    >
+      {options.map((option) => (
+        <button
+          aria-selected={option.value === value}
+          className={`pill-select-option ${option.value === value ? "selected" : ""}`}
+          key={option.value || "empty"}
+          onClick={() => {
+            onChange(option.value);
+            setOpen(false);
+          }}
+          role="option"
+          type="button"
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  ) : null;
+
   return (
     <div className={`pill-select ${className ?? ""}`.trim()} ref={rootRef}>
       <button
@@ -77,25 +137,7 @@ export function PillSelect({
         <span>{selected?.label}</span>
         <ChevronDown className={`pill-select-chevron ${open ? "open" : ""}`} size={16} />
       </button>
-      {open && !disabled ? (
-        <div className="pill-select-menu" role="listbox">
-          {options.map((option) => (
-            <button
-              aria-selected={option.value === value}
-              className={`pill-select-option ${option.value === value ? "selected" : ""}`}
-              key={option.value}
-              onClick={() => {
-                onChange(option.value);
-                setOpen(false);
-              }}
-              role="option"
-              type="button"
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      {menuFixed && menu ? createPortal(menu, document.body) : menu}
     </div>
   );
 }

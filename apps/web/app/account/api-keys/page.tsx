@@ -621,6 +621,7 @@ export default function ApiKeysPage() {
                     ariaLabel="失效时间"
                     className="expiry-select"
                     icon={<Clock size={16} />}
+                    menuFixed
                     onChange={(value) => setExpiryPreset(value as ExpiryPreset)}
                     options={EXPIRY_PRESET_OPTIONS}
                     value={expiryPreset}

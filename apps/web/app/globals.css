@@ -741,6 +741,12 @@ button {
   padding: 6px;
 }
 
+.pill-select-menu-fixed {
+  z-index: 110;
+  right: auto;
+  min-width: 0;
+}
+
 .pill-select-option {
   display: flex;
   width: 100%;
