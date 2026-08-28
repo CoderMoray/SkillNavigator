@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { AppShell } from "../../../components/AppShell";
 import { ConfirmToast } from "../../../components/ConfirmToast";
+import { ErrorToast } from "../../../components/ErrorToast";
 import { PillSelect } from "../../../components/PillSelect";
 import {
   createApiKey,
@@ -140,12 +141,14 @@ function resetCreateForm(
   setters.setCopyError(null);
 }
 
+const DUPLICATE_NAME_MESSAGE = "该名称已被使用，请换一个名称";
+
 function formatCreateApiKeyError(message: string): string {
   if (message === "API key name is required") {
     return "请填写 API 密钥名称";
   }
   if (message === "API key name already exists") {
-    return "该名称已被使用，请换一个名称";
+    return DUPLICATE_NAME_MESSAGE;
   }
   if (message.includes("API key name must be")) {
     return "名称长度为 1–64 个字符";
@@ -164,6 +167,7 @@ export default function ApiKeysPage() {
   const [copyError, setCopyError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [busyKeyId, setBusyKeyId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApiKeySummary | null>(null);
@@ -218,6 +222,7 @@ export default function ApiKeysPage() {
   }, [createModalOpen, createdSecret]);
 
   function openCreateModal() {
+    setErrorToast(null);
     resetCreateForm({
       setName,
       setExpiryPreset,
@@ -259,13 +264,14 @@ export default function ApiKeysPage() {
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setErrorToast(null);
     const trimmedName = name.trim();
     if (!trimmedName) {
       setError("请填写 API 密钥名称");
       return;
     }
     if (items.some((item) => item.name.trim().toLowerCase() === trimmedName.toLowerCase())) {
-      setError("该名称已被使用，请换一个名称");
+      setErrorToast(DUPLICATE_NAME_MESSAGE);
       return;
     }
 
@@ -286,7 +292,12 @@ export default function ApiKeysPage() {
       setCopiedTarget(null);
       setCopyError(null);
     } catch (err) {
-      setError(formatCreateApiKeyError(err instanceof Error ? err.message : "创建失败"));
+      const message = formatCreateApiKeyError(err instanceof Error ? err.message : "创建失败");
+      if (message === DUPLICATE_NAME_MESSAGE) {
+        setErrorToast(message);
+      } else {
+        setError(message);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -390,6 +401,7 @@ export default function ApiKeysPage() {
 
   return (
     <AppShell title="API密钥">
+      {errorToast ? <ErrorToast message={errorToast} onClose={() => setErrorToast(null)} /> : null}
       {deleteTarget ? (
         <ConfirmToast
           cancelLabel="取消"

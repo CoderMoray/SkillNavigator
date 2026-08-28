@@ -3171,7 +3171,7 @@ button {
   position: fixed;
   right: 24px;
   bottom: 24px;
-  z-index: 100;
+  z-index: 110;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: start;
