@@ -239,7 +239,7 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
       <section className="profile-layout">
         <aside className="profile-card">
           <div className="profile-avatar">{creator.name.slice(0, 1).toUpperCase()}</div>
-          <div>
+          <div className="profile-identity">
             <div className="profile-name-row">
               <h1>{creator.name}</h1>
               {isOwner && viewer?.role === "admin" ? <BadgeCheck color="var(--blue)" size={20} /> : null}
@@ -285,7 +285,7 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
           </div>
 
           {isOwner ? (
-            <div className="hero-actions">
+            <div className="hero-actions profile-actions">
               <Link className="button secondary" href="/account/api-keys">
                 <KeyRound size={15} /> API密钥
               </Link>
