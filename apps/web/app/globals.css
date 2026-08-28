@@ -3699,13 +3699,14 @@ button {
 
 .api-key-item {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(168px, 1.15fr) repeat(3, minmax(0, 1fr)) auto;
   align-items: center;
-  gap: 14px 20px;
+  column-gap: clamp(20px, 3vw, 36px);
+  row-gap: 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.72);
-  padding: 14px;
+  padding: 14px 18px;
   transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
 }
 
@@ -3755,10 +3756,7 @@ button {
 }
 
 .api-key-meta {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0;
+  display: contents;
 }
 
 .api-key-meta div {
@@ -4081,6 +4079,8 @@ button {
   .api-key-item {
     grid-template-columns: minmax(0, 1fr);
     align-items: start;
+    column-gap: 14px;
+    padding: 14px;
   }
 
   .api-key-item-identity {
@@ -4088,8 +4088,10 @@ button {
   }
 
   .api-key-meta {
+    display: grid;
     grid-column: 1 / -1;
     grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .api-key-item-actions {
