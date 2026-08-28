@@ -471,17 +471,16 @@ export default function ApiKeysPage() {
                 const displayName = item.name?.trim() || "未命名密钥";
                 return (
                   <li className="api-key-item" key={item.id}>
-                    <div className="api-key-item-icon" aria-hidden>
-                      <KeyRound size={18} />
-                    </div>
-                    <div className="api-key-item-body">
-                      <div className="api-key-item-top">
-                        <div>
-                          <strong>{displayName}</strong>
-                          <span className="mono api-key-prefix">{item.prefix}…</span>
-                        </div>
+                    <div className="api-key-item-identity">
+                      <div className="api-key-item-icon" aria-hidden>
+                        <KeyRound size={18} />
                       </div>
-                      <dl className="api-key-meta">
+                      <div className="api-key-item-title">
+                        <strong>{displayName}</strong>
+                        <span className="mono api-key-prefix">{item.prefix}…</span>
+                      </div>
+                    </div>
+                    <dl className="api-key-meta">
                         <div>
                           <dt>创建</dt>
                           <dd>{formatDateTime(item.createdAt)}</dd>
@@ -498,7 +497,6 @@ export default function ApiKeysPage() {
                           <dd>{formatDateTime(item.lastUsedAt)}</dd>
                         </div>
                       </dl>
-                    </div>
                     <div className="api-key-item-actions">
                       <span className={`badge ${keyStatusClass(item)}`}>{keyStatusLabel(item)}</span>
                       <button

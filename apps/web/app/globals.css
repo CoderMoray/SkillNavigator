@@ -3700,8 +3700,8 @@ button {
 .api-key-item {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 14px;
+  align-items: center;
+  gap: 14px 20px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.72);
@@ -3722,6 +3722,7 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 40px;
   height: 40px;
   border-radius: 14px;
@@ -3729,14 +3730,18 @@ button {
   color: var(--blue);
 }
 
-.api-key-item-top {
+.api-key-item-identity {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 
-.api-key-item-top strong {
+.api-key-item-title {
+  min-width: 0;
+}
+
+.api-key-item-title strong {
   display: block;
   font-size: 15px;
   font-weight: 720;
@@ -3753,7 +3758,7 @@ button {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
-  margin: 12px 0 0;
+  margin: 0;
 }
 
 .api-key-meta div {
@@ -3782,7 +3787,6 @@ button {
 .api-key-item-actions {
   display: flex;
   align-items: center;
-  align-self: center;
   gap: 8px;
 }
 
@@ -4075,16 +4079,22 @@ button {
   }
 
   .api-key-item {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .api-key-item-identity {
+    flex-wrap: wrap;
+  }
+
+  .api-key-meta {
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr;
   }
 
   .api-key-item-actions {
     grid-column: 1 / -1;
     justify-content: flex-end;
-  }
-
-  .api-key-meta {
-    grid-template-columns: 1fr;
   }
 
   .market-hero {
