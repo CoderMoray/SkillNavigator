@@ -62,7 +62,7 @@ export default function SettingsProfilePage() {
               <UserRound size={18} />
             </span>
             <div>
-              <h2>Account</h2>
+              <h2>账户</h2>
               <p className="description">
                 用于 Skill 发布页与个人主页的公开资料。用户名 @{user.username} 不可更改。
               </p>
@@ -75,7 +75,7 @@ export default function SettingsProfilePage() {
 
         <form className="settings-section-form" onSubmit={handleProfileSubmit}>
           <label className="field settings-field">
-            <span className="settings-field-label">Display name</span>
+            <span className="settings-field-label">显示名称</span>
             <input
               maxLength={128}
               onChange={(event) => setDisplayName(event.target.value)}
@@ -86,7 +86,7 @@ export default function SettingsProfilePage() {
           </label>
 
           <label className="field settings-field">
-            <span className="settings-field-label">Bio</span>
+            <span className="settings-field-label">简介</span>
             <textarea
               maxLength={2000}
               onChange={(event) => setAbout(event.target.value)}
@@ -101,7 +101,7 @@ export default function SettingsProfilePage() {
           <div className="settings-section-actions">
             <button className="button primary" disabled={submitting} type="submit">
               <Save size={15} />
-              {submitting ? "保存中…" : "Save profile"}
+              {submitting ? "保存中…" : "保存资料"}
             </button>
           </div>
         </form>

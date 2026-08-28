@@ -397,7 +397,7 @@ export function ApiKeysPanel() {
               <KeyRound size={18} />
             </span>
             <div>
-              <h2>API tokens</h2>
+              <h2>API 密钥</h2>
               <p className="description">
                 为 skillnav CLI 创建独立密钥。每个密钥可单独命名、设定失效时间或随时停用。
               </p>

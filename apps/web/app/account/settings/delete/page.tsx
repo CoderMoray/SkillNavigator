@@ -86,7 +86,7 @@ export default function SettingsDeletePage() {
               <ShieldAlert size={18} />
             </span>
             <div>
-              <h2>Account deletion</h2>
+              <h2>注销账户</h2>
               <p className="description">
                 注销后账户「{user.username}」将被永久删除，你发布的 Skill、收藏与登录状态将无法恢复。
               </p>
@@ -96,7 +96,7 @@ export default function SettingsDeletePage() {
 
         <form className="settings-section-form" onSubmit={handleSubmit}>
           <label className="field settings-field">
-            <span className="settings-field-label">Current password</span>
+            <span className="settings-field-label">当前密码</span>
             <input
               autoComplete="current-password"
               minLength={8}

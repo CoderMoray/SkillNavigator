@@ -59,7 +59,7 @@ export default function SettingsPasswordPage() {
               <Lock size={18} />
             </span>
             <div>
-              <h2>Password</h2>
+              <h2>修改密码</h2>
               <p className="description">为账户 {user.username} 设置新密码。</p>
             </div>
           </div>
@@ -67,7 +67,7 @@ export default function SettingsPasswordPage() {
 
         <form className="settings-section-form" onSubmit={handleSubmit}>
           <label className="field settings-field">
-            <span className="settings-field-label">Current password</span>
+            <span className="settings-field-label">当前密码</span>
             <input
               autoComplete="current-password"
               minLength={8}
@@ -78,7 +78,7 @@ export default function SettingsPasswordPage() {
             />
           </label>
           <label className="field settings-field">
-            <span className="settings-field-label">New password</span>
+            <span className="settings-field-label">新密码</span>
             <input
               autoComplete="new-password"
               minLength={8}
@@ -89,7 +89,7 @@ export default function SettingsPasswordPage() {
             />
           </label>
           <label className="field settings-field">
-            <span className="settings-field-label">Confirm new password</span>
+            <span className="settings-field-label">确认新密码</span>
             <input
               autoComplete="new-password"
               minLength={8}
@@ -104,7 +104,7 @@ export default function SettingsPasswordPage() {
 
           <div className="settings-section-actions">
             <button className="button primary" disabled={submitting} type="submit">
-              {submitting ? "保存中…" : "Save password"}
+              {submitting ? "保存中…" : "保存密码"}
             </button>
           </div>
         </form>

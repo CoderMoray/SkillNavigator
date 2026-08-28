@@ -65,7 +65,7 @@ export default function AccountSettingsLayout({ children }: { children: React.Re
           <section className="card settings-guest-card">
             <span className="eyebrow">
               <Settings size={14} />
-              Settings
+              设置
             </span>
             <h2>请先登录</h2>
             <p className="description">登录后即可编辑个人资料并管理 API 密钥。</p>
