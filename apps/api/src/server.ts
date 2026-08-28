@@ -20,6 +20,7 @@ import {
 } from "@skill-platform/skill-spec";
 import {
   aggregateCreators,
+  applyCreatorProfile,
   assertAssignableContributorRole,
   assertPublishPreflight,
   createAuthStoreFromEnv,
@@ -117,6 +118,11 @@ interface ResetPasswordBody {
 interface ChangePasswordBody {
   currentPassword: string;
   newPassword: string;
+}
+
+interface UpdateProfileBody {
+  displayName?: string | null;
+  about?: string | null;
 }
 
 interface DeleteAccountBody {
@@ -527,6 +533,24 @@ export function buildServer() {
     }
   });
 
+  app.patch<{ Body: UpdateProfileBody }>("/auth/profile", async (request, reply) => {
+    const token = readSessionToken(request.headers.authorization);
+    if (!token) {
+      return reply.code(401).send({ error: "Session login required" });
+    }
+
+    try {
+      const user = await authStore.updateProfile(token, {
+        displayName: request.body.displayName,
+        about: request.body.about
+      });
+      return { user };
+    } catch (error) {
+      const message = errorMessage(error);
+      return reply.code(message === "Unauthorized" ? 401 : 400).send({ error: message });
+    }
+  });
+
   app.post<{ Body: DeleteAccountBody }>("/auth/delete-account", async (request, reply) => {
     const token = readSessionToken(request.headers.authorization);
     if (!token) {
@@ -597,19 +621,19 @@ export function buildServer() {
     const mergeOwnerOnlySkills = (creator: ReturnType<typeof createEmptyCreatorSummary>) =>
       mergeOwnerRejectedSkills(mergeOwnerUnpublishedSkills(creator, unpublished), rejected);
 
+    const user = await authStore.getUserByUsername(handle);
     const matched = aggregateCreators(skills).find((item) => item.handle === handle);
     if (matched) {
-      return {
-        creator: isProfileOwner ? mergeOwnerOnlySkills(matched) : matched
-      };
+      let creator = isProfileOwner ? mergeOwnerOnlySkills(matched) : matched;
+      creator = applyCreatorProfile(creator, user);
+      return { creator };
     }
 
-    const user = await authStore.getUserByUsername(handle);
     if (!user) {
       return reply.code(404).send({ error: "Creator not found" });
     }
 
-    let creator = createEmptyCreatorSummary(user.username);
+    let creator = applyCreatorProfile(createEmptyCreatorSummary(user.username), user);
     if (isProfileOwner) {
       creator = mergeOwnerOnlySkills(creator);
     }

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { ArrowLeft, ChevronRight, KeyRound, Lock, Settings, UserX } from "lucide-react";
+import { FormEvent, useEffect, useState } from "react";
+import { ArrowLeft, ChevronRight, KeyRound, Lock, Settings, UserRound, UserX } from "lucide-react";
 import { AppShell } from "../../../components/AppShell";
-import { getCurrentUser } from "../../../lib/api";
+import { SuccessToast } from "../../../components/SuccessToast";
+import { getCurrentUser, updateProfile } from "../../../lib/api";
 import { clearAuthToken, getAuthToken } from "../../../lib/auth-token";
 import { creatorProfilePath } from "../../../lib/creators";
 import type { PublicUser } from "../../../lib/types";
@@ -33,7 +34,12 @@ const settingsItems = [
 
 export default function AccountSettingsPage() {
   const [user, setUser] = useState<PublicUser | null>(null);
+  const [displayName, setDisplayName] = useState("");
+  const [about, setAbout] = useState("");
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,6 +55,8 @@ export default function AccountSettingsPage() {
         const currentUser = await getCurrentUser(token);
         if (!cancelled) {
           setUser(currentUser);
+          setDisplayName(currentUser.displayName ?? "");
+          setAbout(currentUser.about ?? "");
         }
       } catch {
         clearAuthToken();
@@ -64,6 +72,34 @@ export default function AccountSettingsPage() {
       cancelled = true;
     };
   }, []);
+
+  async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setSuccessMessage(null);
+
+    const token = getAuthToken();
+    if (!token) {
+      setError("请先登录");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const updatedUser = await updateProfile(token, {
+        displayName: displayName.trim() || null,
+        about: about.trim() || null,
+      });
+      setUser(updatedUser);
+      setDisplayName(updatedUser.displayName ?? "");
+      setAbout(updatedUser.about ?? "");
+      setSuccessMessage("个人资料已保存");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "保存失败");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -85,7 +121,7 @@ export default function AccountSettingsPage() {
               Settings
             </span>
             <h1>设置</h1>
-            <p className="description">登录后可管理 API 密钥、密码与账户安全。</p>
+            <p className="description">登录后可管理个人资料、API 密钥、密码与账户安全。</p>
             <div className="hero-actions">
               <Link className="button primary" href="/login">
                 登录
@@ -102,6 +138,10 @@ export default function AccountSettingsPage() {
 
   return (
     <AppShell title="设置">
+      {successMessage ? (
+        <SuccessToast message={successMessage} onClose={() => setSuccessMessage(null)} />
+      ) : null}
+
       <div className="account-settings-page">
         <header className="settings-header">
           <Link
@@ -113,8 +153,54 @@ export default function AccountSettingsPage() {
             返回个人主页
           </Link>
           <h1>设置</h1>
-          <p className="description">管理账户安全、API 密钥与登录凭证。</p>
+          <p className="description">管理个人资料、账户安全、API 密钥与登录凭证。</p>
         </header>
+
+        <section className="card settings-panel settings-profile-panel">
+          <span className="eyebrow">
+            <UserRound size={14} />
+            Profile
+          </span>
+          <h2>个人资料</h2>
+          <p className="description">显示名称仅用于展示，用户名 @{user.username} 不可更改。</p>
+
+          <form className="form-grid" onSubmit={handleProfileSubmit}>
+            <label className="field">
+              <span>显示名称</span>
+              <input
+                maxLength={128}
+                onChange={(event) => setDisplayName(event.target.value)}
+                placeholder={user.username}
+                type="text"
+                value={displayName}
+              />
+            </label>
+
+            <label className="field">
+              <span>用户名</span>
+              <input disabled readOnly type="text" value={`@${user.username}`} />
+            </label>
+
+            <label className="field">
+              <span>About</span>
+              <textarea
+                maxLength={2000}
+                onChange={(event) => setAbout(event.target.value)}
+                placeholder="介绍一下你自己…"
+                rows={5}
+                value={about}
+              />
+            </label>
+
+            {error ? <p className="form-error">{error}</p> : null}
+
+            <div className="hero-actions">
+              <button className="button primary" disabled={submitting} type="submit">
+                {submitting ? "保存中…" : "保存资料"}
+              </button>
+            </div>
+          </form>
+        </section>
 
         <nav aria-label="账户设置" className="settings-nav-list">
           {settingsItems.map((item) => {

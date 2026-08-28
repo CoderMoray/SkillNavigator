@@ -24,8 +24,15 @@ export interface PublicUser {
   email: string | null;
   emailVerified: boolean;
   role: "admin" | "user";
+  displayName: string | null;
+  about: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface UpdateProfileInput {
+  displayName?: string | null;
+  about?: string | null;
 }
 
 interface StoredUser extends PublicUser {
@@ -81,6 +88,7 @@ export interface AuthStore {
   getUserByUsername(username: string): Promise<PublicUser | undefined>;
   listUsers(): Promise<PublicUser[]>;
   changePassword(token: string, currentPassword: string, newPassword: string): Promise<PublicUser>;
+  updateProfile(sessionToken: string, input: UpdateProfileInput): Promise<PublicUser>;
   deleteAccount(token: string, password: string): Promise<void>;
   createEmailVerificationToken(userId: string, expiresMs: number): Promise<string>;
   verifyEmail(token: string): Promise<PublicUser>;
@@ -138,6 +146,8 @@ abstract class JsonAuthStore implements AuthStore {
       emailVerified: options.autoVerifyEmail === true,
       emailVerifiedAt: options.autoVerifyEmail === true ? now : null,
       role: isFirstUser ? "admin" : "user",
+      displayName: null,
+      about: null,
       passwordHash: hashPassword(password),
       createdAt: now,
       updatedAt: now
@@ -258,6 +268,27 @@ abstract class JsonAuthStore implements AuthStore {
     }
 
     user.passwordHash = hashPassword(newPassword);
+    user.updatedAt = new Date().toISOString();
+    await this.save(data);
+    return toPublicUser(user);
+  }
+
+  async updateProfile(sessionToken: string, input: UpdateProfileInput): Promise<PublicUser> {
+    const data = await this.load();
+    pruneExpiredSessions(data);
+    const user = await this.requireSessionUser(sessionToken, data);
+
+    if (input.displayName !== undefined) {
+      const normalized = normalizeProfileField(input.displayName);
+      assertDisplayName(normalized);
+      user.displayName = normalized;
+    }
+    if (input.about !== undefined) {
+      const normalized = normalizeProfileField(input.about);
+      assertAbout(normalized);
+      user.about = normalized;
+    }
+
     user.updatedAt = new Date().toISOString();
     await this.save(data);
     return toPublicUser(user);
@@ -601,9 +632,16 @@ interface DatabaseUserRow {
   email_verified_at: AuthDatabaseTimestamp | null;
   role: "admin" | "user";
   password_hash: string;
+  display_name: string | null;
+  about: string | null;
   created_at: AuthDatabaseTimestamp;
   updated_at: AuthDatabaseTimestamp;
 }
+
+const USER_COLUMNS =
+  "id, username, email, email_verified_at, role, password_hash, display_name, about, created_at, updated_at";
+const USER_COLUMNS_U =
+  "u.id, u.username, u.email, u.email_verified_at, u.role, u.password_hash, u.display_name, u.about, u.created_at, u.updated_at";
 
 export class PostgresAuthStore implements AuthStore {
   private readonly pool: pg.Pool;
@@ -653,6 +691,8 @@ export class PostgresAuthStore implements AuthStore {
         emailVerified: emailVerifiedAt !== null,
         emailVerifiedAt,
         role: Number(count.rows[0]?.count ?? 0) === 0 ? "admin" : "user",
+        displayName: null,
+        about: null,
         passwordHash: hashPassword(password),
         createdAt: now,
         updatedAt: now
@@ -694,7 +734,7 @@ export class PostgresAuthStore implements AuthStore {
     await this.ensureSchema();
     const lookup = resolveLoginIdentifier(username);
     const result = await this.pool.query<DatabaseUserRow>(
-      `select id, username, email, email_verified_at, role, password_hash, created_at, updated_at
+      `select ${USER_COLUMNS}
        from platform_users
        where (lower(username) = lower($1))
           or (email is not null and lower(email) = lower($1))
@@ -746,7 +786,7 @@ export class PostgresAuthStore implements AuthStore {
     }
     await this.pool.query("delete from auth_sessions where expires_at <= now()");
     const result = await this.pool.query<DatabaseUserRow>(
-      `select u.id, u.username, u.email, u.email_verified_at, u.role, u.password_hash, u.created_at, u.updated_at
+      `select ${USER_COLUMNS_U}
        from auth_sessions s
        join platform_users u on u.id = s.user_id
        where s.token_hash = $1 and s.expires_at > now()
@@ -761,7 +801,7 @@ export class PostgresAuthStore implements AuthStore {
     const normalizedUsername = normalizeUsername(username);
     await this.ensureSchema();
     const result = await this.pool.query<DatabaseUserRow>(
-      `select id, username, email, email_verified_at, role, password_hash, created_at, updated_at
+      `select ${USER_COLUMNS}
        from platform_users
        where lower(username) = lower($1)
        limit 1`,
@@ -774,7 +814,7 @@ export class PostgresAuthStore implements AuthStore {
   async listUsers(): Promise<PublicUser[]> {
     await this.ensureSchema();
     const result = await this.pool.query<DatabaseUserRow>(
-      `select id, username, email, email_verified_at, role, password_hash, created_at, updated_at
+      `select ${USER_COLUMNS}
        from platform_users
        order by lower(username)`
     );
@@ -791,7 +831,7 @@ export class PostgresAuthStore implements AuthStore {
       await client.query("begin");
       await client.query("delete from auth_sessions where expires_at <= now()");
       const result = await client.query<DatabaseUserRow>(
-        `select u.id, u.username, u.email, u.email_verified_at, u.role, u.password_hash, u.created_at, u.updated_at
+        `select ${USER_COLUMNS_U}
          from auth_sessions s
          join platform_users u on u.id = s.user_id
          where s.token_hash = $1
@@ -830,6 +870,64 @@ export class PostgresAuthStore implements AuthStore {
     }
   }
 
+  async updateProfile(sessionToken: string, input: UpdateProfileInput): Promise<PublicUser> {
+    await this.ensureSchema();
+
+    const displayName =
+      input.displayName !== undefined ? normalizeProfileField(input.displayName) : undefined;
+    const about = input.about !== undefined ? normalizeProfileField(input.about) : undefined;
+
+    if (displayName !== undefined) {
+      assertDisplayName(displayName);
+    }
+    if (about !== undefined) {
+      assertAbout(about);
+    }
+
+    const client = await this.pool.connect();
+    try {
+      await client.query("begin");
+      await client.query("delete from auth_sessions where expires_at <= now()");
+      const result = await client.query<DatabaseUserRow>(
+        `select ${USER_COLUMNS_U}
+         from auth_sessions s
+         join platform_users u on u.id = s.user_id
+         where s.token_hash = $1
+         for update`,
+        [hashToken(sessionToken)]
+      );
+      const user = result.rows[0];
+
+      if (!user) {
+        throw new Error("Unauthorized");
+      }
+
+      const updatedAt = new Date().toISOString();
+      const nextDisplayName = displayName !== undefined ? displayName : user.display_name;
+      const nextAbout = about !== undefined ? about : user.about;
+
+      await client.query(
+        `update platform_users
+         set display_name = $1, about = $2, updated_at = $3
+         where id = $4`,
+        [nextDisplayName, nextAbout, updatedAt, user.id]
+      );
+      await client.query("commit");
+
+      return toPublicDatabaseUser({
+        ...user,
+        display_name: nextDisplayName,
+        about: nextAbout,
+        updated_at: updatedAt
+      });
+    } catch (error) {
+      await client.query("rollback").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async deleteAccount(token: string, password: string): Promise<void> {
     await this.ensureSchema();
 
@@ -838,7 +936,7 @@ export class PostgresAuthStore implements AuthStore {
       await client.query("begin");
       await client.query("delete from auth_sessions where expires_at <= now()");
       const result = await client.query<DatabaseUserRow>(
-        `select u.id, u.username, u.email, u.email_verified_at, u.role, u.password_hash, u.created_at, u.updated_at
+        `select ${USER_COLUMNS_U}
          from auth_sessions s
          join platform_users u on u.id = s.user_id
          where s.token_hash = $1
@@ -864,6 +962,8 @@ export class PostgresAuthStore implements AuthStore {
           email: user.email,
           emailVerified: Boolean(user.email_verified_at),
           role: user.role,
+          displayName: user.display_name ?? null,
+          about: user.about ?? null,
           createdAt: "",
           updatedAt: ""
         },
@@ -952,7 +1052,7 @@ export class PostgresAuthStore implements AuthStore {
       await client.query("delete from email_verification_tokens where user_id = $1", [tokenRow.user_id]);
 
       const userResult = await client.query<DatabaseUserRow>(
-        `select id, username, email, email_verified_at, role, password_hash, created_at, updated_at
+        `select ${USER_COLUMNS}
          from platform_users
          where id = $1`,
         [tokenRow.user_id]
@@ -986,7 +1086,7 @@ export class PostgresAuthStore implements AuthStore {
     const normalizedUsername = normalizeUsername(username);
     await this.ensureSchema();
     const result = await this.pool.query<DatabaseUserRow>(
-      `select id, username, email, email_verified_at, role, password_hash, created_at, updated_at
+      `select ${USER_COLUMNS}
        from platform_users
        where lower(username) = lower($1)
        limit 1`,
@@ -1010,7 +1110,7 @@ export class PostgresAuthStore implements AuthStore {
     await this.ensureSchema();
     const lookup = resolveLoginIdentifier(identifier);
     const userResult = await this.pool.query<DatabaseUserRow>(
-      `select id, username, email, email_verified_at, role, password_hash, created_at, updated_at
+      `select ${USER_COLUMNS}
        from platform_users
        where (lower(username) = lower($1))
           or (email is not null and lower(email) = lower($1))
@@ -1079,7 +1179,7 @@ export class PostgresAuthStore implements AuthStore {
       await client.query("delete from password_reset_tokens where user_id = $1", [tokenRow.user_id]);
 
       const userResult = await client.query<DatabaseUserRow>(
-        `select id, username, email, email_verified_at, role, password_hash, created_at, updated_at
+        `select ${USER_COLUMNS}
          from platform_users
          where id = $1`,
         [tokenRow.user_id]
@@ -1220,7 +1320,7 @@ export class PostgresAuthStore implements AuthStore {
     }
     await this.pool.query("delete from auth_sessions where expires_at <= now()");
     const result = await this.pool.query<DatabaseUserRow>(
-      `select u.id, u.username, u.email, u.email_verified_at, u.role, u.password_hash, u.created_at, u.updated_at
+      `select ${USER_COLUMNS_U}
        from auth_sessions s
        join platform_users u on u.id = s.user_id
        where s.token_hash = $1 and s.expires_at > now()
@@ -1256,7 +1356,7 @@ export class PostgresAuthStore implements AuthStore {
     }
 
     const userResult = await this.pool.query<DatabaseUserRow>(
-      `select id, username, email, email_verified_at, role, password_hash, created_at, updated_at
+      `select ${USER_COLUMNS}
        from platform_users
        where id = $1
        limit 1`,
@@ -1506,6 +1606,27 @@ export class PostgresAuthStore implements AuthStore {
     );
   }
 
+  private async migrateUserProfile(client: pg.PoolClient): Promise<void> {
+    const migrationName = "auth-user-profile-v1";
+    const applied = await client.query<{ name: string }>(
+      "select name from platform_schema_migrations where name = $1",
+      [migrationName]
+    );
+    if (applied.rows.length > 0) {
+      return;
+    }
+
+    await client.query(`alter table platform_users add column if not exists display_name text`);
+    await client.query(`alter table platform_users add column if not exists about text`);
+
+    await client.query(
+      `insert into platform_schema_migrations (name, applied_at)
+       values ($1, now())
+       on conflict (name) do nothing`,
+      [migrationName]
+    );
+  }
+
   private ensureSchema(): Promise<void> {
     this.schemaReady ??= (async () => {
       const client = await this.pool.connect();
@@ -1519,6 +1640,7 @@ export class PostgresAuthStore implements AuthStore {
         await this.migratePasswordReset(client);
         await this.migrateApiKeys(client);
         await this.migrateApiKeyUniqueNames(client);
+        await this.migrateUserProfile(client);
         await client.query("commit");
       } catch (error) {
         await client.query("rollback").catch(() => undefined);
@@ -1668,6 +1790,29 @@ function assertPassword(password: string): void {
   }
 }
 
+const DISPLAY_NAME_MAX = 128;
+const ABOUT_MAX = 2000;
+
+function normalizeProfileField(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? null : trimmed;
+}
+
+function assertDisplayName(value: string | null): void {
+  if (value !== null && value.length > DISPLAY_NAME_MAX) {
+    throw new Error(`Display name must be at most ${DISPLAY_NAME_MAX} characters`);
+  }
+}
+
+function assertAbout(value: string | null): void {
+  if (value !== null && value.length > ABOUT_MAX) {
+    throw new Error(`About must be at most ${ABOUT_MAX} characters`);
+  }
+}
+
 function assertCanDeleteUser(user: PublicUser, users: PublicUser[], adminCount?: number): void {
   if (user.role !== "admin") {
     return;
@@ -1696,6 +1841,8 @@ function toPublicUser(user: StoredUser): PublicUser {
     email: user.email ?? null,
     emailVerified: emailVerifiedAt !== null,
     role: user.role,
+    displayName: user.displayName ?? null,
+    about: user.about ?? null,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt
   };
@@ -1709,6 +1856,8 @@ function toPublicDatabaseUser(user: DatabaseUserRow): PublicUser {
     email: user.email,
     emailVerified: emailVerifiedAt !== null,
     role: user.role,
+    displayName: user.display_name ?? null,
+    about: user.about ?? null,
     createdAt: toAuthIsoString(user.created_at),
     updatedAt: toAuthIsoString(user.updated_at)
   };
@@ -1734,6 +1883,8 @@ function normalizeAuthData(data: AuthData): AuthData {
     users[id] = {
       ...user,
       email: user.email ?? null,
+      displayName: user.displayName ?? null,
+      about: user.about ?? null,
       emailVerifiedAt,
       emailVerified: emailVerifiedAt !== null
     };

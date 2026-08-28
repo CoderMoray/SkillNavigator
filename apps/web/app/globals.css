@@ -3611,6 +3611,15 @@ button {
   letter-spacing: -0.03em;
 }
 
+.settings-profile-panel {
+  margin-bottom: 18px;
+}
+
+.settings-profile-panel textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
 .settings-panel > .description {
   margin-top: 8px;
 }

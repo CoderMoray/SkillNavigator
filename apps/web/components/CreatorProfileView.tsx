@@ -59,6 +59,12 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
     .slice(0, 3)
     .map((skill) => skill.name)
     .join(" · ");
+  const defaultAbout = topSkillNames
+    ? `Publisher behind ${topSkillNames}.`
+    : isOwner && viewer?.role === "admin"
+      ? "Platform administrator."
+      : "Publisher on MonoSkillNavigator.";
+  const aboutText = creator.about ?? defaultAbout;
 
   useEffect(() => {
     if (!isOwner) {
@@ -253,13 +259,7 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
           <div className="profile-card-body">
             <div className="profile-meta">
               <h2>About</h2>
-              <p>
-                {topSkillNames
-                  ? `Publisher behind ${topSkillNames}.`
-                  : isOwner && viewer?.role === "admin"
-                    ? "Platform administrator."
-                    : "Publisher on MonoSkillNavigator."}
-              </p>
+              <p>{aboutText}</p>
             </div>
 
             <div className="profile-stat-grid">

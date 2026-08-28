@@ -99,6 +99,7 @@ export {
 
 export {
   aggregateCreators,
+  applyCreatorProfile,
   createEmptyCreatorSummary,
   listCreators,
   mergeOwnerUnpublishedSkills,

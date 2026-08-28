@@ -231,6 +231,8 @@ export interface PublicUser {
   email: string | null;
   emailVerified: boolean;
   role: "admin" | "user";
+  displayName: string | null;
+  about: string | null;
   createdAt: string;
   updatedAt: string;
 }

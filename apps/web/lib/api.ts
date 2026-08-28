@@ -245,6 +245,18 @@ export async function changePassword(
   return data.user;
 }
 
+export async function updateProfile(
+  token: string,
+  input: { displayName?: string | null; about?: string | null }
+): Promise<PublicUser> {
+  const data = await request<{ user: PublicUser }>(apiUrl("/auth/profile"), {
+    method: "PATCH",
+    token,
+    body: JSON.stringify(input)
+  });
+  return data.user;
+}
+
 export async function deleteAccount(token: string, password: string): Promise<void> {
   await request<{ ok: boolean }>(apiUrl("/auth/delete-account"), {
     method: "POST",

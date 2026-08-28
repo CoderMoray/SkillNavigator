@@ -9,6 +9,8 @@ export const platformUsers = pgTable(
     email: text("email"),
     passwordHash: text("password_hash").notNull(),
     role: text("role").notNull().default("user"),
+    displayName: text("display_name"),
+    about: text("about"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
   },

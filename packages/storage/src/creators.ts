@@ -5,6 +5,7 @@ import { sortSkillSearchResultsByRecent } from "./utils";
 export interface CreatorSummary {
   name: string;
   handle: string;
+  about: string | null;
   role: RegistryContributor["role"];
   published: number;
   downloads: number;
@@ -22,6 +23,7 @@ export function createEmptyCreatorSummary(username: string): CreatorSummary {
   return {
     name: username,
     handle,
+    about: null,
     role: "contributor",
     published: 0,
     downloads: 0,
@@ -45,6 +47,7 @@ export function aggregateCreators(skills: SkillSearchResult[]): CreatorSummary[]
         ({
           name: contributor.name,
           handle,
+          about: null,
           role: contributor.role,
           published: 0,
           downloads: 0,
@@ -67,6 +70,7 @@ export function aggregateCreators(skills: SkillSearchResult[]): CreatorSummary[]
 
 export function listCreators(skills: SkillSearchResult[], users: PublicUser[]): CreatorSummary[] {
   const byHandle = new Map(aggregateCreators(skills).map((creator) => [creator.handle, creator]));
+  const userByHandle = new Map(users.map((user) => [normalizeHandle(user.username), user]));
 
   for (const user of users) {
     const handle = normalizeHandle(user.username);
@@ -75,9 +79,28 @@ export function listCreators(skills: SkillSearchResult[], users: PublicUser[]): 
     }
   }
 
-  return [...byHandle.values()].sort(
-    (a, b) => b.downloads - a.downloads || b.published - a.published || a.name.localeCompare(b.name)
-  );
+  return [...byHandle.values()]
+    .map((creator) => applyCreatorProfile(creator, userByHandle.get(creator.handle)))
+    .sort(
+      (a, b) => b.downloads - a.downloads || b.published - a.published || a.name.localeCompare(b.name)
+    );
+}
+
+export function applyCreatorProfile(
+  creator: CreatorSummary,
+  user: Pick<PublicUser, "displayName" | "about"> | undefined
+): CreatorSummary {
+  if (!user) {
+    return creator;
+  }
+
+  const displayName = user.displayName?.trim();
+  const about = user.about?.trim();
+  return {
+    ...creator,
+    name: displayName || creator.name,
+    about: about || null
+  };
 }
 
 function weightedAverage(skills: SkillSearchResult[]): number {
