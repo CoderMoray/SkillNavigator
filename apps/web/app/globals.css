@@ -54,6 +54,7 @@
 html {
   min-height: 100%;
   background: var(--background);
+  scrollbar-gutter: stable;
 }
 
 body {
