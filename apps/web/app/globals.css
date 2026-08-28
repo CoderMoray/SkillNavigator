@@ -1404,40 +1404,34 @@ button {
 
 .profile-card {
   display: grid;
-  grid-template-columns: minmax(240px, auto) minmax(0, 1fr);
-  gap: 18px 28px;
+  gap: 14px;
   align-items: start;
 }
 
-.profile-card-leading {
+.profile-card-header {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 18px 20px;
   align-items: start;
 }
 
-.profile-card-leading > .profile-avatar {
-  grid-column: 1;
-  grid-row: 1;
-}
-
-.profile-card-leading > .profile-identity {
-  grid-column: 2;
-  grid-row: 1;
+.profile-card-header > .profile-identity {
   align-self: center;
 }
 
-.profile-card-leading > .profile-stat-grid {
-  grid-column: 1 / -1;
+.profile-card-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px 32px;
+  align-items: start;
 }
 
-.profile-card > .profile-meta {
-  grid-column: 2;
-  grid-row: 1;
+.profile-card > .profile-stat-grid {
+  justify-content: flex-end;
 }
 
 .profile-card > .profile-actions {
-  grid-column: 1 / -1;
+  margin-top: 4px;
 }
 
 .profile-avatar {
@@ -1465,7 +1459,7 @@ button {
   letter-spacing: -0.055em;
 }
 
-.profile-card > .profile-identity > p {
+.profile-card-header .profile-identity > p {
   margin: 4px 0 0;
   color: var(--muted);
 }
@@ -4245,28 +4239,20 @@ button {
   }
 
   .profile-card {
+    gap: 12px;
+  }
+
+  .profile-card-body {
     grid-template-columns: 1fr;
+    gap: 16px;
   }
 
-  .profile-card > .profile-meta {
-    grid-column: 1;
-    grid-row: auto;
+  .profile-card > .profile-stat-grid {
+    justify-content: flex-start;
   }
 
-  .profile-card-leading {
+  .profile-card-header {
     grid-template-columns: 1fr;
-  }
-
-  .profile-card-leading > .profile-avatar,
-  .profile-card-leading > .profile-identity,
-  .profile-card-leading > .profile-stat-grid {
-    grid-column: 1;
-    grid-row: auto;
-  }
-
-  .profile-card > .profile-actions {
-    grid-column: 1;
-    grid-row: auto;
   }
 
   .detail-meta-grid,

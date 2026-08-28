@@ -238,7 +238,7 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
 
       <section className="profile-layout">
         <aside className="profile-card">
-          <div className="profile-card-leading">
+          <div className="profile-card-header">
             <div className="profile-avatar">{creator.name.slice(0, 1).toUpperCase()}</div>
             <div className="profile-identity">
               <div className="profile-name-row">
@@ -246,6 +246,19 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
                 {isOwner && viewer?.role === "admin" ? <BadgeCheck color="var(--blue)" size={20} /> : null}
               </div>
               <p>@{creator.handle}</p>
+            </div>
+          </div>
+
+          <div className="profile-card-body">
+            <div className="profile-meta">
+              <h2>About</h2>
+              <p>
+                {topSkillNames
+                  ? `Publisher behind ${topSkillNames}.`
+                  : isOwner && viewer?.role === "admin"
+                    ? "Platform administrator."
+                    : "Publisher on MonoSkillNavigator."}
+              </p>
             </div>
 
             <div className="profile-stat-grid">
@@ -271,17 +284,6 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
                 <span>published</span>
               </div>
             </div>
-          </div>
-
-          <div className="profile-meta">
-            <h2>About</h2>
-            <p>
-              {topSkillNames
-                ? `Publisher behind ${topSkillNames}.`
-                : isOwner && viewer?.role === "admin"
-                  ? "Platform administrator."
-                  : "Publisher on MonoSkillNavigator."}
-            </p>
           </div>
 
           {isOwner ? (
