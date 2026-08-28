@@ -282,17 +282,6 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
                   ? "Platform administrator."
                   : "Publisher on MonoSkillNavigator."}
             </p>
-            {isOwner && viewer ? (
-              <>
-                <h2>Account</h2>
-                <div className="tag-row">
-                  <span className="badge">ID {viewer.id.slice(0, 8)}</span>
-                  {viewer.email ? <span className="badge">{viewer.email}</span> : null}
-                  <span className="badge">创建 {formatDateTime(viewer.createdAt)}</span>
-                  <span className="badge">更新 {formatDateTime(viewer.updatedAt)}</span>
-                </div>
-              </>
-            ) : null}
           </div>
 
           {isOwner ? (
