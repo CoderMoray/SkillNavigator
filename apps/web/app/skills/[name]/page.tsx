@@ -1348,17 +1348,14 @@ export default function SkillDetailPage() {
                             <VerdictBadge verdict={version.status} />
                           </span>
                         </div>
-                        <div
-                          className="version-col-download"
-                          onClick={(event) => event.stopPropagation()}
-                          onKeyDown={(event) => event.stopPropagation()}
-                        >
+                        <div className="version-col-download">
                           <div className="version-action-leading">
                             {isVersionUnpublished ? (
                               isOwner ? (
                                 <button
                                   className="button secondary compact version-restore-button"
-                                  onClick={() => {
+                                  onClick={(event) => {
+                                    event.stopPropagation();
                                     setErrorToast(null);
                                     setVersionManageModal({ action: "republish", version: version.version });
                                   }}
@@ -1370,7 +1367,8 @@ export default function SkillDetailPage() {
                             ) : isOwner && !isLatest && viewer ? (
                               <button
                                 className="button secondary compact danger version-unpublish-button"
-                                onClick={() => {
+                                onClick={(event) => {
+                                  event.stopPropagation();
                                   setErrorToast(null);
                                   setVersionManageModal({ action: "unpublish", version: version.version });
                                 }}
@@ -1385,14 +1383,21 @@ export default function SkillDetailPage() {
                               <button
                                 className="button secondary compact version-download-button"
                                 disabled={downloadingVersion === version.version}
-                                onClick={() => void handleDownload(version.version)}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void handleDownload(version.version);
+                                }}
                                 type="button"
                               >
                                 <Download size={14} />
                                 {downloadingVersion === version.version ? "Downloading…" : "Download version"}
                               </button>
                             ) : (
-                              <Link className="button secondary compact version-download-button" href="/login">
+                              <Link
+                                className="button secondary compact version-download-button"
+                                href="/login"
+                                onClick={(event) => event.stopPropagation()}
+                              >
                                 <Download size={14} />
                                 Download version
                               </Link>
