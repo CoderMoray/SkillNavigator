@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import { MailCheck, MailWarning } from "lucide-react";
 import { AppShell } from "../../components/AppShell";
+import { ErrorToast } from "../../components/ErrorToast";
+import { SuccessToast } from "../../components/SuccessToast";
 import { resendVerificationEmail, verifyEmailToken, ApiRequestError } from "../../lib/api";
 
 function VerifyEmailContent() {
@@ -14,7 +16,8 @@ function VerifyEmailContent() {
   const [message, setMessage] = useState("正在验证邮箱…");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
 
   useEffect(() => {
@@ -46,18 +49,19 @@ function VerifyEmailContent() {
 
   async function handleResend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setResendMessage(null);
+    setSuccessToast(null);
+    setErrorToast(null);
     setResending(true);
     try {
       const result = await resendVerificationEmail(username, password);
-      setResendMessage(`验证邮件已重新发送至 ${result.email}，请查收。`);
+      setSuccessToast(`验证邮件已重新发送至 ${result.email}，请查收。`);
     } catch (error) {
       if (error instanceof ApiRequestError && error.response?.error === "verification_email_rate_limited") {
         const seconds = error.response.retryAfterSeconds ?? 60;
-        setResendMessage(`发送过于频繁，请 ${seconds} 秒后再试。`);
+        setErrorToast(`发送过于频繁，请 ${seconds} 秒后再试。`);
         return;
       }
-      setResendMessage(error instanceof Error ? error.message : "重新发送失败");
+      setErrorToast(error instanceof Error ? error.message : "重新发送失败");
     } finally {
       setResending(false);
     }
@@ -65,6 +69,8 @@ function VerifyEmailContent() {
 
   return (
     <AppShell title="验证邮箱">
+      {successToast ? <SuccessToast message={successToast} onClose={() => setSuccessToast(null)} /> : null}
+      {errorToast ? <ErrorToast message={errorToast} onClose={() => setErrorToast(null)} /> : null}
       <div className="auth-page">
         <section className="auth-card card">
           <span className="eyebrow">
@@ -103,7 +109,6 @@ function VerifyEmailContent() {
                     value={password}
                   />
                 </label>
-                {resendMessage ? <div className="description">{resendMessage}</div> : null}
                 <button className="button primary" disabled={resending} type="submit">
                   {resending ? "发送中…" : "重新发送验证邮件"}
                 </button>

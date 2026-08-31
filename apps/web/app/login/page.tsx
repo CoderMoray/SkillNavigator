@@ -6,6 +6,7 @@ import { FormEvent, Suspense, useEffect, useState } from "react";
 import { LogIn } from "lucide-react";
 import { AppShell } from "../../components/AppShell";
 import { ErrorToast } from "../../components/ErrorToast";
+import { SuccessToast } from "../../components/SuccessToast";
 import { loginUser } from "../../lib/api";
 import { setAuthToken } from "../../lib/auth-token";
 import { creatorProfilePath } from "../../lib/creators";
@@ -63,9 +64,10 @@ function LoginContent() {
     <AppShell title="登录">
       {errorToast ? <ErrorToast message={errorToast} onClose={() => setErrorToast(null)} /> : null}
       {resetNotice ? (
-        <div className="description" role="status">
-          密码已重置，请使用新密码登录。
-        </div>
+        <SuccessToast
+          message="密码已重置，请使用新密码登录。"
+          onClose={() => setResetNotice(false)}
+        />
       ) : null}
       <div className="auth-page">
         <section className="auth-card card">
