@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { Save, UserRound } from "lucide-react";
+import { ErrorToast } from "../../../../components/ErrorToast";
 import { SuccessToast } from "../../../../components/SuccessToast";
 import { updateProfile } from "../../../../lib/api";
 import { getAuthToken } from "../../../../lib/auth-token";
@@ -12,7 +13,7 @@ export default function SettingsProfilePage() {
   const [displayName, setDisplayName] = useState("");
   const [about, setAbout] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -22,12 +23,12 @@ export default function SettingsProfilePage() {
 
   async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
+    setErrorToast(null);
     setSuccessMessage(null);
 
     const token = getAuthToken();
     if (!token) {
-      setError("请先登录");
+      setErrorToast("请先登录");
       return;
     }
 
@@ -41,7 +42,7 @@ export default function SettingsProfilePage() {
       setAbout(updatedUser.about ?? "");
       setSuccessMessage("个人资料已保存");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存失败");
+      setErrorToast(err instanceof Error ? err.message : "保存失败");
     } finally {
       setSubmitting(false);
     }
@@ -51,6 +52,7 @@ export default function SettingsProfilePage() {
 
   return (
     <>
+      {errorToast ? <ErrorToast message={errorToast} onClose={() => setErrorToast(null)} /> : null}
       {successMessage ? (
         <SuccessToast message={successMessage} onClose={() => setSuccessMessage(null)} />
       ) : null}
@@ -95,8 +97,6 @@ export default function SettingsProfilePage() {
               value={about}
             />
           </label>
-
-          {error ? <p className="form-error">{error}</p> : null}
 
           <div className="settings-section-actions">
             <button className="button primary" disabled={submitting} type="submit">

@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { ShieldAlert } from "lucide-react";
 import { ConfirmToast } from "../../../../components/ConfirmToast";
+import { ErrorToast } from "../../../../components/ErrorToast";
 import { deleteAccount } from "../../../../lib/api";
 import { clearAuthToken, getAuthToken } from "../../../../lib/auth-token";
 import { clearPublishNotice } from "../../../../lib/publish-notice";
@@ -26,13 +27,13 @@ export default function SettingsDeletePage() {
   const router = useRouter();
   const user = useSettingsUser();
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
+    setErrorToast(null);
     setConfirmOpen(true);
   }
 
@@ -40,12 +41,12 @@ export default function SettingsDeletePage() {
     const token = getAuthToken();
     if (!token) {
       setConfirmOpen(false);
-      setError("请先登录");
+      setErrorToast("请先登录");
       return;
     }
 
     setSubmitting(true);
-    setError(null);
+    setErrorToast(null);
     try {
       await deleteAccount(token, password);
       clearAuthToken();
@@ -53,7 +54,7 @@ export default function SettingsDeletePage() {
       router.replace("/");
     } catch (err) {
       setConfirmOpen(false);
-      setError(formatDeleteAccountError(err instanceof Error ? err.message : "注销失败"));
+      setErrorToast(formatDeleteAccountError(err instanceof Error ? err.message : "注销失败"));
     } finally {
       setSubmitting(false);
     }
@@ -61,6 +62,7 @@ export default function SettingsDeletePage() {
 
   return (
     <>
+      {errorToast ? <ErrorToast message={errorToast} onClose={() => setErrorToast(null)} /> : null}
       {confirmOpen ? (
         <ConfirmToast
           cancelLabel="取消"
@@ -109,8 +111,6 @@ export default function SettingsDeletePage() {
           <p className="description">
             输入密码后点击「申请注销」，系统会再次弹出确认对话框。
           </p>
-
-          {error ? <div className="error compact-error">{error}</div> : null}
 
           <div className="settings-section-actions">
             <button className="button secondary danger" disabled={submitting} type="submit">

@@ -6,6 +6,7 @@ import { ChangeEvent, DragEvent, FormEvent, Suspense, useEffect, useMemo, useRef
 import { ArrowRight, Check, ChevronDown, KeyRound, RefreshCw, UploadCloud } from "lucide-react";
 import { AppShell } from "../../../components/AppShell";
 import { SkillCategoryLabel } from "../../../components/SkillCategoryIcon";
+import { ErrorToast } from "../../../components/ErrorToast";
 import { SuccessToast } from "../../../components/SuccessToast";
 import {
   ApiRequestError,
@@ -80,7 +81,7 @@ function PublishSkillPageContent() {
   const [loadingSource, setLoadingSource] = useState(Boolean(sourceSlug));
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
   const [reviewFailure, setReviewFailure] = useState<ReviewPipelineIncompleteResponse | null>(null);
   const [archiveHint, setArchiveHint] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
@@ -405,7 +406,7 @@ function PublishSkillPageContent() {
   const canPublish = publishBlockReason === null;
 
   async function applyArchiveFile(fileToUpload: File) {
-    setError(null);
+    setErrorToast(null);
     setReviewFailure(null);
     setArchiveHint(null);
     setSuccessToast(null);
@@ -453,7 +454,7 @@ function PublishSkillPageContent() {
       return;
     }
 
-    setError(null);
+    setErrorToast(null);
     setReviewFailure(null);
     setArchiveHint(null);
     setSuccessToast(null);
@@ -490,20 +491,20 @@ function PublishSkillPageContent() {
       }
 
       if (!archiveFile) {
-        setError("请上传 Skill 文件夹或 .zip 包。");
+        setErrorToast("请上传 Skill 文件夹或 .zip 包。");
         setFile(null);
         return;
       }
 
       if (!isZipFile(archiveFile)) {
-        setError("仅支持 Skill 文件夹或 .zip 包。");
+        setErrorToast("仅支持 Skill 文件夹或 .zip 包。");
         setFile(null);
         return;
       }
 
       await applyArchiveFile(archiveFile);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "无法读取 Skill 包");
+      setErrorToast(err instanceof Error ? err.message : "无法读取 Skill 包");
       setFile(null);
     } finally {
       setParsingArchive(false);
@@ -554,13 +555,13 @@ function PublishSkillPageContent() {
   }
 
   function toggleCategory(option: string) {
-    setError(null);
+    setErrorToast(null);
     setCategories((current) => {
       if (current.includes(option)) {
         return current.filter((item) => item !== option);
       }
       if (current.length >= MAX_CATEGORIES) {
-        setError(`最多只能选择 ${MAX_CATEGORIES} 个分类。`);
+        setErrorToast(`最多只能选择 ${MAX_CATEGORIES} 个分类。`);
         return current;
       }
       return [...current, option];
@@ -577,35 +578,40 @@ function PublishSkillPageContent() {
       return;
     }
 
-    setError(null);
+    setErrorToast(null);
     setReviewFailure(null);
     setIsDraggingFile(false);
 
+    if (publishBlockReason) {
+      setErrorToast(publishBlockReason);
+      return;
+    }
+
     const token = getAuthToken();
     if (!token || !user) {
-      setError(isNewVersion ? "请先登录后再发布新版本" : "请先登录后再添加 Skill");
+      setErrorToast(isNewVersion ? "请先登录后再发布新版本" : "请先登录后再添加 Skill");
       return;
     }
 
     if (slugPermissionError) {
-      setError(slugPermissionError);
+      setErrorToast(slugPermissionError);
       return;
     }
 
     if ((isNewVersion && sourceSkill) || (slugAvailability?.status === "active" && slugAvailability.viewerCanPublish)) {
       if (!canPublishToSkill) {
-        setError("你没有权限向该 Skill 发布新版本。");
+        setErrorToast("你没有权限向该 Skill 发布新版本。");
         return;
       }
     }
 
     if (!file) {
-      setError("请先选择 Skill 文件夹或 .zip 包");
+      setErrorToast("请先选择 Skill 文件夹或 .zip 包");
       return;
     }
 
     if (!isZipFile(file)) {
-      setError("请重新选择有效的 Skill 包");
+      setErrorToast("请重新选择有效的 Skill 包");
       return;
     }
 
@@ -620,13 +626,13 @@ function PublishSkillPageContent() {
     });
     const metadataError = validatePublishMetadata(metadata);
     if (metadataError) {
-      setError(metadataError);
+      setErrorToast(metadataError);
       return;
     }
 
     const versionConflict = getVersionConflictMessage(skillForVersionCheck, metadata.version);
     if (versionConflict) {
-      setError(versionConflict);
+      setErrorToast(versionConflict);
       return;
     }
 
@@ -650,11 +656,11 @@ function PublishSkillPageContent() {
       }
       if (err instanceof ApiRequestError && err.response?.error === "publish_rate_limited") {
         const seconds = err.response.retryAfterSeconds ?? 60;
-        setError(`发布过于频繁，请 ${seconds} 秒后再试。`);
+        setErrorToast(`发布过于频繁，请 ${seconds} 秒后再试。`);
         return;
       }
       const message = err instanceof Error ? err.message : "发布失败";
-      setError(formatPublishError(message));
+      setErrorToast(formatPublishError(message));
     } finally {
       setSubmitting(false);
     }
@@ -662,6 +668,7 @@ function PublishSkillPageContent() {
 
   return (
     <AppShell title={isNewVersion ? "New version" : "Publish"}>
+      {errorToast ? <ErrorToast message={errorToast} onClose={() => setErrorToast(null)} /> : null}
       {successToast ? <SuccessToast message={successToast} onClose={() => setSuccessToast(null)} /> : null}
       <div className="market-stack">
         <section className="section-head">
@@ -766,8 +773,6 @@ function PublishSkillPageContent() {
                   />
                 </div>
 
-                {!showPublishForm && error ? <div className="error compact-error">{error}</div> : null}
-
                 {showPublishForm ? (
                   <div className="publish-form-fields">
                     {archiveHint ? <div className="notice">{archiveHint}</div> : null}
@@ -791,7 +796,7 @@ function PublishSkillPageContent() {
                           <input
                             maxLength={64}
                             onChange={(event) => {
-                              setError(null);
+                              setErrorToast(null);
                               setSlug(event.target.value);
                             }}
                             placeholder="例如 github-issue-triage"
@@ -897,7 +902,7 @@ function PublishSkillPageContent() {
                         <span>Version <em>必填</em></span>
                         <input
                           onChange={(event) => {
-                            setError(null);
+                            setErrorToast(null);
                             setVersion(event.target.value);
                           }}
                           placeholder="1.0.0"
@@ -937,7 +942,7 @@ function PublishSkillPageContent() {
                       </label>
                     ) : null}
 
-                    <button className="button primary" disabled={submitting || !canPublish} type="submit">
+                    <button className="button primary" disabled={submitting} type="submit">
                       {submitting ? "发布并审查中..." : isNewVersion ? "发布新版本" : "发布 Skill"}
                       <ArrowRight size={16} />
                     </button>
@@ -963,8 +968,6 @@ function PublishSkillPageContent() {
                           {submitting ? "审查重试中..." : "重新运行完整审查"}
                         </button>
                       </div>
-                    ) : error || (!canPublish && publishBlockReason) ? (
-                      <div className="error compact-error publish-form-feedback">{error ?? publishBlockReason}</div>
                     ) : null}
                   </div>
                 ) : null}

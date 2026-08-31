@@ -47,7 +47,6 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
   const [purgeConfirm, setPurgeConfirm] = useState<{ slug: string; name: string } | null>(null);
   const [bookmarkItems, setBookmarkItems] = useState<SkillSearchResult[]>([]);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
-  const [bookmarkError, setBookmarkError] = useState<string | null>(null);
   const [skillQuery, setSkillQuery] = useState("");
   const [skillSort, setSkillSort] = useState<ProfileSkillSort>("recent");
   const isOwner = Boolean(viewer && normalizeHandle(viewer.username) === creator.handle);
@@ -92,7 +91,6 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
     }
 
     setBookmarkLoading(true);
-    setBookmarkError(null);
     void getBookmarkedSkills(token)
       .then((items) => {
         if (!cancelled) {
@@ -101,7 +99,7 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
       })
       .catch((err) => {
         if (!cancelled) {
-          setBookmarkError(err instanceof Error ? err.message : "加载收藏失败");
+          setErrorToast(err instanceof Error ? err.message : "加载收藏失败");
         }
       })
       .finally(() => {
@@ -429,7 +427,6 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
               <p className="description" style={{ marginBottom: 12 }}>
                 你收藏的 Skill 仅自己可见，方便快速回到常用包。
               </p>
-              {bookmarkError ? <div className="error compact-error">{bookmarkError}</div> : null}
               {bookmarkLoading ? (
                 <div className="skeleton" />
               ) : bookmarkItems.length === 0 ? (

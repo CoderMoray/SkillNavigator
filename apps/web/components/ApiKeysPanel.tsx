@@ -117,18 +117,14 @@ function resetCreateForm(
   setters: {
     setName: (value: string) => void;
     setExpiryPreset: (value: ExpiryPreset) => void;
-    setError: (value: string | null) => void;
     setCreatedSecret: (value: string | null) => void;
     setCopiedTarget: (value: CopyTarget | null) => void;
-    setCopyError: (value: string | null) => void;
   },
 ) {
   setters.setName("");
   setters.setExpiryPreset("");
-  setters.setError(null);
   setters.setCreatedSecret(null);
   setters.setCopiedTarget(null);
-  setters.setCopyError(null);
 }
 
 const DUPLICATE_NAME_MESSAGE = "该名称已被使用，请换一个名称";
@@ -153,9 +149,7 @@ export function ApiKeysPanel() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createdSecret, setCreatedSecret] = useState<string | null>(null);
   const [copiedTarget, setCopiedTarget] = useState<CopyTarget | null>(null);
-  const [copyError, setCopyError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [busyKeyId, setBusyKeyId] = useState<string | null>(null);
@@ -212,10 +206,8 @@ export function ApiKeysPanel() {
     resetCreateForm({
       setName,
       setExpiryPreset,
-      setError,
       setCreatedSecret,
       setCopiedTarget,
-      setCopyError,
     });
     setCreateModalOpen(true);
   }
@@ -228,10 +220,8 @@ export function ApiKeysPanel() {
     resetCreateForm({
       setName,
       setExpiryPreset,
-      setError,
       setCreatedSecret,
       setCopiedTarget,
-      setCopyError,
     });
   }
 
@@ -240,20 +230,17 @@ export function ApiKeysPanel() {
     resetCreateForm({
       setName,
       setExpiryPreset,
-      setError,
       setCreatedSecret,
       setCopiedTarget,
-      setCopyError,
     });
   }
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
     setErrorToast(null);
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setError("请填写 API 密钥名称");
+      setErrorToast("请填写 API 密钥名称");
       return;
     }
     if (items.some((item) => item.name.trim().toLowerCase() === trimmedName.toLowerCase())) {
@@ -263,7 +250,7 @@ export function ApiKeysPanel() {
 
     const token = getAuthToken();
     if (!token) {
-      setError("请先登录");
+      setErrorToast("请先登录");
       return;
     }
 
@@ -276,14 +263,8 @@ export function ApiKeysPanel() {
       setItems((current) => [created.apiKey, ...current]);
       setCreatedSecret(created.secret);
       setCopiedTarget(null);
-      setCopyError(null);
     } catch (err) {
-      const message = formatCreateApiKeyError(err instanceof Error ? err.message : "创建失败");
-      if (message === DUPLICATE_NAME_MESSAGE) {
-        setErrorToast(message);
-      } else {
-        setError(message);
-      }
+      setErrorToast(formatCreateApiKeyError(err instanceof Error ? err.message : "创建失败"));
     } finally {
       setSubmitting(false);
     }
@@ -328,7 +309,6 @@ export function ApiKeysPanel() {
   }
 
   async function copyValue(text: string, target: CopyTarget) {
-    setCopyError(null);
     try {
       await copyTextToClipboard(text);
       setCopiedTarget(target);
@@ -336,7 +316,7 @@ export function ApiKeysPanel() {
         setCopiedTarget((current) => (current === target ? null : current));
       }, 2000);
     } catch {
-      setCopyError("复制失败，请手动选择并复制");
+      setErrorToast("复制失败，请手动选择并复制");
     }
   }
 
@@ -549,7 +529,6 @@ export function ApiKeysPanel() {
                     )}
                   </span>
                 </div>
-                {copyError ? <p className="form-error api-key-copy-error">{copyError}</p> : null}
                 <div className="modal-actions api-key-modal-actions">
                   <button className="button secondary" onClick={() => void copySecret()} type="button">
                     {copiedTarget === "secret" ? <Check size={15} /> : <Copy size={15} />}
@@ -592,7 +571,6 @@ export function ApiKeysPanel() {
                   />
                   <p className="field-hint">默认永久有效。</p>
                 </label>
-                {error ? <div className="error compact-error">{error}</div> : null}
                 <div className="modal-actions">
                   <button className="button secondary" onClick={closeCreateModal} type="button">
                     取消

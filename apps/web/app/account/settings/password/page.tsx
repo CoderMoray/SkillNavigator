@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { Lock } from "lucide-react";
+import { ErrorToast } from "../../../../components/ErrorToast";
 import { SuccessToast } from "../../../../components/SuccessToast";
 import { changePassword } from "../../../../lib/api";
 import { getAuthToken } from "../../../../lib/auth-token";
@@ -12,23 +13,23 @@ export default function SettingsPasswordPage() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
+    setErrorToast(null);
     setSuccessMessage(null);
 
     if (newPassword !== confirmPassword) {
-      setError("两次输入的新密码不一致");
+      setErrorToast("两次输入的新密码不一致");
       return;
     }
 
     const token = getAuthToken();
     if (!token) {
-      setError("请先登录");
+      setErrorToast("请先登录");
       return;
     }
 
@@ -40,7 +41,7 @@ export default function SettingsPasswordPage() {
       setConfirmPassword("");
       setSuccessMessage("密码已更新");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "修改失败");
+      setErrorToast(err instanceof Error ? err.message : "修改失败");
     } finally {
       setSubmitting(false);
     }
@@ -48,6 +49,7 @@ export default function SettingsPasswordPage() {
 
   return (
     <>
+      {errorToast ? <ErrorToast message={errorToast} onClose={() => setErrorToast(null)} /> : null}
       {successMessage ? (
         <SuccessToast message={successMessage} onClose={() => setSuccessMessage(null)} />
       ) : null}
@@ -99,8 +101,6 @@ export default function SettingsPasswordPage() {
               value={confirmPassword}
             />
           </label>
-
-          {error ? <div className="error compact-error">{error}</div> : null}
 
           <div className="settings-section-actions">
             <button className="button primary" disabled={submitting} type="submit">

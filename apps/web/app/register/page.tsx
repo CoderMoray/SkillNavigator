@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { UserPlus } from "lucide-react";
 import { AppShell } from "../../components/AppShell";
+import { ErrorToast } from "../../components/ErrorToast";
 import { registerUser } from "../../lib/api";
 import { setAuthToken } from "../../lib/auth-token";
 import { creatorProfilePath } from "../../lib/creators";
@@ -89,20 +90,20 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
+    setErrorToast(null);
 
     if (password !== confirmPassword) {
-      setError("两次输入的密码不一致");
+      setErrorToast("两次输入的密码不一致");
       return;
     }
 
     if (!USERNAME_PATTERN.test(username.trim())) {
-      setError("用户名需为 3–64 个字符，仅含字母、数字、点、下划线或连字符");
+      setErrorToast("用户名需为 3–64 个字符，仅含字母、数字、点、下划线或连字符");
       return;
     }
 
@@ -116,7 +117,7 @@ export default function RegisterPage() {
       }
       router.push(`/register/pending?email=${encodeURIComponent(result.user.email ?? email)}`);
     } catch (err) {
-      setError(formatRegisterError(err instanceof Error ? err.message : "注册失败"));
+      setErrorToast(formatRegisterError(err instanceof Error ? err.message : "注册失败"));
     } finally {
       setSubmitting(false);
     }
@@ -124,6 +125,7 @@ export default function RegisterPage() {
 
   return (
     <AppShell title="注册">
+      {errorToast ? <ErrorToast message={errorToast} onClose={() => setErrorToast(null)} /> : null}
       <div className="auth-page">
         <section className="auth-card card">
           <span className="eyebrow">
@@ -184,7 +186,6 @@ export default function RegisterPage() {
                 value={confirmPassword}
               />
             </label>
-            {error ? <div className="error compact-error">{error}</div> : null}
             <button className="button primary" disabled={submitting} type="submit">
               {submitting ? "注册中..." : "注册"}
             </button>

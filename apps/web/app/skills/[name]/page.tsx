@@ -189,22 +189,18 @@ export default function SkillDetailPage() {
   const [issueSeverity, setIssueSeverity] = useState<RegistryIssue["severity"]>("medium");
   const [issueTitle, setIssueTitle] = useState("");
   const [issueBody, setIssueBody] = useState("");
-  const [issueError, setIssueError] = useState<string | null>(null);
   const [submittingIssue, setSubmittingIssue] = useState(false);
   const [ratingScore, setRatingScore] = useState(0);
   const [ratingComment, setRatingComment] = useState("");
-  const [ratingError, setRatingError] = useState<string | null>(null);
   const [submittingRating, setSubmittingRating] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
   const [issueModalOpen, setIssueModalOpen] = useState(false);
   const [ratingModalOpen, setRatingModalOpen] = useState(false);
   const [downloadingVersion, setDownloadingVersion] = useState<string | null>(null);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [unpublishModalOpen, setUnpublishModalOpen] = useState(false);
   const [republishModalOpen, setRepublishModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [manageError, setManageError] = useState<string | null>(null);
   const [unpublishingSkill, setUnpublishingSkill] = useState(false);
   const [republishingSkill, setRepublishingSkill] = useState(false);
   const [deletingSkill, setDeletingSkill] = useState(false);
@@ -297,9 +293,6 @@ export default function SkillDetailPage() {
         setRepublishModalOpen(false);
         setDeleteModalOpen(false);
         setVersionManageModal(null);
-        setIssueError(null);
-        setRatingError(null);
-        setManageError(null);
       }
     }
 
@@ -471,13 +464,13 @@ export default function SkillDetailPage() {
   const installCommand = skillnavInstallExample(skill.slug);
 
   function openIssueModal() {
-    setIssueError(null);
+    setErrorToast(null);
     setIssueModalOpen(true);
   }
 
   function closeIssueModal() {
     setIssueModalOpen(false);
-    setIssueError(null);
+    setErrorToast(null);
   }
 
   function openRatingModal() {
@@ -487,13 +480,13 @@ export default function SkillDetailPage() {
       );
       return;
     }
-    setRatingError(null);
+    setErrorToast(null);
     setRatingModalOpen(true);
   }
 
   function closeRatingModal() {
     setRatingModalOpen(false);
-    setRatingError(null);
+    setErrorToast(null);
   }
 
   async function handleAddContributor(event: FormEvent<HTMLFormElement>) {
@@ -600,21 +593,21 @@ export default function SkillDetailPage() {
 
   async function handleSubmitIssue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setIssueError(null);
+    setErrorToast(null);
 
     const token = getAuthToken();
     if (!token) {
-      setIssueError("请先登录后再提交 Issue。");
+      setErrorToast("请先登录后再提交 Issue。");
       return;
     }
     if (!skill) {
-      setIssueError("Skill 数据尚未加载完成。");
+      setErrorToast("Skill 数据尚未加载完成。");
       return;
     }
 
     const title = issueTitle.trim();
     if (!title) {
-      setIssueError("请填写 Issue 标题。");
+      setErrorToast("请填写 Issue 标题。");
       return;
     }
 
@@ -642,7 +635,7 @@ export default function SkillDetailPage() {
       setIssueModalOpen(false);
       setSuccessToast("Issue 已提交。");
     } catch (err) {
-      setIssueError(err instanceof Error ? err.message : "提交 Issue 失败");
+      setErrorToast(err instanceof Error ? err.message : "提交 Issue 失败");
     } finally {
       setSubmittingIssue(false);
     }
@@ -650,19 +643,19 @@ export default function SkillDetailPage() {
 
   async function handleSubmitRating(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setRatingError(null);
+    setErrorToast(null);
 
     const token = getAuthToken();
     if (!token) {
-      setRatingError("请先登录后再评分。");
+      setErrorToast("请先登录后再评分。");
       return;
     }
     if (!skill || !currentVersion) {
-      setRatingError("Skill 数据尚未加载完成。");
+      setErrorToast("Skill 数据尚未加载完成。");
       return;
     }
     if (ratingScore < 1 || ratingScore > 5) {
-      setRatingError("请选择 1 到 5 星的评分。");
+      setErrorToast("请选择 1 到 5 星的评分。");
       return;
     }
 
@@ -689,22 +682,22 @@ export default function SkillDetailPage() {
       setRatingModalOpen(false);
       setSuccessToast("评分已提交。");
     } catch (err) {
-      setRatingError(formatRatingError(err instanceof Error ? err.message : "提交评分失败"));
+      setErrorToast(formatRatingError(err instanceof Error ? err.message : "提交评分失败"));
     } finally {
       setSubmittingRating(false);
     }
   }
 
   async function handleDownload(version: string) {
-    setDownloadError(null);
+    setErrorToast(null);
 
     const token = getAuthToken();
     if (!token) {
-      setDownloadError("请先登录后再下载 Skill。");
+      setErrorToast("请先登录后再下载 Skill。");
       return;
     }
     if (!skill) {
-      setDownloadError("Skill 数据尚未加载完成。");
+      setErrorToast("Skill 数据尚未加载完成。");
       return;
     }
 
@@ -717,7 +710,7 @@ export default function SkillDetailPage() {
       const downloadedVersion = resolveDownloadedSkillVersion(fileName, skill.name, version);
       setSuccessToast(`已下载 v${downloadedVersion}（${fileName}）`);
     } catch (err) {
-      setDownloadError(formatVersionManageError(err instanceof Error ? err.message : "下载失败"));
+      setErrorToast(formatVersionManageError(err instanceof Error ? err.message : "下载失败"));
     } finally {
       setDownloadingVersion(null);
     }
@@ -763,7 +756,7 @@ export default function SkillDetailPage() {
       return;
     }
     if (!skill) {
-      setManageError("Skill 数据尚未加载完成。");
+      setErrorToast("Skill 数据尚未加载完成。");
       return;
     }
 
@@ -779,22 +772,22 @@ export default function SkillDetailPage() {
         setSkill((current) => (current ? { ...current, bookmarkedByViewer: true } : current));
       }
     } catch (err) {
-      setManageError(err instanceof Error ? err.message : "收藏操作失败");
+      setErrorToast(err instanceof Error ? err.message : "收藏操作失败");
     } finally {
       setBookmarkLoading(false);
     }
   }
 
   async function handleUnpublish() {
-    setManageError(null);
+    setErrorToast(null);
 
     const token = getAuthToken();
     if (!token) {
-      setManageError("请先登录后再操作。");
+      setErrorToast("请先登录后再操作。");
       return;
     }
     if (!skill) {
-      setManageError("Skill 数据尚未加载完成。");
+      setErrorToast("Skill 数据尚未加载完成。");
       return;
     }
 
@@ -805,22 +798,22 @@ export default function SkillDetailPage() {
       setUnpublishModalOpen(false);
       setSuccessToast("Skill 已下架，将不再出现在 Skill 广场与排行榜。");
     } catch (err) {
-      setManageError(err instanceof Error ? err.message : "下架失败");
+      setErrorToast(err instanceof Error ? err.message : "下架失败");
     } finally {
       setUnpublishingSkill(false);
     }
   }
 
   async function handleRepublish() {
-    setManageError(null);
+    setErrorToast(null);
 
     const token = getAuthToken();
     if (!token) {
-      setManageError("请先登录后再操作。");
+      setErrorToast("请先登录后再操作。");
       return;
     }
     if (!skill) {
-      setManageError("Skill 数据尚未加载完成。");
+      setErrorToast("Skill 数据尚未加载完成。");
       return;
     }
 
@@ -831,7 +824,7 @@ export default function SkillDetailPage() {
       setRepublishModalOpen(false);
       setSuccessToast("Skill 已重新上架，将出现在 Skill 广场与排行榜。");
     } catch (err) {
-      setManageError(err instanceof Error ? err.message : "上架失败");
+      setErrorToast(err instanceof Error ? err.message : "上架失败");
     } finally {
       setRepublishingSkill(false);
     }
@@ -842,10 +835,10 @@ export default function SkillDetailPage() {
       return;
     }
 
-    setManageError(null);
+    setErrorToast(null);
     const token = getAuthToken();
     if (!token) {
-      setManageError("请先登录后再操作。");
+      setErrorToast("请先登录后再操作。");
       return;
     }
 
@@ -860,22 +853,22 @@ export default function SkillDetailPage() {
       setVersionManageModal(null);
       setSuccessToast(action === "unpublish" ? `v${version} 已下架。` : `v${version} 已恢复上架。`);
     } catch (err) {
-      setManageError(formatVersionManageError(err instanceof Error ? err.message : "操作失败"));
+      setErrorToast(formatVersionManageError(err instanceof Error ? err.message : "操作失败"));
     } finally {
       setManagingVersion(false);
     }
   }
 
   async function handleDelete() {
-    setManageError(null);
+    setErrorToast(null);
 
     const token = getAuthToken();
     if (!token) {
-      setManageError("请先登录后再操作。");
+      setErrorToast("请先登录后再操作。");
       return;
     }
     if (!skill) {
-      setManageError("Skill 数据尚未加载完成。");
+      setErrorToast("Skill 数据尚未加载完成。");
       return;
     }
 
@@ -885,7 +878,7 @@ export default function SkillDetailPage() {
       setDeleteModalOpen(false);
       router.push(viewer ? `${creatorProfilePath(viewer.username)}?tab=recycle` : "/creators");
     } catch (err) {
-      setManageError(err instanceof Error ? err.message : "删除失败");
+      setErrorToast(err instanceof Error ? err.message : "删除失败");
     } finally {
       setDeletingSkill(false);
     }
@@ -986,8 +979,6 @@ export default function SkillDetailPage() {
                 <Copy size={16} /> 复制 prompt
               </button>
             </div>
-            {downloadError ? <div className="error">{downloadError}</div> : null}
-            {manageError ? <div className="error">{manageError}</div> : null}
             {isOwner && isUnpublished ? (
               <div className="skill-unpublished-notice" role="status">
                 <span className="skill-unpublished-notice-icon" aria-hidden="true">
@@ -1368,7 +1359,7 @@ export default function SkillDetailPage() {
                                 <button
                                   className="button secondary compact version-restore-button"
                                   onClick={() => {
-                                    setManageError(null);
+                                    setErrorToast(null);
                                     setVersionManageModal({ action: "republish", version: version.version });
                                   }}
                                   type="button"
@@ -1380,7 +1371,7 @@ export default function SkillDetailPage() {
                               <button
                                 className="button secondary compact danger version-unpublish-button"
                                 onClick={() => {
-                                  setManageError(null);
+                                  setErrorToast(null);
                                   setVersionManageModal({ action: "unpublish", version: version.version });
                                 }}
                                 type="button"
@@ -1861,7 +1852,6 @@ export default function SkillDetailPage() {
                     value={issueBody}
                   />
                 </label>
-                {issueError ? <div className="error compact-error">{issueError}</div> : null}
                 <div className="modal-actions">
                   <button className="button secondary" onClick={closeIssueModal} type="button">
                     取消
@@ -1926,7 +1916,6 @@ export default function SkillDetailPage() {
                     value={ratingComment}
                   />
                 </label>
-                {ratingError ? <div className="error compact-error">{ratingError}</div> : null}
                 <div className="modal-actions">
                   <button className="button secondary" onClick={closeRatingModal} type="button">
                     取消
@@ -1945,7 +1934,7 @@ export default function SkillDetailPage() {
             className="modal-overlay"
             onClick={() => {
               setUnpublishModalOpen(false);
-              setManageError(null);
+              setErrorToast(null);
             }}
             role="presentation"
           >
@@ -1966,7 +1955,7 @@ export default function SkillDetailPage() {
                   className="modal-close"
                   onClick={() => {
                     setUnpublishModalOpen(false);
-                    setManageError(null);
+                    setErrorToast(null);
                   }}
                   type="button"
                 >
@@ -1978,13 +1967,11 @@ export default function SkillDetailPage() {
                   下架后，<strong>{skill.name}</strong> 将从 Skill 广场、排行榜和公开搜索中隐藏，其他用户无法访问或下载。
                   你可以继续在此页面查看，之后可通过「上架」恢复公开。
                 </p>
-                {manageError ? <div className="error compact-error">{manageError}</div> : null}
                 <div className="modal-actions">
                   <button
                     className="button secondary"
                     onClick={() => {
                       setUnpublishModalOpen(false);
-                      setManageError(null);
                     }}
                     type="button"
                   >
@@ -2004,7 +1991,7 @@ export default function SkillDetailPage() {
             className="modal-overlay"
             onClick={() => {
               setRepublishModalOpen(false);
-              setManageError(null);
+              setErrorToast(null);
             }}
             role="presentation"
           >
@@ -2025,7 +2012,7 @@ export default function SkillDetailPage() {
                   className="modal-close"
                   onClick={() => {
                     setRepublishModalOpen(false);
-                    setManageError(null);
+                    setErrorToast(null);
                   }}
                   type="button"
                 >
@@ -2036,13 +2023,12 @@ export default function SkillDetailPage() {
                 <p className="description">
                   将 <strong>{skill.name}</strong> 重新上架到 Skill 广场与排行榜，使用当前最新版本 v{currentVersion.version}，无需发布新版本。
                 </p>
-                {manageError ? <div className="error compact-error">{manageError}</div> : null}
                 <div className="modal-actions">
                   <button
                     className="button secondary"
                     onClick={() => {
                       setRepublishModalOpen(false);
-                      setManageError(null);
+                      setErrorToast(null);
                     }}
                     type="button"
                   >
@@ -2062,7 +2048,7 @@ export default function SkillDetailPage() {
             className="modal-overlay"
             onClick={() => {
               setVersionManageModal(null);
-              setManageError(null);
+              setErrorToast(null);
             }}
             role="presentation"
           >
@@ -2087,7 +2073,7 @@ export default function SkillDetailPage() {
                   className="modal-close"
                   onClick={() => {
                     setVersionManageModal(null);
-                    setManageError(null);
+                    setErrorToast(null);
                   }}
                   type="button"
                 >
@@ -2107,13 +2093,12 @@ export default function SkillDetailPage() {
                     </>
                   )}
                 </p>
-                {manageError ? <div className="error compact-error">{manageError}</div> : null}
                 <div className="modal-actions">
                   <button
                     className="button secondary"
                     onClick={() => {
                       setVersionManageModal(null);
-                      setManageError(null);
+                      setErrorToast(null);
                     }}
                     type="button"
                   >
@@ -2142,7 +2127,7 @@ export default function SkillDetailPage() {
             className="modal-overlay"
             onClick={() => {
               setDeleteModalOpen(false);
-              setManageError(null);
+              setErrorToast(null);
             }}
             role="presentation"
           >
@@ -2163,7 +2148,7 @@ export default function SkillDetailPage() {
                   className="modal-close"
                   onClick={() => {
                     setDeleteModalOpen(false);
-                    setManageError(null);
+                    setErrorToast(null);
                   }}
                   type="button"
                 >
@@ -2175,13 +2160,12 @@ export default function SkillDetailPage() {
                   将把 <strong>{skill.name}</strong>（<span className="mono">{skill.slug}</span>）移入回收站，并从 Skill
                   广场与搜索中隐藏。回收站保留 3 天，期间可在个人中心恢复；到期后将永久删除所有版本与数据。
                 </p>
-                {manageError ? <div className="error compact-error">{manageError}</div> : null}
                 <div className="modal-actions">
                   <button
                     className="button secondary"
                     onClick={() => {
                       setDeleteModalOpen(false);
-                      setManageError(null);
+                      setErrorToast(null);
                     }}
                     type="button"
                   >
