@@ -7,7 +7,8 @@ import type {
   RegistryRating,
   RegistrySkill,
   ReviewReport,
-  SkillSearchResult
+  SkillSearchResult,
+  UserSearchResult
 } from "./types";
 import type { CreatorSummary } from "./creators";
 import { buildSkillDownloadFileName, parseSkillDownloadVersion } from "@skill-platform/skill-spec/skill-format";
@@ -78,6 +79,18 @@ export async function getCreatorProfile(username: string, token?: string): Promi
     { token }
   );
   return data.creator;
+}
+
+export async function searchUsers(
+  token: string,
+  query: string,
+  limit = 8
+): Promise<UserSearchResult[]> {
+  const url = apiUrl("/users/search");
+  url.searchParams.set("query", query.trim());
+  url.searchParams.set("limit", String(limit));
+  const data = await request<{ items: UserSearchResult[] }>(url, { token });
+  return data.items;
 }
 
 export async function getSkill(slug: string, token?: string): Promise<RegistrySkill> {

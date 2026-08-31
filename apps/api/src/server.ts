@@ -604,6 +604,34 @@ export function buildServer() {
     return { items };
   });
 
+  app.get<{ Querystring: { query?: string; limit?: string } }>("/users/search", async (request, reply) => {
+    const user = await getAuthenticatedUser(request.headers.authorization, authStore);
+    if (!user) {
+      return reply.code(401).send({ error: "Unauthorized" });
+    }
+
+    const normalizedQuery = request.query.query?.trim().toLowerCase() ?? "";
+    if (!normalizedQuery) {
+      return { items: [] as { username: string; displayName: string | null }[] };
+    }
+
+    const limit = Math.min(Math.max(Number(request.query.limit ?? 8) || 8, 1), 20);
+    const users = await authStore.listUsers();
+    const items = users
+      .filter((item) => {
+        const handle = normalizeHandle(item.username);
+        const displayName = item.displayName?.trim().toLowerCase() ?? "";
+        return handle.includes(normalizedQuery) || displayName.includes(normalizedQuery);
+      })
+      .slice(0, limit)
+      .map((item) => ({
+        username: item.username,
+        displayName: item.displayName
+      }));
+
+    return { items };
+  });
+
   app.get<{ Params: CreatorParams }>("/creators/:username", async (request, reply) => {
     const handle = normalizeHandle(request.params.username);
     const viewer = await getAuthenticatedUser(request.headers.authorization, authStore);

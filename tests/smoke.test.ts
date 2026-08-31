@@ -35,6 +35,28 @@ test("登录获取 token", async () => {
   token = body.token;
 });
 
+test("搜索平台用户名", async () => {
+  const loginRes = await fetch(`${API}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: "alice", password: "password123" }),
+  });
+  expect(loginRes.status).toBe(200);
+  const { token: aliceToken } = (await loginRes.json()) as { token: string };
+
+  const res = await fetch(`${API}/users/search?query=ali`, {
+    headers: { Authorization: `Bearer ${aliceToken}` },
+  });
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as { items: { username: string }[] };
+  expect(body.items.some((item) => item.username === "alice")).toBe(true);
+});
+
+test("无 token 搜索用户名应拒绝", async () => {
+  const res = await fetch(`${API}/users/search?query=ali`);
+  expect(res.status).toBe(401);
+});
+
 test("发布 Demo Skill", async () => {
   // 用之前 setup 创建的 alice 用户发布
   const loginRes = await fetch(`${API}/auth/login`, {

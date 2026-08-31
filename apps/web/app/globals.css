@@ -1732,6 +1732,92 @@ button {
   padding: 14px;
 }
 
+.username-suggest-field {
+  position: relative;
+}
+
+.username-suggest-field input {
+  width: 100%;
+}
+
+.username-suggest-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  display: grid;
+  gap: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: var(--shadow-md);
+  padding: 6px;
+}
+
+.username-suggest-option {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  padding: 10px 12px;
+  text-align: left;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.username-suggest-option strong {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.username-suggest-option span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.username-suggest-option:hover,
+.username-suggest-option.active {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.username-suggest-option:hover span,
+.username-suggest-option.active span {
+  color: inherit;
+  opacity: 0.82;
+}
+
+.username-suggest-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 12px;
+}
+
+@keyframes icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: icon-spin 0.8s linear infinite;
+}
+
+:root[data-theme="dark"] .username-suggest-menu {
+  background: var(--card-solid);
+}
+
 .contributor-remove-button {
   flex-shrink: 0;
   white-space: nowrap;

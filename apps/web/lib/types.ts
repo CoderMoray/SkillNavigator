@@ -246,3 +246,8 @@ export interface ApiKeySummary {
   expiresAt: string | null;
   lastUsedAt: string | null;
 }
+
+export interface UserSearchResult {
+  username: string;
+  displayName: string | null;
+}

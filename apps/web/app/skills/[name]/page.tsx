@@ -34,6 +34,7 @@ import { AppShell } from "../../../components/AppShell";
 import { ConfirmToast } from "../../../components/ConfirmToast";
 import { ErrorToast } from "../../../components/ErrorToast";
 import { SuccessToast } from "../../../components/SuccessToast";
+import { UsernameSuggestInput } from "../../../components/UsernameSuggestInput";
 import { HaluCatchRadar } from "../../../components/HaluCatchRadar";
 import { FindingConfidenceBadge } from "../../../components/FindingConfidenceBadge";
 import { SkillCategoryLabel } from "../../../components/SkillCategoryIcon";
@@ -336,6 +337,15 @@ export default function SkillDetailPage() {
           })
         : [],
     [skill]
+  );
+
+  const contributorExcludeHandles = useMemo(
+    () =>
+      skill?.contributors.flatMap((contributor) => [
+        contributor.username ?? "",
+        contributor.name,
+      ]) ?? [],
+    [skill?.contributors]
   );
 
   if (loading) {
@@ -1144,12 +1154,14 @@ export default function SkillDetailPage() {
                     <form className="contributor-form" onSubmit={handleAddContributor}>
                       <label className="field">
                         <span>用户名</span>
-                        <input
-                          onChange={(event) => setContributorName(event.target.value)}
+                        <UsernameSuggestInput
+                          disabled={addingContributor}
+                          excludeHandles={contributorExcludeHandles}
+                          onChange={setContributorName}
                           placeholder="输入已注册用户名，例如 bob"
                           value={contributorName}
                         />
-                        <small>仅可添加已在平台注册的用户，用户名区分大小写不敏感。新成员角色固定为 contributor。</small>
+                        <small>输入时会检索平台用户名，点击建议即可填入。新成员角色固定为 contributor。</small>
                       </label>
                       <button className="button primary" disabled={addingContributor} type="submit">
                         <Plus size={15} />
