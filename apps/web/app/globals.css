@@ -1713,10 +1713,13 @@ button {
   color: var(--muted);
 }
 
-:root[data-theme="dark"] .field textarea,
+:root[data-theme="dark"] .field textarea {
+  background: rgba(15, 17, 23, 0.72);
+}
+
 :root[data-theme="dark"] .publish-category-trigger,
 :root[data-theme="dark"] .publish-category-menu {
-  background: rgba(15, 17, 23, 0.72);
+  background: var(--card-solid);
 }
 
 .contributor-form {
