@@ -68,6 +68,19 @@ skillnav update          # 从 PyPI 升级
 skillnav update --check  # 仅检查是否有新版本
 ```
 
+### 查看命令帮助（`--help`）
+
+skillnav 基于 Typer，任意层级都支持 `--help` 查看可用命令与参数说明。忘记子命令或可选 flag 时，直接在终端查询即可，无需翻文档。
+
+```bash
+skillnav --help              # 列出所有顶层命令
+skillnav publish --help      # 查看 publish 的参数与用法
+skillnav config --help       # 查看 config 子命令组
+skillnav config add --help   # 查看 config add 的参数
+```
+
+不带参数运行 `skillnav` 也会显示与 `skillnav --help` 相同的顶层帮助。
+
 ---
 
 ## 2. 在 Web 注册账户
@@ -389,6 +402,7 @@ skillnav search my-first
 
 | 场景 | 命令 |
 | --- | --- |
+| 查看帮助 | `skillnav --help` / `skillnav <命令> --help` |
 | 连接检查 | `skillnav config test` |
 | 登录 | `skillnav login --api-key sk_…` |
 | 当前用户 | `skillnav whoami` |
