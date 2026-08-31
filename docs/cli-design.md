@@ -75,7 +75,7 @@ Skill 管理平台（MonoSkillNavigator）对外提供 Web UI 与 HTTP API。`sk
 
 **命令行为**：
 
-- `skillnav login --api-key KEY` 写入当前 profile 的 `apiKey` + identity（identity 来自 `GET /auth/me`）；`--token` 为 `--api-key` 别名（skillhub 兼容）。
+- `skillnav login --api-key KEY` 写入当前 profile 的 `apiKey` + identity（identity 来自 `GET /auth/me`）。
 - `skillnav logout` 清除当前 profile 的 apiKey 与 identity。
 - `skillnav config add <name> --registry <url>`：添加平台实例；`config use <name>`：切换默认；`config list`：列出；`config test [name]`：调 `GET {registry}/health` 验证连通性。
 - 需要鉴权的命令未登录时：报错 `not logged in (run: skillnav login --api-key KEY)`，退出码 2；若带 `--no-input` 直接失败，不提示。
@@ -90,7 +90,7 @@ skillnav
 │  ├─ config list                              # 列出平台实例
 │  └─ config test [name]                       # 验证连通性（GET /health）
 ├─ 登录与身份
-│  ├─ login [--api-key KEY] [--registry URL]   # API Key 直传（skillhub 式 --token 别名）
+│  ├─ login [--api-key KEY] [--registry URL]   # API Key 直传
 │  ├─ logout                                   # 清除本地 apiKey（不吊销服务端 key）
 │  ├─ whoami                                   # GET /auth/me，打印当前身份
 │  └─ update [--check]                         # 检查/升级 skillnav 自身（PyPI）

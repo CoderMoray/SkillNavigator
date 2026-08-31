@@ -234,7 +234,6 @@ def login_cmd(
         Optional[str],
         typer.Option(
             "--api-key",
-            "--token",
             help="Platform API key (create one in the Web account settings)",
         ),
     ] = None,
