@@ -109,7 +109,7 @@ export default function SkillsPage() {
             <p>浏览已发布 Skill、查看评分、下载量和安全状态，点击条目进入详情页。</p>
           </div>
           <Link className="button primary" href="/skills/publish">
-            <UploadCloud size={15} /> Publish
+            <UploadCloud size={15} /> 发布
           </Link>
         </section>
 
