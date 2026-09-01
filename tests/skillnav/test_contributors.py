@@ -28,7 +28,7 @@ def test_resolve_contributor_id_by_display_name() -> None:
 
 
 def test_resolve_contributor_id_not_found() -> None:
-    with pytest.raises(SkillnavError, match="contributor not found"):
+    with pytest.raises(SkillnavError, match="Contributor not found"):
         resolve_contributor_id({"contributors": []}, "missing")
 
 
@@ -38,5 +38,5 @@ def test_resolve_contributor_id_skips_owner() -> None:
             {"id": "owner_1", "username": "alice", "name": "Alice", "role": "owner"},
         ]
     }
-    with pytest.raises(SkillnavError, match="contributor not found"):
+    with pytest.raises(SkillnavError, match="Contributor not found"):
         resolve_contributor_id(skill, "alice")

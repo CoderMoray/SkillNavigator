@@ -19,11 +19,19 @@ from skillnav.api import (
 from skillnav.config import get_profile, load_config, save_config
 from skillnav.contributors import resolve_contributor_id
 from skillnav.context import CliContext
+from skillnav.error_hints import (
+    enrich_api_error,
+    enrich_usage_error,
+    hint_from_message,
+    invalid_api_key,
+    not_logged_in,
+)
 from skillnav.errors import (
     EXIT_AUTH,
     EXIT_BUSINESS,
     EXIT_NETWORK,
     EXIT_OK,
+    EXIT_USAGE,
     AuthError,
     NetworkError,
     SkillnavError,
@@ -61,20 +69,46 @@ def _ctx() -> CliContext:
     return _state["ctx"]
 
 
+def _normalize_skillnav_error(exc: SkillnavError) -> SkillnavError:
+    if exc.detail or exc.next_steps:
+        return exc
+    if isinstance(exc, UsageError):
+        hint = enrich_usage_error(exc.message)
+    else:
+        hint = hint_from_message(exc.message)
+    return type(exc)(hint.summary, hint=hint)
+
+
+def _emit_skillnav_error(exc: SkillnavError, *, json_output: bool) -> None:
+    emit_error(
+        exc.message,
+        json_output=json_output,
+        detail=exc.detail,
+        next_steps=exc.next_steps,
+    )
+
+
 def _handle_error(exc: BaseException) -> None:
     ctx = _state.get("ctx")
     json_output = bool(ctx and ctx.json_output)
+
+    if isinstance(exc, ValueError):
+        hint = enrich_usage_error(str(exc))
+        wrapped = UsageError(hint.summary, hint=hint)
+        _emit_skillnav_error(wrapped, json_output=json_output)
+        raise typer.Exit(EXIT_USAGE) from exc
+
     if isinstance(exc, AuthError):
-        emit_error(exc.message, json_output=json_output)
+        _emit_skillnav_error(_normalize_skillnav_error(exc), json_output=json_output)
         raise typer.Exit(EXIT_AUTH) from exc
     if isinstance(exc, UsageError):
-        emit_error(exc.message, json_output=json_output)
-        raise typer.Exit(EXIT_BUSINESS) from exc
+        _emit_skillnav_error(_normalize_skillnav_error(exc), json_output=json_output)
+        raise typer.Exit(EXIT_USAGE) from exc
     if isinstance(exc, NetworkError):
-        emit_error(exc.message, json_output=json_output)
+        _emit_skillnav_error(exc, json_output=json_output)
         raise typer.Exit(EXIT_NETWORK) from exc
     if isinstance(exc, SkillnavError):
-        emit_error(exc.message, json_output=json_output)
+        _emit_skillnav_error(_normalize_skillnav_error(exc), json_output=json_output)
         raise typer.Exit(EXIT_BUSINESS) from exc
     raise exc
 
@@ -90,16 +124,6 @@ def _api_json(method: str, path: str, *, body: dict | None = None, auth: bool = 
     )
     raise_for_api_status(status, payload)
     return payload
-
-
-def _friendly_publish_error(message: str) -> str:
-    if message == "skill_in_recycle_bin":
-        return "Skill is in the recycle bin — restore it on the web UI before publishing."
-    if message == "Only skill contributors can publish new versions":
-        return "Only skill contributors can publish new versions — ask the owner to add you."
-    if message == "review_pipeline_incomplete":
-        return "Review pipeline incomplete (503) — retry in a moment."
-    return message
 
 
 def _version_callback(value: bool) -> None:
@@ -172,7 +196,7 @@ def config_use(name: Annotated[str, typer.Argument(help="Profile name to activat
         cli = _ctx()
         config = load_config()
         if name not in config.get("profiles", {}):
-            raise UsageError(f"Unknown profile: {name}")
+            raise UsageError.from_hint(enrich_usage_error(f"Unknown profile: {name}"))
         config["defaultProfile"] = name
         save_config(config)
         if cli.json_output:
@@ -216,7 +240,8 @@ def config_test(
         registry = profile.get("registry") or cli.registry
         status, body = request_json("GET", join_registry_url(registry, "/health"))
         if status >= 400:
-            raise SkillnavError(api_error_message(body))
+            hint = enrich_api_error(api_error_message(body), status=status, body=body)
+            raise SkillnavError(hint.summary, hint=hint)
         if cli.json_output:
             emit_json(body)
         else:
@@ -249,17 +274,17 @@ def login_cmd(
         credential = api_key
         if not credential:
             if cli.no_input:
-                raise AuthError("not logged in (run: skillnav login --api-key KEY)")
+                raise AuthError.from_hint(not_logged_in(profile=cli.profile_name))
             credential = typer.prompt("API key", hide_input=True).strip()
         if not credential:
-            raise AuthError("API key is required")
+            raise AuthError.from_hint(not_logged_in(profile=cli.profile_name))
         status, me_body = request_json(
             "GET",
             join_registry_url(cli.registry, "/auth/me"),
             token=credential,
         )
         if status >= 400:
-            raise AuthError(api_error_message(me_body))
+            raise AuthError.from_hint(invalid_api_key())
         cli.persist_api_key(credential, me_body)
         user = me_body.get("user") or {}
         if cli.json_output:
@@ -474,8 +499,8 @@ def publish_cmd(
             token=token,
         )
         if status >= 400:
-            message = _friendly_publish_error(api_error_message(payload))
-            raise SkillnavError(message)
+            hint = enrich_api_error(api_error_message(payload), status=status, body=payload)
+            raise SkillnavError(hint.summary, hint=hint)
         if cli.json_output:
             emit_json(payload if not dry_run else {"metadata": metadata, **payload})
             return
@@ -557,9 +582,11 @@ def download_cmd(
                 import json
 
                 payload = json.loads(data.decode("utf-8"))
-                raise SkillnavError(api_error_message(payload))
+                hint = enrich_api_error(api_error_message(payload), status=status, body=payload)
+                raise SkillnavError(hint.summary, hint=hint)
             except (json.JSONDecodeError, UnicodeDecodeError):
-                raise SkillnavError(f"download failed ({status})") from None
+                hint = enrich_api_error(f"download failed ({status})", status=status)
+                raise SkillnavError(hint.summary, hint=hint) from None
         filename = parse_content_disposition_filename(headers.get("Content-Disposition"))
         out_path = output or Path(f"{slug}-{version}.zip")
         out_path.write_bytes(data)
@@ -596,9 +623,11 @@ def install_cmd(
 
             try:
                 payload = json.loads(data.decode("utf-8"))
-                raise SkillnavError(api_error_message(payload))
+                hint = enrich_api_error(api_error_message(payload), status=status, body=payload)
+                raise SkillnavError(hint.summary, hint=hint)
             except (json.JSONDecodeError, UnicodeDecodeError):
-                raise SkillnavError(f"download failed ({status})") from None
+                hint = enrich_api_error(f"download failed ({status})", status=status)
+                raise SkillnavError(hint.summary, hint=hint) from None
         target = dir or Path(slug)
         extract_zip_to_directory(data, target)
         if cli.json_output:
@@ -739,9 +768,11 @@ def remove_contributor_cmd(
     """Remove a contributor (owner only)."""
     try:
         if not id and not username:
-            raise UsageError("specify --id or --username")
+            raise UsageError.from_hint(enrich_usage_error("specify --id or --username"))
         if id and username:
-            raise UsageError("specify only one of --id or --username")
+            raise UsageError.from_hint(
+                enrich_usage_error("specify only one of --id or --username")
+            )
 
         cli = _ctx()
         token = cli.require_token()
@@ -808,7 +839,12 @@ def run(argv: list[str] | None = None) -> int:
     except typer.Exit as exc:
         return int(exc.exit_code)
     except KeyboardInterrupt:
-        emit_error("interrupted", json_output=bool(_state.get("ctx") and _state["ctx"].json_output))
+        emit_error(
+            "interrupted",
+            json_output=bool(_state.get("ctx") and _state["ctx"].json_output),
+            detail="Command cancelled by user (Ctrl+C).",
+            next_steps=("Retry the command when ready.",),
+        )
         return 130
 
 

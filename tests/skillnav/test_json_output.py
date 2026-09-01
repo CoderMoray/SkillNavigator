@@ -34,6 +34,7 @@ def test_config_use_json(runner: CliRunner, isolated_config: Path) -> None:
 
 def test_config_use_unknown_profile_json_error(runner: CliRunner, isolated_config: Path) -> None:
     result = runner.invoke(app, ["--json", "config", "use", "missing"])
-    assert result.exit_code == 1
+    assert result.exit_code == 3
     payload = json.loads(cli_output(result))
     assert payload["error"] == "Unknown profile: missing"
+    assert "nextSteps" in payload

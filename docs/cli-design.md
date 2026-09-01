@@ -156,7 +156,7 @@ skillnav
 
 - 默认：人类可读；`review` / `report` / `publish` 成功后按 SkillSpector / VirusTotal / HaluCatch 分区展示。
 - `--json`：输出**服务端原始响应体**（不二次包装），便于脚本消费；本地命令（`config add` / `config use` / `login` / `download` 等）输出结构化 JSON。
-- 错误一律写 stderr：`skillnav: <message>`；`--json` 模式下错误输出 `{"error": "..."}`。
+- 错误一律写 stderr。默认模式：`✗ skillnav: <summary>`，并附 `What happened` 与 numbered `Next steps`（面向 Agent 的可执行指引）。`--json` 模式：`{"error":"...","detail":"...","nextSteps":[...]}`（`detail` / `nextSteps` 可选）。
 
 **退出码**：
 

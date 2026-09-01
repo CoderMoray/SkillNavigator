@@ -14,6 +14,7 @@ from skillnav.config import (
     save_config,
     set_profile_identity,
 )
+from skillnav.error_hints import not_logged_in
 from skillnav.errors import AuthError
 
 
@@ -68,7 +69,7 @@ class CliContext:
 
     def require_token(self) -> str:
         if not self.api_key:
-            raise AuthError("not logged in (run: skillnav login --api-key KEY)")
+            raise AuthError.from_hint(not_logged_in(profile=self.profile_name))
         return self.api_key
 
     def persist_api_key(self, api_key: str, me_body: dict) -> None:

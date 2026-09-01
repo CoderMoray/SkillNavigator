@@ -7,7 +7,8 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from skillnav.errors import NetworkError, SkillnavError
+from skillnav.error_hints import enrich_api_error, network_unreachable
+from skillnav.errors import AuthError, NetworkError, SkillnavError
 
 
 def request_bytes(
@@ -35,7 +36,7 @@ def request_bytes(
         return exc.code, exc.read(), dict(exc.headers.items())
     except urllib.error.URLError as exc:
         reason = getattr(exc, "reason", exc)
-        raise NetworkError(str(reason)) from exc
+        raise NetworkError.from_hint(network_unreachable(str(reason), registry=url)) from exc
 
 
 def request_json(
@@ -69,12 +70,10 @@ def api_error_message(body: Any) -> str:
 def raise_for_api_status(status: int, body: Any) -> None:
     if status < 400:
         return
-    message = api_error_message(body)
+    hint = enrich_api_error(api_error_message(body), status=status, body=body)
     if status in (401, 403):
-        from skillnav.errors import AuthError
-
-        raise AuthError(message)
-    raise SkillnavError(message)
+        raise AuthError(hint.summary, hint=hint)
+    raise SkillnavError(hint.summary, hint=hint)
 
 
 def parse_content_disposition_filename(header: str | None) -> str | None:

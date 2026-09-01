@@ -11,11 +11,30 @@ def emit_json(data: Any) -> None:
     print(json.dumps(data, indent=2, ensure_ascii=False))
 
 
-def emit_error(message: str, *, json_output: bool) -> None:
+def emit_error(
+    message: str,
+    *,
+    json_output: bool,
+    detail: str | None = None,
+    next_steps: tuple[str, ...] | list[str] | None = None,
+) -> None:
+    steps = list(next_steps or [])
     if json_output:
-        print(json.dumps({"error": message}, ensure_ascii=False), file=sys.stderr)
-    else:
-        print(f"skillnav: {message}", file=sys.stderr)
+        payload: dict[str, Any] = {"error": message}
+        if detail:
+            payload["detail"] = detail
+        if steps:
+            payload["nextSteps"] = steps
+        print(json.dumps(payload, ensure_ascii=False), file=sys.stderr)
+        return
+
+    print(f"✗ skillnav: {message}", file=sys.stderr)
+    if detail:
+        print(f"\nWhat happened:\n  {detail}", file=sys.stderr)
+    if steps:
+        print("\nNext steps:", file=sys.stderr)
+        for index, step in enumerate(steps, start=1):
+            print(f"  {index}. {step}", file=sys.stderr)
 
 
 def _print_findings_list(findings: list[dict[str, Any]]) -> None:
