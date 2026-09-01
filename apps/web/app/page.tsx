@@ -138,35 +138,36 @@ export default function HomePage() {
           </div>
 
           <div aria-hidden="true" className="homepage-hero-proof">
-            <div className="homepage-proof-glow" />
-            <div className="homepage-proof-document">
-              <div className="homepage-proof-document-head">
-                <span className="homepage-proof-window">
-                  <span />
-                  <span />
-                  <span />
-                </span>
-                <span>skill package</span>
-                <span>latest</span>
+            <div className="homepage-proof-stage">
+              <div className="homepage-proof-glow" />
+              <div className="homepage-proof-document">
+                <div className="homepage-proof-document-head">
+                  <span className="homepage-proof-window">
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                  <span>skill package</span>
+                  <span>latest</span>
+                </div>
+                <div className="homepage-proof-code">
+                  <span>
+                    <b>name:</b> research-notes
+                  </span>
+                  <span>
+                    <b>slug:</b> research-notes
+                  </span>
+                  <span>
+                    <b>entry:</b> SKILL.md
+                  </span>
+                </div>
+                <div className="homepage-proof-document-foot">
+                  <span>package manifest</span>
+                  <span>ready to review</span>
+                </div>
               </div>
-              <div className="homepage-proof-code">
-                <span>
-                  <b>name:</b> research-notes
-                </span>
-                <span>
-                  <b>slug:</b> research-notes
-                </span>
-                <span>
-                  <b>entry:</b> SKILL.md
-                </span>
-              </div>
-              <div className="homepage-proof-document-foot">
-                <span>package manifest</span>
-                <span>ready to review</span>
-              </div>
-            </div>
 
-            <div className="homepage-proof-trace">
+              <div className="homepage-proof-trace">
               <div className="homepage-proof-trace-line" />
               <div className="homepage-proof-row">
                 <span className="homepage-proof-icon"><FileText size={16} /></span>
@@ -192,6 +193,7 @@ export default function HomePage() {
                 </span>
                 <em>可追溯</em>
               </div>
+            </div>
             </div>
           </div>
         </section>

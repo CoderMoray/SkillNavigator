@@ -4733,13 +4733,14 @@ button {
   isolation: isolate;
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
+  align-items: center;
   gap: clamp(32px, 6vw, 82px);
   overflow: hidden;
   width: 100vw;
   margin-inline: calc(50% - 50vw);
   background: transparent;
   color: var(--foreground);
-  padding-block: clamp(32px, 5.6vw, 70px);
+  padding-block: clamp(44px, 6.5vw, 88px);
   padding-inline: max(28px, calc((100vw - 1124px) / 2));
 }
 
@@ -4753,6 +4754,7 @@ button {
   position: relative;
   z-index: 2;
   min-width: 0;
+  align-self: center;
 }
 
 .homepage-kicker {
@@ -4952,16 +4954,23 @@ button {
 }
 
 .homepage-hero-proof {
-  position: relative;
-  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   min-width: 0;
-  min-height: 438px;
+  min-height: 0;
   align-self: center;
+}
+
+.homepage-proof-stage {
+  position: relative;
+  width: min(100%, 430px);
+  height: clamp(365px, 36vw, 365px);
 }
 
 .homepage-proof-glow {
   position: absolute;
-  top: 4%;
+  top: 50%;
   right: 2%;
   width: min(87%, 400px);
   aspect-ratio: 1;
@@ -4973,15 +4982,17 @@ button {
   box-shadow:
     0 0 0 28px rgba(237, 250, 243, 0.018),
     0 0 0 58px rgba(237, 250, 243, 0.012);
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .homepage-proof-document {
   position: absolute;
   z-index: 1;
-  top: 44px;
+  top: 0;
   left: 0;
   display: grid;
-  width: min(95%, 410px);
+  width: min(92%, 390px);
   gap: 18px;
   border: 1px solid rgba(238, 249, 244, 0.2);
   border-radius: 20px;
@@ -5060,9 +5071,9 @@ button {
   position: absolute;
   z-index: 2;
   right: 0;
-  bottom: 22px;
+  bottom: 0;
   display: grid;
-  width: min(82%, 322px);
+  width: min(78%, 300px);
   gap: 8px;
 }
 
@@ -5773,6 +5784,11 @@ button {
     margin: 0 auto;
   }
 
+  .homepage-proof-stage {
+    width: min(100%, 430px);
+    height: clamp(380px, 38vw, 440px);
+  }
+
   .homepage-publish-copy > p {
     max-width: 660px;
   }
@@ -5819,8 +5835,8 @@ button {
     margin-top: 24px;
   }
 
-  .homepage-hero-proof {
-    min-height: 365px;
+  .homepage-proof-stage {
+    height: clamp(360px, 78vw, 420px);
   }
 
   .homepage-section-heading,
@@ -5876,20 +5892,21 @@ button {
     gap: 9px;
   }
 
-  .homepage-hero-proof {
-    min-height: 312px;
+  .homepage-proof-stage {
+    height: clamp(340px, 88vw, 400px);
   }
 
   .homepage-proof-glow {
-    top: 0;
+    top: 50%;
     right: 2%;
     width: 84%;
+    transform: translateY(-50%);
   }
 
   .homepage-proof-document {
-    top: 12px;
+    top: 0;
     left: 0;
-    width: 91%;
+    width: 88%;
     gap: 13px;
     padding: 12px;
   }
@@ -5903,7 +5920,7 @@ button {
   .homepage-proof-trace {
     right: 0;
     bottom: 0;
-    width: 91%;
+    width: 84%;
   }
 
   .homepage-proof-row {
