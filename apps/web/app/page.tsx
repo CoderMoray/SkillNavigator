@@ -140,30 +140,33 @@ export default function HomePage() {
           <div aria-hidden="true" className="homepage-hero-proof">
             <div className="homepage-proof-stage">
               <div className="homepage-proof-glow" />
-              <div className="homepage-proof-document">
-                <div className="homepage-proof-document-head">
-                  <span className="homepage-proof-window">
-                    <span />
-                    <span />
-                    <span />
-                  </span>
-                  <span>skill package</span>
-                  <span>latest</span>
-                </div>
-                <div className="homepage-proof-code">
-                  <span>
-                    <b>name:</b> research-notes
-                  </span>
-                  <span>
-                    <b>slug:</b> research-notes
-                  </span>
-                  <span>
-                    <b>entry:</b> SKILL.md
-                  </span>
-                </div>
-                <div className="homepage-proof-document-foot">
-                  <span>package manifest</span>
-                  <span>ready to review</span>
+              <div className="homepage-proof-document-stack">
+                <div className="homepage-proof-document-back" aria-hidden="true" />
+                <div className="homepage-proof-document">
+                  <div className="homepage-proof-document-head">
+                    <span className="homepage-proof-window">
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                    <span>skill package</span>
+                    <span>latest</span>
+                  </div>
+                  <div className="homepage-proof-code">
+                    <span>
+                      <b>name:</b> research-notes
+                    </span>
+                    <span>
+                      <b>slug:</b> research-notes
+                    </span>
+                    <span>
+                      <b>entry:</b> SKILL.md
+                    </span>
+                  </div>
+                  <div className="homepage-proof-document-foot">
+                    <span>package manifest</span>
+                    <span>ready to review</span>
+                  </div>
                 </div>
               </div>
 
