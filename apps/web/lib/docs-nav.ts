@@ -31,6 +31,13 @@ export const DOC_NAV: DocNavItem[] = [
     filename: "cli-developer-guide.md"
   },
   {
+    slug: "platform-agent-prompt",
+    title: "平台 Agent 系统提示词",
+    sidebarTitle: "Agent 提示词",
+    href: "/docs/platform-agent-prompt",
+    filename: "platform-agent-prompt.md"
+  },
+  {
     slug: "skill-format",
     title: "Skill 格式",
     sidebarTitle: "Skill 格式",

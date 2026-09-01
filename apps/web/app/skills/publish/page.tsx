@@ -777,34 +777,34 @@ function PublishSkillPageContent() {
                   <div className="publish-form-fields">
                     {archiveHint ? <div className="notice">{archiveHint}</div> : null}
 
-                    <div className="publish-form-grid">
-                      <label className="field">
-                        <span>Display Name <em>必填</em></span>
-                        <input
-                          maxLength={128}
-                          onChange={(event) => setDisplayName(event.target.value)}
-                          placeholder="例如 GitHub Issue Triage"
-                          required
-                          value={displayName}
-                        />
+                <div className="publish-form-grid">
+                  <label className="field">
+                    <span>Display Name <em>必填</em></span>
+                    <input
+                      maxLength={128}
+                      onChange={(event) => setDisplayName(event.target.value)}
+                      placeholder="例如 GitHub Issue Triage"
+                      required
+                      value={displayName}
+                    />
                         <small>展示名称，用于列表与详情页标题。</small>
-                      </label>
+                  </label>
 
                       <div className="publish-field-with-hint">
-                        <label className="field">
-                          <span>Slug <em>必填</em></span>
-                          <input
-                            maxLength={64}
+                  <label className="field">
+                    <span>Slug <em>必填</em></span>
+                    <input
+                      maxLength={64}
                             onChange={(event) => {
                               setErrorToast(null);
                               setSlug(event.target.value);
                             }}
-                            placeholder="例如 github-issue-triage"
+                      placeholder="例如 github-issue-triage"
                             readOnly={isNewVersion}
-                            required
-                            value={slug}
-                          />
-                        </label>
+                      required
+                      value={slug}
+                    />
+                  </label>
                         <small>
                           唯一标识 ID。
                           {isNewVersion
@@ -820,24 +820,24 @@ function PublishSkillPageContent() {
                           ) : null}
                         </small>
                       </div>
-                    </div>
+                </div>
 
-                    <label className="field">
+                <label className="field">
                       <span>Description <em>必填</em></span>
-                      <textarea
-                        maxLength={1024}
-                        onChange={(event) => setSummary(event.target.value)}
+                  <textarea
+                    maxLength={1024}
+                    onChange={(event) => setSummary(event.target.value)}
                         placeholder="说明 Skill 能做什么、适用于什么场景"
-                        required
-                        rows={4}
-                        value={summary}
-                      />
+                    required
+                    rows={4}
+                    value={summary}
+                  />
                       <small>Skill 描述，说明能做什么及适用场景。</small>
-                    </label>
+                </label>
 
-                    <div className="publish-form-grid">
+                <div className="publish-form-grid">
                       <div className="field publish-category-field" ref={categoryMenuRef}>
-                        <span>Categories <em>必填</em></span>
+                    <span>Categories <em>必填</em></span>
                         <button
                           aria-expanded={categoryMenuOpen}
                           aria-haspopup="listbox"
@@ -885,48 +885,48 @@ function PublishSkillPageContent() {
                         </small>
                       </div>
 
-                      <label className="field">
-                        <span>Topics <i>选填</i></span>
-                        <input
-                          maxLength={1024}
-                          onChange={(event) => setTopics(event.target.value)}
-                          placeholder="例如 github, issues, automation"
-                          value={topics}
-                        />
+                  <label className="field">
+                    <span>Topics <i>选填</i></span>
+                    <input
+                      maxLength={1024}
+                      onChange={(event) => setTopics(event.target.value)}
+                      placeholder="例如 github, issues, automation"
+                      value={topics}
+                    />
                         <small>Skill 业务内容、用户自定义标签。使用逗号分隔，每项最多 64 个字符。</small>
-                      </label>
-                    </div>
+                  </label>
+                </div>
 
-                    <div className="publish-form-grid">
-                      <label className="field">
-                        <span>Version <em>必填</em></span>
-                        <input
+                <div className="publish-form-grid">
+                  <label className="field">
+                    <span>Version <em>必填</em></span>
+                    <input
                           onChange={(event) => {
                             setErrorToast(null);
                             setVersion(event.target.value);
                           }}
-                          placeholder="1.0.0"
-                          required
-                          value={version}
-                        />
+                      placeholder="1.0.0"
+                      required
+                      value={version}
+                    />
                         <small>
                           {isNewVersion && sourceSkill
                             ? `须高于当前最新版本 v${sourceSkill.latestVersion}（SemVer），例如 ${suggestNextPatchVersion(sourceSkill.latestVersion)}。`
                             : "采用 SemVer 格式，例如 1.0.0。"}
                         </small>
-                      </label>
+                  </label>
 
-                      <label className="field">
-                        <span>Release Tags <em>必填</em></span>
-                        <input
-                          onChange={(event) => setReleaseTags(event.target.value)}
-                          placeholder="latest"
-                          required
-                          value={releaseTags}
-                        />
-                        <small>使用逗号分隔；新版本会接管同名 Release Tag。</small>
-                      </label>
-                    </div>
+                  <label className="field">
+                    <span>Release Tags <em>必填</em></span>
+                    <input
+                      onChange={(event) => setReleaseTags(event.target.value)}
+                      placeholder="latest"
+                      required
+                      value={releaseTags}
+                    />
+                    <small>使用逗号分隔；新版本会接管同名 Release Tag。</small>
+                  </label>
+                </div>
 
                     {isNewVersion ? (
                       <label className="field">
@@ -939,13 +939,13 @@ function PublishSkillPageContent() {
                           value={changelog}
                         />
                         <small>发布后会显示在该版本的详情中，最多 10,000 个字符。</small>
-                      </label>
+                </label>
                     ) : null}
 
                     <button className="button primary" disabled={submitting} type="submit">
                       {submitting ? "发布并审查中..." : isNewVersion ? "发布新版本" : "发布 Skill"}
-                      <ArrowRight size={16} />
-                    </button>
+                  <ArrowRight size={16} />
+                </button>
 
                     {reviewFailure ? (
                       <div className="error compact-error publish-form-feedback" role="alert">
