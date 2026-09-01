@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { BarChart3, BookOpen, Boxes, LayoutDashboard, ShieldCheck, Sparkles, UserCircle } from "lucide-react";
 import { AuthStatus } from "./AuthStatus";
 
@@ -17,10 +17,24 @@ const navItems = [
 
 export function AppShell({ children, title = "概览" }: { children: ReactNode; title?: string }) {
   const pathname = usePathname();
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    function syncScrollState() {
+      setIsScrolled((current) => {
+        const next = window.scrollY > 8;
+        return current === next ? current : next;
+      });
+    }
+
+    syncScrollState();
+    window.addEventListener("scroll", syncScrollState, { passive: true });
+    return () => window.removeEventListener("scroll", syncScrollState);
+  }, []);
 
   return (
     <div className="app-shell">
-      <header className="site-header">
+      <header className={`site-header${isScrolled ? " is-scrolled" : ""}`}>
         <Link className="brand" href="/">
           <span className="brand-mark">
             <Sparkles size={18} />

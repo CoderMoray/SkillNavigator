@@ -60,10 +60,7 @@ html {
 body {
   min-height: 100vh;
   margin: 0;
-  background:
-    radial-gradient(circle at top left, rgba(26, 115, 232, 0.12), transparent 34rem),
-    radial-gradient(circle at 85% 15vh, rgba(52, 168, 83, 0.1), transparent 28rem),
-    linear-gradient(180deg, #fbfbfd 0%, var(--background) 38%);
+  background: linear-gradient(180deg, #fbfbfd 0%, var(--background) 38%);
   background-attachment: fixed;
   color: var(--foreground);
   font-family:
@@ -109,14 +106,25 @@ button {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 24px;
-  border-bottom: 1px solid var(--border);
-  background: rgba(251, 251, 253, 0.82);
+  border-bottom: 1px solid transparent;
+  background: rgba(251, 251, 253, 0.97);
   padding: 14px 32px;
-  backdrop-filter: blur(22px);
+  transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+
+.site-header.is-scrolled {
+  border-bottom-color: var(--border);
+  background: rgba(251, 251, 253, 0.97);
+  box-shadow: 0 8px 28px rgba(16, 24, 40, 0.04);
 }
 
 :root[data-theme="dark"] .site-header {
-  background: rgba(15, 17, 23, 0.82);
+  background: rgba(15, 17, 23, 0.97);
+}
+
+:root[data-theme="dark"] .site-header.is-scrolled {
+  background: rgba(15, 17, 23, 0.97);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
 }
 
 .sidebar {
