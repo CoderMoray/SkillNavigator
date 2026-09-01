@@ -117,7 +117,7 @@ test.describe.serial("MonoSkillNavigator browser flows", () => {
     const { creator, skill } = await loadFixtures();
 
     await visit(page, "/");
-    await expect(page.getByRole("heading", { name: "Discover trusted skills from standout creators." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "发现可信Skill，放心复用" })).toBeVisible();
     await page.getByRole("textbox", { name: "搜索 Skill" }).fill(skill.name);
     await page.getByRole("textbox", { name: "搜索 Skill" }).press("Enter");
     await expect(page).toHaveURL(new RegExp(`/skills\\?query=${encodeURIComponent(skill.name)}`));

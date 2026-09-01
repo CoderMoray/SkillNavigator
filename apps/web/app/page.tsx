@@ -105,11 +105,8 @@ export default function HomePage() {
               <Sparkles aria-hidden="true" size={14} />
               MonoSkillNavigator · 开放 Agent Skill 注册表
             </span>
-            <h1 id="home-hero-title">Discover trusted skills from standout creators.</h1>
-            <p>
-              发现值得复用的 Agent 能力，也为自己的 Skill 留下清楚的结构、审查与版本来处。从一个规范的
-              <code>SKILL.md</code> 开始即可。
-            </p>
+            <h1 id="home-hero-title">发现可信Skill，放心复用</h1>
+            <p className="homepage-hero-lead">发布要审查、安装有记录、质量有评分、版本可追溯</p>
 
             <form className="homepage-search" onSubmit={handleSearch}>
               <Search aria-hidden="true" size={18} />
