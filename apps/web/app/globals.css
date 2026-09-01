@@ -305,6 +305,51 @@ button {
   gap: 10px;
 }
 
+@media (min-width: 781px) {
+  .site-header {
+    grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr);
+    padding-inline: clamp(48px, 5vw, 80px);
+  }
+
+  .brand {
+    justify-self: start;
+    margin-inline-start: clamp(16px, 2.5vw, 40px);
+  }
+
+  .top-nav {
+    justify-self: center;
+  }
+
+  .topbar-actions {
+    justify-self: end;
+    margin-inline-end: clamp(16px, 2.5vw, 40px);
+  }
+}
+
+@media (min-width: 781px) and (max-width: 1199px) {
+  .site-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "brand actions"
+      "nav nav";
+    row-gap: 10px;
+  }
+
+  .brand {
+    grid-area: brand;
+    margin-inline-start: clamp(16px, 2.5vw, 40px);
+  }
+
+  .top-nav {
+    grid-area: nav;
+  }
+
+  .topbar-actions {
+    grid-area: actions;
+    margin-inline-end: clamp(16px, 2.5vw, 40px);
+  }
+}
+
 .user-menu {
   position: relative;
 }
