@@ -1,5 +1,3 @@
-import { redirect } from "next/navigation";
-
 export default function AccountSettingsIndexPage() {
-  redirect("/account/settings/profile");
+  return <div className="skeleton settings-content-skeleton" />;
 }

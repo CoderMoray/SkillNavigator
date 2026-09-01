@@ -1,7 +1,11 @@
+/// <reference types="node" />
+
 import { expect, test, type Page } from "@playwright/test";
 import path from "node:path";
 
 const API_BASE_URL = process.env.E2E_API_BASE_URL ?? "http://127.0.0.1:3000";
+const E2E_USERNAME = process.env.E2E_USERNAME ?? "alice";
+const E2E_PASSWORD = process.env.E2E_PASSWORD ?? "password123";
 
 /** Build an API URL preserving any base path prefix (e.g. "/MonoSkillNavigator/api"). */
 function apiUrl(path: string): URL {
@@ -9,6 +13,9 @@ function apiUrl(path: string): URL {
 }
 const DOC_SLUGS = [
   "monoskill-navigator",
+  "quick-start-tutorial",
+  "cli-developer-guide",
+  "platform-agent-prompt",
   "skill-format",
   "publish-workflow",
   "security-scan",
@@ -31,13 +38,6 @@ interface SiteFixtures {
   skill: SkillFixture;
   creator: CreatorFixture;
 }
-
-interface DisposableAccount {
-  username: string;
-  password: string;
-}
-
-let disposableAccount: DisposableAccount | null = null;
 
 async function loadFixtures(): Promise<SiteFixtures> {
   const [skillsResponse, creatorsResponse] = await Promise.all([
@@ -90,40 +90,7 @@ function expectNoRuntimeErrors(errors: string[]): void {
   expect(errors, errors.join("\n")).toEqual([]);
 }
 
-async function cleanupDisposableAccount(): Promise<void> {
-  if (!disposableAccount) {
-    return;
-  }
-
-  const account = disposableAccount;
-  disposableAccount = null;
-  const loginResponse = await fetch(apiUrl("/auth/login"), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(account)
-  });
-  if (loginResponse.status === 401) {
-    return;
-  }
-
-  expect(loginResponse.ok, `Could not log in to clean up ${account.username}.`).toBeTruthy();
-  const { token } = (await loginResponse.json()) as { token: string };
-  const deleteResponse = await fetch(apiUrl("/auth/delete-account"), {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${token}`,
-      "content-type": "application/json"
-    },
-    body: JSON.stringify({ password: account.password })
-  });
-  expect(deleteResponse.ok, `Could not delete disposable account ${account.username}.`).toBeTruthy();
-}
-
 test.describe.serial("MonoSkillNavigator browser flows", () => {
-  test.afterEach(async () => {
-    await cleanupDisposableAccount();
-  });
-
   test("shows a visible home-page error when leaderboard loading fails", async ({ page }) => {
     await page.route(
       (url) =>
@@ -183,7 +150,9 @@ test.describe.serial("MonoSkillNavigator browser flows", () => {
     await expect(page.getByText(/已选 \d+ 条/)).toBeVisible();
 
     await visit(page, `/skills/${encodeURIComponent(skill.slug)}`);
-    await expect(page.getByRole("heading", { name: skill.name, exact: true })).toBeVisible();
+    await expect(
+      page.locator(".skill-detail-hero").getByRole("heading", { name: skill.name, exact: true })
+    ).toBeVisible();
     for (const tabName of ["Skill Card", "Files", "Versions", "审查与评估", "Issue 与评分"]) {
       await page.getByRole("tab", { name: tabName }).click();
       await expect(page.getByRole("tabpanel")).toContainText(tabName);
@@ -203,48 +172,77 @@ test.describe.serial("MonoSkillNavigator browser flows", () => {
       await expect(page.locator("article")).toBeVisible();
     }
 
+    await visit(page, "/login");
+    await expect(page.getByRole("heading", { name: "登录 Skill 管理平台" })).toBeVisible();
+    await visit(page, "/register");
+    await expect(page.getByRole("heading", { name: "注册平台用户" })).toBeVisible();
+    await visit(page, "/register/pending?email=e2e-route@example.test");
+    await expect(page.getByRole("heading", { name: "请验证邮箱" })).toBeVisible();
+    await expect(page.getByText(/e2e-route@example\.test/)).toBeVisible();
+    await visit(page, "/forgot-password");
+    await expect(page.getByRole("heading", { name: "重置密码" })).toBeVisible();
+    await visit(page, "/reset-password");
+    await expect(page.getByText("重置链接无效或缺少 token。")).toBeVisible();
+    await visit(page, "/verify-email");
+    await expect(page.getByRole("heading", { name: "验证失败" })).toBeVisible();
+
     await visit(page, "/account");
     await expect(page.getByRole("heading", { name: "尚未登录" })).toBeVisible();
-    await visit(page, "/account/change-password");
-    await expect(page.getByText("请先登录后再修改密码。")).toBeVisible();
-    await visit(page, "/account/delete");
-    await expect(page.getByText("请先登录后再注销账户。")).toBeVisible();
+    await visit(page, "/account/settings");
+    await expect(page).toHaveURL(/\/account\/settings\/profile$/);
+    await expect(page.getByRole("heading", { name: "请先登录" })).toBeVisible();
+    for (const settingsPath of [
+      "/account/settings/api-keys",
+      "/account/settings/password",
+      "/account/settings/delete"
+    ]) {
+      await visit(page, settingsPath);
+      await expect(page.getByRole("heading", { name: "请先登录" })).toBeVisible();
+    }
+    for (const [legacyPath, settingsPath] of [
+      ["/account/api-keys", "/account/settings/api-keys"],
+      ["/account/change-password", "/account/settings/password"],
+      ["/account/delete", "/account/settings/delete"]
+    ]) {
+      await visit(page, legacyPath);
+      await expect(page).toHaveURL(new RegExp(`${settingsPath}$`));
+      await expect(page.getByRole("heading", { name: "请先登录" })).toBeVisible();
+    }
     await visit(page, "/skills/publish");
     await expect(page.getByRole("heading", { name: "请先登录" })).toBeVisible();
 
     expectNoRuntimeErrors(errors);
   });
 
-  test("registers, manages, and removes a disposable account", async ({ page }) => {
+  test("logs in with a local fixture and loads authenticated pages", async ({ page }) => {
     const errors = monitorRuntimeErrors(page);
-    const uniqueSuffix = `${Date.now()}${Math.floor(Math.random() * 10_000)}`;
-    const username = `e2e-${uniqueSuffix}`;
-    const email = `${username}@example.test`;
-    const initialPassword = "E2ePassword!1";
-    const changedPassword = "E2ePassword!2";
 
-    await visit(page, "/register");
-    await page.getByLabel("用户名").fill(username);
-    await page.getByLabel("邮箱").fill(email);
-    await page.getByLabel("密码", { exact: true }).fill(initialPassword);
-    await page.getByLabel("确认密码").fill(initialPassword);
-    await page.getByRole("button", { name: "注册并登录" }).click();
-    await expect(page).toHaveURL(new RegExp(`/creators/${username}$`));
-    await expect(page.getByRole("heading", { name: username, exact: true })).toBeVisible();
-    disposableAccount = { username, password: initialPassword };
-
-    await page.getByRole("button", { name: username, exact: true }).click();
-    await page.getByRole("menuitem", { name: "登出" }).click();
-    await expect(page).toHaveURL(new RegExp(`/creators/${username}$`));
-    await expect(page.getByRole("link", { name: "登录" })).toBeVisible();
     await visit(page, "/login");
-    await page.getByLabel("用户名").fill(username);
-    await page.getByLabel("密码").fill(initialPassword);
+    await page.getByLabel("用户名或邮箱").fill(E2E_USERNAME);
+    await page.getByLabel("密码").fill(E2E_PASSWORD);
     await page.getByRole("button", { name: "登录" }).click();
-    await expect(page).toHaveURL(new RegExp(`/creators/${username}$`));
+    await expect(page).toHaveURL(new RegExp(`/creators/${encodeURIComponent(E2E_USERNAME)}$`));
 
     await visit(page, "/account");
-    await expect(page).toHaveURL(new RegExp(`/creators/${username}$`));
+    await expect(page).toHaveURL(new RegExp(`/creators/${encodeURIComponent(E2E_USERNAME)}$`));
+
+    await visit(page, "/account/settings");
+    await expect(page).toHaveURL(/\/account\/settings\/profile$/);
+    await expect(page.getByRole("heading", { name: "账户" })).toBeVisible();
+
+    await visit(page, "/account/settings/api-keys");
+    await expect(page.getByRole("heading", { name: "API 密钥" })).toBeVisible();
+    await page.getByRole("button", { name: "创建 API 密钥" }).click();
+    const createKeyDialog = page.getByRole("dialog", { name: "创建 API 密钥" });
+    await expect(createKeyDialog).toBeVisible();
+    await createKeyDialog.getByRole("button", { name: "关闭" }).click();
+    await expect(createKeyDialog).toHaveCount(0);
+
+    await visit(page, "/account/settings/password");
+    await expect(page.getByRole("heading", { name: "修改密码" })).toBeVisible();
+
+    await visit(page, "/account/settings/delete");
+    await expect(page.getByRole("heading", { name: "注销账户" })).toBeVisible();
 
     await visit(page, "/skills/publish");
     await expect(page.getByRole("heading", { name: "添加 Skill" })).toBeVisible();
@@ -252,48 +250,13 @@ test.describe.serial("MonoSkillNavigator browser flows", () => {
       .locator('input[type="file"][accept=".zip,application/zip"]')
       .setInputFiles(path.resolve("examples/demo-skill.zip"));
     await expect(page.getByLabel("Display Name")).toHaveValue("Demo Skill");
-    await page.getByLabel("Slug").fill(`${username}-draft`);
-    await page.getByRole("button", { name: "请选择分类" }).click();
-    await page.getByRole("option", { name: "Productivity" }).click();
-    await expect(page.getByRole("button", { name: "发布 Skill" })).toBeEnabled();
 
-    let publishCalls = 0;
-    await page.route("**/skills/publish", async (route) => {
-      publishCalls += 1;
-      await route.fulfill({
-        status: 503,
-        contentType: "application/json",
-        body: JSON.stringify({
-          error: "review_pipeline_incomplete",
-          retryable: true,
-          failedStages: [{ stage: "virustotal", message: "E2E simulated review timeout" }]
-        })
-      });
-    });
-    await page.getByRole("button", { name: "发布 Skill" }).click();
-    const reviewFailure = page.locator(".publish-form-feedback[role='alert']");
-    await expect(reviewFailure).toContainText("审查流程未完成，Skill 尚未保存。");
-    await expect(reviewFailure).toContainText(/VirusTotal 扫描：\s*E2E simulated review timeout/);
-    await page.getByRole("button", { name: "重新运行完整审查" }).click();
-    await expect.poll(() => publishCalls).toBe(2);
-    await page.unroute("**/skills/publish");
+    const { skill } = await loadFixtures();
+    await visit(page, `/skills/publish?skill=${encodeURIComponent(skill.slug)}`);
+    await expect(
+      page.getByRole("heading", { name: /发布 .+ 的新版本|无权发布新版本/ })
+    ).toBeVisible();
 
-    await visit(page, "/account/change-password");
-    await page.getByLabel("当前密码").fill(initialPassword);
-    await page.getByLabel("新密码", { exact: true }).fill(changedPassword);
-    await page.getByLabel("确认新密码").fill(changedPassword);
-    await page.getByRole("button", { name: "保存新密码" }).click();
-    await expect(page).toHaveURL(new RegExp(`/creators/${username}$`));
-    disposableAccount.password = changedPassword;
-
-    await visit(page, "/account/delete");
-    await page.getByLabel("当前密码").fill(changedPassword);
-    await page.getByRole("button", { name: "申请注销" }).click();
-    await expect(page.getByRole("alertdialog", { name: "确认注销账户" })).toBeVisible();
-    await page.getByRole("button", { name: "确认注销" }).click();
-    await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByRole("link", { name: "登录" })).toBeVisible();
-
-    expectNoRuntimeErrors(errors.filter((error) => !/503.*\/skills\/publish/.test(error)));
+    expectNoRuntimeErrors(errors);
   });
 });

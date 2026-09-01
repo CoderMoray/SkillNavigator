@@ -1,4 +1,4 @@
-<!-- ---
+---
 slug: demo-skill
 name: Demo Skill
 description: Reviews a short product idea and returns structured feedback. Use when the user asks for a lightweight product idea critique.
@@ -16,7 +16,7 @@ supportedAgents:
   - cursor
 allowed-tools:
   - Read
---- -->
+---
 
 # Demo Skill
 

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Settings } from "lucide-react";
 import { AppShell } from "../../../components/AppShell";
@@ -11,8 +12,16 @@ import type { PublicUser } from "../../../lib/types";
 import { SettingsUserProvider } from "./settings-user-context";
 
 export default function AccountSettingsLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
   const [user, setUser] = useState<PublicUser | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (pathname === "/account/settings") {
+      router.replace("/account/settings/profile");
+    }
+  }, [pathname, router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,7 +102,7 @@ export default function AccountSettingsLayout({ children }: { children: React.Re
           </header>
           <div className="settings-layout">
             <SettingsSidebar />
-            <main className="settings-main">{children}</main>
+            <div className="settings-main">{children}</div>
           </div>
         </div>
       </SettingsUserProvider>
