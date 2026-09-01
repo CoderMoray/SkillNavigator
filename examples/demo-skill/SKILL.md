@@ -1,5 +1,3 @@
-
-
 <!-- ---
 slug: demo-skill
 name: Demo Skill

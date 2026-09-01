@@ -25,8 +25,8 @@ export const DOC_NAV: DocNavItem[] = [
   },
   {
     slug: "cli-developer-guide",
-    title: "CLI 开发指南：从 0 到 1 发布 Skill",
-    sidebarTitle: "CLI 开发指南",
+    title: "CLI 指南：从 0 到 1 发布 Skill",
+    sidebarTitle: "CLI 指南",
     href: "/docs/cli-developer-guide",
     filename: "cli-developer-guide.md"
   },
