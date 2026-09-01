@@ -11,7 +11,6 @@ import {
   Code2,
   FileText,
   GitBranch,
-  KeyRound,
   Search,
   ShieldCheck,
   Sparkles,
@@ -28,6 +27,30 @@ const sortTabs = [
   { value: "downloads", label: "热门" },
   { value: "rating", label: "高评分" },
   { value: "recent", label: "最近更新" }
+];
+
+const trustRecords = [
+  {
+    href: "/docs/skill-format",
+    icon: FileText,
+    index: "01",
+    title: "从 SKILL.md 开始",
+    description: "读取入口文件与元数据，让包结构和登记信息有清晰、可检查的基础。",
+  },
+  {
+    href: "/docs/security-scan",
+    icon: ShieldCheck,
+    index: "02",
+    title: "保留静态审查线索",
+    description: "SkillSpector 与 VirusTotal 的结果会进入审查记录，供安装前进一步判断。",
+  },
+  {
+    href: "/docs/halucatch-review",
+    icon: Braces,
+    index: "03",
+    title: "查看可靠性报告",
+    description: "HaluCatch 的五维评估帮助厘清能力边界，并将发现保留在详情页中。",
+  },
 ];
 
 export default function HomePage() {
@@ -76,16 +99,16 @@ export default function HomePage() {
   return (
     <AppShell title="首页">
       <div className="homepage">
-        <section className="homepage-hero">
+        <section aria-labelledby="home-hero-title" className="homepage-hero">
           <div className="homepage-hero-copy">
             <span className="homepage-kicker">
-              <Sparkles size={14} />
-              MonoSkillNavigator · Agent Skill registry
+              <Sparkles aria-hidden="true" size={14} />
+              MonoSkillNavigator · 开放 Agent Skill 注册表
             </span>
-            <h1>Discover trusted skills from standout creators.</h1>
+            <h1 id="home-hero-title">Discover trusted skills from standout creators.</h1>
             <p>
-              把可复用的 Agent 工作流整理为可发现、可审查、可追溯的 Skill。浏览公开条目，或从一个清晰的
-              <code>SKILL.md</code> 开始发布自己的能力包。
+              发现值得复用的 Agent 能力，也为自己的 Skill 留下清楚的结构、审查与版本来处。从一个规范的
+              <code>SKILL.md</code> 开始即可。
             </p>
 
             <form className="homepage-search" onSubmit={handleSearch}>
@@ -97,98 +120,131 @@ export default function HomePage() {
                 value={query}
               />
               <button aria-label="提交搜索" type="submit">
-                <ArrowRight size={17} />
+                <ArrowRight aria-hidden="true" size={17} />
               </button>
             </form>
 
             <div className="homepage-hero-actions">
               <Link className="button homepage-button-primary" href="/skills">
-                探索公开 Skill <ArrowRight size={16} />
+                探索公开 Skill <ArrowRight aria-hidden="true" size={16} />
               </Link>
               <Link className="button homepage-button-secondary" href="/skills/publish">
                 发布一个 Skill
               </Link>
             </div>
 
-            <div className="homepage-hero-meta">
-              <span>SKILL.md 格式校验</span>
-              <span>审查结果可查</span>
-              <span>版本历史可回看</span>
-            </div>
+            <ul aria-label="平台能力" className="homepage-hero-meta">
+              <li>SKILL.md 格式校验</li>
+              <li>审查结果可查</li>
+              <li>版本历史可回看</li>
+            </ul>
           </div>
 
-          <div aria-hidden="true" className="homepage-signal-stage">
-            <div className="homepage-signal-grid" />
-            <div className="homepage-signal-orbit homepage-signal-orbit-one" />
-            <div className="homepage-signal-orbit homepage-signal-orbit-two" />
-            <div className="homepage-signal-route homepage-signal-route-one" />
-            <div className="homepage-signal-route homepage-signal-route-two" />
+          <div aria-hidden="true" className="homepage-hero-proof">
+            <div className="homepage-proof-glow" />
+            <div className="homepage-proof-document">
+              <div className="homepage-proof-document-head">
+                <span className="homepage-proof-window">
+                  <span />
+                  <span />
+                  <span />
+                </span>
+                <span>skill package</span>
+                <span>latest</span>
+              </div>
+              <div className="homepage-proof-code">
+                <span>
+                  <b>name:</b> research-notes
+                </span>
+                <span>
+                  <b>slug:</b> research-notes
+                </span>
+                <span>
+                  <b>entry:</b> SKILL.md
+                </span>
+              </div>
+              <div className="homepage-proof-document-foot">
+                <span>package manifest</span>
+                <span>ready to review</span>
+              </div>
+            </div>
 
-            <div className="homepage-signal-card homepage-signal-file">
-              <span className="homepage-signal-icon"><FileText size={18} /></span>
-              <span>
-                <small>package entry</small>
-                <strong>SKILL.md</strong>
-              </span>
+            <div className="homepage-proof-trace">
+              <div className="homepage-proof-trace-line" />
+              <div className="homepage-proof-row">
+                <span className="homepage-proof-icon"><FileText size={16} /></span>
+                <span>
+                  <small>package entry</small>
+                  <strong>SKILL.md</strong>
+                </span>
+                <em>已读取</em>
+              </div>
+              <div className="homepage-proof-row">
+                <span className="homepage-proof-icon"><ShieldCheck size={16} /></span>
+                <span>
+                  <small>review trace</small>
+                  <strong>审查摘要</strong>
+                </span>
+                <em>可查看</em>
+              </div>
+              <div className="homepage-proof-row">
+                <span className="homepage-proof-icon"><GitBranch size={16} /></span>
+                <span>
+                  <small>release trail</small>
+                  <strong>版本记录</strong>
+                </span>
+                <em>可追溯</em>
+              </div>
             </div>
-            <div className="homepage-signal-core">
-              <span>MONO</span>
-              <i />
-            </div>
-            <div className="homepage-signal-card homepage-signal-review">
-              <span className="homepage-signal-icon"><ShieldCheck size={18} /></span>
-              <span>
-                <small>review trace</small>
-                <strong>审查摘要</strong>
-              </span>
-            </div>
-            <div className="homepage-signal-card homepage-signal-version">
-              <span className="homepage-signal-icon"><GitBranch size={18} /></span>
-              <span>
-                <small>release trail</small>
-                <strong>版本记录</strong>
-              </span>
-            </div>
-            <div className="homepage-signal-pulse homepage-signal-pulse-one" />
-            <div className="homepage-signal-pulse homepage-signal-pulse-two" />
           </div>
         </section>
 
-        <section className="homepage-discovery">
+        <section aria-labelledby="home-discovery-title" className="homepage-discovery">
           <div className="homepage-section-heading">
             <div>
               <span className="homepage-section-label">探索</span>
-              <h2>从正在解决的问题开始。</h2>
-              <p>按目录分类浏览公开 Skill，再进入详情了解版本、发布者与审查信息。</p>
+              <h2 id="home-discovery-title">从正在解决的问题开始。</h2>
+              <p>按领域浏览公开 Skill，再进入详情查看版本、发布者与审查信息。</p>
             </div>
-            <Link className="homepage-inline-link" href="/skills">
-              查看全部 <ArrowRight size={15} />
-            </Link>
           </div>
 
-          <div className="homepage-category-grid">
-            {SKILL_CATEGORY_OPTIONS.slice(0, 6).map((category) => (
-              <Link
-                className="homepage-category-card"
-                href={`/skills?category=${encodeURIComponent(category)}`}
-                key={category}
-              >
-                <SkillCategoryLabel category={category} iconSize={18} />
-                <ArrowRight aria-hidden="true" size={16} />
+          <div className="homepage-discovery-layout">
+            <div className="homepage-category-panel">
+              <span className="homepage-panel-label">按领域浏览</span>
+              <div className="homepage-category-grid">
+                {SKILL_CATEGORY_OPTIONS.slice(0, 6).map((category) => (
+                  <Link
+                    className="homepage-category-card"
+                    href={`/skills?category=${encodeURIComponent(category)}`}
+                    key={category}
+                  >
+                    <SkillCategoryLabel category={category} iconSize={17} />
+                    <ArrowRight aria-hidden="true" size={15} />
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <aside className="homepage-discovery-note">
+              <span className="homepage-panel-label">更快缩小范围</span>
+              <strong>从名称、作者或使用场景搜索。</strong>
+              <p>目录用于浏览，搜索用于直接抵达；两种方式都能通向同一份公开注册表。</p>
+              <Link className="homepage-inline-link" href="/skills">
+                浏览全部 Skill <ArrowRight aria-hidden="true" size={15} />
               </Link>
-            ))}
+            </aside>
           </div>
         </section>
 
-        <section className="homepage-featured">
+        <section aria-labelledby="home-featured-title" className="homepage-featured">
           <div className="homepage-section-heading homepage-featured-heading">
             <div>
               <span className="homepage-section-label">精选内容</span>
-              <h2>从公开注册表实时挑选。</h2>
-              <p>按热度、评分或最近更新查看当前可探索的 Skill。</p>
+              <h2 id="home-featured-title">此刻值得细看的 Skill。</h2>
+              <p>按热度、评分或最近更新，从公开注册表中挑选三个可继续探索的条目。</p>
             </div>
             <Link className="homepage-inline-link" href="/leaderboard">
-              打开榜单 <ArrowRight size={15} />
+              打开榜单 <ArrowRight aria-hidden="true" size={15} />
             </Link>
           </div>
 
@@ -206,7 +262,7 @@ export default function HomePage() {
                 </button>
               ))}
             </div>
-            <span>来自公开 Skill 注册表</span>
+            <span className="homepage-featured-source">来自公开 Skill 注册表</span>
           </div>
 
           {error ? (
@@ -219,7 +275,7 @@ export default function HomePage() {
             </div>
           ) : loading ? (
             <div aria-busy="true" aria-label="正在加载精选 Skill" className="homepage-featured-grid">
-              {Array.from({ length: 6 }).map((_, index) => (
+              {Array.from({ length: 3 }).map((_, index) => (
                 <div className="homepage-skill-skeleton" key={index} />
               ))}
             </div>
@@ -234,66 +290,59 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="homepage-featured-grid">
-              {items.slice(0, 6).map((skill) => (
+              {items.slice(0, 3).map((skill) => (
                 <SkillCard key={skill.slug} skill={skill} />
               ))}
             </div>
           )}
         </section>
 
-        <section className="homepage-trust">
-          <div className="homepage-section-heading">
+        <section aria-labelledby="home-trust-title" className="homepage-trust">
+          <div className="homepage-trust-heading">
             <div>
               <span className="homepage-section-label">可信审查</span>
-              <h2>不是只看描述，也保留检查的线索。</h2>
+              <h2 id="home-trust-title">不仅看描述，也保留检查的线索。</h2>
               <p>每个环节都围绕包结构、静态风险与可靠性报告组织，便于在安装前做自己的判断。</p>
             </div>
             <Link className="homepage-inline-link" href="/reviews">
-              查看审查中心 <ArrowRight size={15} />
+              查看审查中心 <ArrowRight aria-hidden="true" size={15} />
             </Link>
           </div>
 
-          <div className="homepage-trust-grid">
-            <Link className="homepage-trust-card" href="/docs/skill-format">
-              <span className="homepage-trust-icon"><FileText size={20} /></span>
-              <div>
-                <h3>从 SKILL.md 开始</h3>
-                <p>发布时读取入口文件和元数据，帮助保持包结构与登记信息一致。</p>
-              </div>
-              <span className="homepage-card-link">查看格式 <ArrowRight size={14} /></span>
-            </Link>
-            <Link className="homepage-trust-card" href="/docs/security-scan">
-              <span className="homepage-trust-icon"><ShieldCheck size={20} /></span>
-              <div>
-                <h3>静态安全审查</h3>
-                <p>SkillSpector 与 VirusTotal 的结果会成为审查记录的一部分，而不是安全保证。</p>
-              </div>
-              <span className="homepage-card-link">了解检测 <ArrowRight size={14} /></span>
-            </Link>
-            <Link className="homepage-trust-card" href="/docs/halucatch-review">
-              <span className="homepage-trust-icon"><Braces size={20} /></span>
-              <div>
-                <h3>五维可靠性报告</h3>
-                <p>在详情页查看 HaluCatch 评估，让能力边界与风险判断更容易被追溯。</p>
-              </div>
-              <span className="homepage-card-link">了解评估 <ArrowRight size={14} /></span>
-            </Link>
-          </div>
+          <ol className="homepage-trust-list">
+            {trustRecords.map((record) => {
+              const Icon = record.icon;
+              return (
+                <li key={record.index}>
+                  <span aria-hidden="true" className="homepage-trust-index">{record.index}</span>
+                  <span aria-hidden="true" className="homepage-trust-icon"><Icon size={19} /></span>
+                  <div>
+                    <h3>
+                      <Link href={record.href}>
+                        {record.title} <ArrowRight aria-hidden="true" size={15} />
+                      </Link>
+                    </h3>
+                    <p>{record.description}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
         </section>
 
-        <section className="homepage-publish">
+        <section aria-labelledby="home-publish-title" className="homepage-publish">
           <div className="homepage-publish-copy">
             <span className="homepage-kicker">
-              <KeyRound size={14} />
+              <GitBranch aria-hidden="true" size={14} />
               发布与版本
             </span>
-            <h2>用你习惯的入口，把 Skill 交给注册表。</h2>
+            <h2 id="home-publish-title">用习惯的入口，把 Skill 交给注册表。</h2>
             <p>
-              在浏览器上传文件夹或 ZIP，或通过 skillnav CLI 完成登录与发布。每个版本都保留关联的包快照、审查结果和变更记录。
+              在浏览器上传文件夹或 ZIP，或通过 skillnav CLI 完成登录与发布。每个版本都会关联包快照、审查结果与变更记录。
             </p>
             <div className="homepage-hero-actions">
               <Link className="button homepage-button-primary" href="/skills/publish">
-                从 Web 发布 <ArrowRight size={16} />
+                从 Web 发布 <ArrowRight aria-hidden="true" size={16} />
               </Link>
               <Link className="button homepage-button-secondary" href="/docs/cli-developer-guide">
                 阅读 CLI 指南
@@ -301,52 +350,23 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="homepage-publish-paths">
-            <article className="homepage-publish-card">
-              <span className="homepage-publish-icon"><Boxes size={20} /></span>
-              <div>
-                <h3>浏览器上传</h3>
-                <p>选择一个 Skill 文件夹或 ZIP。平台解析入口文件，并在提交前补全发布信息。</p>
-              </div>
-              <Link className="homepage-card-link" href="/skills/publish">
-                打开发布页 <ArrowRight size={14} />
-              </Link>
-            </article>
-
-            <article className="homepage-publish-card homepage-cli-card">
-              <div className="homepage-cli-card-head">
-                <span className="homepage-publish-icon"><Code2 size={20} /></span>
-                <span>skillnav CLI</span>
-              </div>
-              <pre>{skillnavHomeCliExamples()}</pre>
-              <Link className="homepage-card-link" href="/docs/cli-developer-guide">
-                查看命令说明 <ArrowRight size={14} />
-              </Link>
-            </article>
-
+          <div className="homepage-publish-command">
+            <div className="homepage-publish-command-head">
+              <span className="homepage-publish-icon"><Code2 aria-hidden="true" size={20} /></span>
+              <span>
+                <small>ship with skillnav</small>
+                <strong>CLI 发布路径</strong>
+              </span>
+              <span className="homepage-command-status">可重复执行</span>
+            </div>
+            <pre aria-label="skillnav CLI 发布示例">{skillnavHomeCliExamples()}</pre>
             <div className="homepage-version-trail">
-              <GitBranch aria-hidden="true" size={20} />
+              <GitBranch aria-hidden="true" size={19} />
               <p>
                 <strong>版本不会覆盖历史。</strong>
                 新版本沿用不可变的 slug，并在 Skill 详情中保留可查看的版本记录。
               </p>
             </div>
-          </div>
-        </section>
-
-        <section className="homepage-final-cta">
-          <div>
-            <span className="homepage-section-label">下一步</span>
-            <h2>让下一项 Agent 能力，拥有清晰的来处与去向。</h2>
-            <p>从阅读公开 Skill、查看审查信息，或准备自己的 SKILL.md 开始。</p>
-          </div>
-          <div className="homepage-final-actions">
-            <Link className="button homepage-final-primary" href="/skills/publish">
-              发布 Skill <ArrowRight size={16} />
-            </Link>
-            <Link className="button homepage-final-secondary" href="/docs/quick-start-tutorial">
-              阅读新手教程
-            </Link>
           </div>
         </section>
       </div>
