@@ -4682,15 +4682,15 @@ button {
   grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
   gap: clamp(32px, 6vw, 82px);
   overflow: hidden;
-  border: 1px solid rgba(210, 239, 227, 0.18);
-  border-radius: 34px;
+  width: 100vw;
+  margin-inline: calc(50% - 50vw);
   background:
     radial-gradient(circle at 90% 10%, rgba(219, 227, 164, 0.18), transparent 21rem),
     radial-gradient(circle at 4% 106%, rgba(83, 174, 163, 0.2), transparent 25rem),
     linear-gradient(132deg, var(--homepage-hero-start), var(--homepage-hero-end));
   color: var(--homepage-hero-copy);
-  padding: clamp(32px, 5.6vw, 70px);
-  box-shadow: 0 26px 64px rgba(15, 48, 55, 0.18);
+  padding-block: clamp(32px, 5.6vw, 70px);
+  padding-inline: max(28px, calc((100vw - 1124px) / 2));
 }
 
 .homepage-hero::before {
@@ -5693,7 +5693,6 @@ button {
 
   .homepage-hero {
     gap: 27px;
-    border-radius: 26px;
     padding: 29px 22px;
   }
 
