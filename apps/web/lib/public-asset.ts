@@ -5,4 +5,5 @@ export function publicAssetPath(assetPath: string): string {
   return `${basePath}${normalized}`;
 }
 
-export const PLATFORM_LOGO_PATH = "/branding/monoskillnavigator-logo.png";
+/** Served from apps/web/public; source of truth: packages/MailManager/templates/msn-logo.png */
+export const PLATFORM_LOGO_PATH = "/branding/msn-logo.png";

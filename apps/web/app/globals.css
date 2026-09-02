@@ -142,26 +142,17 @@ button {
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-shrink: 0;
+  overflow: visible;
   padding: 0;
 }
 
-.brand-mark {
-  display: grid;
-  width: 38px;
-  height: 38px;
-  place-items: center;
-  border-radius: 13px;
-  background: linear-gradient(135deg, #111827, #3b82f6);
-  color: white;
-  box-shadow: 0 12px 28px rgba(26, 115, 232, 0.25);
-}
-
-.brand-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+.brand-logo {
+  display: block;
+  width: auto;
+  height: 40px;
+  max-width: min(280px, 52vw);
+  object-fit: contain;
 }
 
 .brand-subtitle {

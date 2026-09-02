@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { BarChart3, BookOpen, Boxes, LayoutDashboard, ShieldCheck, Sparkles, UserCircle } from "lucide-react";
+import { BarChart3, BookOpen, Boxes, LayoutDashboard, ShieldCheck, UserCircle } from "lucide-react";
 import { AuthStatus } from "./AuthStatus";
+import { PLATFORM_LOGO_PATH, publicAssetPath } from "../lib/public-asset";
 
 const navItems = [
   { href: "/", label: "首页", icon: LayoutDashboard },
@@ -36,10 +37,14 @@ export function AppShell({ children, title = "概览" }: { children: ReactNode; 
     <div className="app-shell">
       <header className={`site-header${isScrolled ? " is-scrolled" : ""}`}>
         <Link className="brand" href="/">
-          <span className="brand-mark">
-            <Sparkles size={18} />
-          </span>
-          <span className="brand-title">MonoSkillNavigator</span>
+          <img
+            alt="MonoSkillNavigator"
+            className="brand-logo"
+            decoding="async"
+            height={40}
+            src={publicAssetPath(PLATFORM_LOGO_PATH)}
+            width={211}
+          />
         </Link>
 
         <nav aria-label="主导航" className="top-nav">
