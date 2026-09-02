@@ -1,6 +1,6 @@
 # MailManager
 
-通用邮件生成与发送包。**零项目依赖**，不依赖 `from rapid import config` 等任何内部配置，可直接复制到任意外部系统使用。
+通用邮件生成与发送包。**零项目依赖**，不依赖任何项目内部配置，可直接复制到任意外部系统使用。
 
 ## 目录结构
 
@@ -10,8 +10,8 @@ MailManager/
 ├── mailmanager.py                   # MailManager 类（生成 / 投递 / 清理 / 模板渲染）
 ├── smtp.py                          # SMTPServer（仅 SMTP 发送层，无 IMAP）
 ├── templates/
-│   ├── rapid_os_general_email.html  # 内置 Rapid OS 风格模板
-│   └── rapid_b.png                  # 默认 Logo 占位
+│   ├── msn_os_general_email.html    # 内置 MonoSkillNavigator (MSN) 风格模板
+│   └── msn-logo.png                 # 默认 Logo
 └── maildrop/                        # 默认运行时目录（.gitkeep 占位）
 ```
 
@@ -20,7 +20,7 @@ MailManager/
 直接复制 `MailManager/` 目录到目标项目即可，无需 `pip install`。
 
 ```python
-from apple.plugin.MailManager import MailManager
+from MailManager import MailManager
 ```
 
 ## 初始化
@@ -61,14 +61,14 @@ mail.generate(
 )
 ```
 
-**使用模板**（仅内置 Rapid OS 风格）：
+**使用模板**（内置 MonoSkillNavigator / MSN 风格）：
 
 ```python
 mail.generate(
     to=["user@example.com"],
     subject="日报通知",
     if_template=True,
-    template_style="Rapid OS - General",
+    template_style="MSN - General",
     content_body={
         "subject": "日报通知",           # 可选，缺省取 subject 参数
         "name": "张三",                  # 收件人称呼，可空
@@ -76,11 +76,13 @@ mail.generate(
         "note": "请注意核实数据",         # 黄色提示框，可空
         "end_content": "<p>详情见附件</p>",  # 可空
         "comment": "如有疑问请联系管理员", # 灰色注释，可空
-        "signature_name": "<strong>Rapid Team</strong>",
+        "signature_name": "<strong>MonoSkillNavigator Team</strong>",
         "signature_email": "support@example.com",  # 可空
     },
 )
 ```
+
+`template_style` 也接受 `"MonoSkillNavigator - General"`；`"Rapid OS - General"` 仍作为兼容别名保留。
 
 模板占位符（缺任一必填项会抛 `ValueError`）：`subject, name, main_content, note, end_content, comment, signature_name, signature_email, logo_base64`。
 
@@ -109,8 +111,8 @@ mail.clear(days=7)    # 清 7 天前的 .sent
 mail = MailManager(smtp_server=..., smtp_port=..., smtp_user=..., smtp_password=...)
 
 # 1) 业务代码里多处排队
-mail.generate(to=[...], subject="A", if_template=True, template_style="Rapid OS - General", content_body={...})
-mail.generate(to=[...], subject="B", if_template=True, template_style="Rapid OS - General", content_body={...})
+mail.generate(to=[...], subject="A", if_template=True, template_style="MSN - General", content_body={...})
+mail.generate(to=[...], subject="B", if_template=True, template_style="MSN - General", content_body={...})
 
 # 2) 定时任务 / 批处理末尾统一投递
 mail.send_from_maildrop()
@@ -124,7 +126,7 @@ mail.clear(days=30)
 - **MailDrop 路径**：默认在包内 `maildrop/`，运行时会写入 `.pkl` / `.pkl.sent`。建议显式传入 `maildrop_dir` 指向运行时目录，或在 `.gitignore` 忽略 `MailManager/maildrop/*.pkl*`。
 - **无单封直发**：本包只提供「排队 + 批量投递」模式（按你要求移除了单封直发方法）。
 - **附件**：普通附件为 `{文件名: bytes}`；以 `"image:"` 为前缀的 key 作为内嵌图片（HTML 中用 `<img src="cid:xxx">` 引用）。
-- **Logo**：模板默认使用内置 `rapid_b.png`，编码为 `logo_base64` 注入模板。需替换品牌 Logo 时，可扩展 `MailManager` 增加 `logo_path` 参数覆盖。
+- **Logo**：模板默认使用内置 `msn-logo.png`，编码为 `logo_base64` 注入模板。需替换品牌 Logo 时，可扩展 `MailManager` 增加 `logo_path` 参数覆盖。
 
 ## 依赖
 

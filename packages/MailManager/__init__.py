@@ -1,7 +1,7 @@
 """
 MailManager - 通用邮件生成与发送包
 
-仅依赖标准库，不依赖任何项目内部配置（如 from rapid import config）。
+仅依赖标准库，不依赖任何项目内部配置。
 邮件初始化参数由外部系统在实例化时传入，因此可被任意外部系统通用。
 
 用法：
@@ -20,7 +20,7 @@ MailManager - 通用邮件生成与发送包
     )
 
     mail.generate(to=["user@example.com"], subject="测试",
-                  content_body={...}, template_style="Rapid OS - General")
+                  content_body={...}, template_style="MSN - General")
     mail.send_from_maildrop()
     mail.clear(days=30)
 """

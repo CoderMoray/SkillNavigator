@@ -3,7 +3,7 @@ MailManager - 通用邮件生成与发送管理器
 
 负责：
   1. 邮件生成（write）：将邮件序列化存入 MailDrop（.pkl）
-  2. 模板渲染：仅内置 Rapid OS 风格模板，支持后续扩展
+  2. 模板渲染：仅内置 MonoSkillNavigator (MSN) 风格模板，支持后续扩展
   3. 批量发送（send_from_maildrop）：从 MailDrop 读取并发送
   4. 缓存清理（clear）：删除超过 N 天的已发送缓存（.pkl.sent）
 
@@ -64,7 +64,7 @@ class MailManager(object):
 
         # 模板与资源目录
         self._templates_dir = os.path.join(os.path.dirname(__file__), "templates")
-        self._asset_logo = os.path.join(self._templates_dir, "rapid_b.png")
+        self._asset_logo = os.path.join(self._templates_dir, "msn-logo.png")
 
     # ------------------------------------------------------------------ #
     # 生成（排队）
@@ -96,7 +96,7 @@ class MailManager(object):
             attachments (dict, optional): 附件 {文件名: bytes}；"image:" 前缀作为内嵌图片
             reply_to (list, optional): 回复地址
             if_template (bool): 是否使用模板
-            template_style (str, optional): 模板风格，如 "Rapid OS - General"
+            template_style (str, optional): 模板风格，如 "MSN - General"
             content_body (dict, optional): 模板上下文变量
 
         Returns:
@@ -116,7 +116,11 @@ class MailManager(object):
             if template_style is None:
                 raise ValueError("使用模板时必须指定 template_style")
             style = template_style.lower()
-            if style == "rapid os - general":
+            if style in {
+                "msn - general",
+                "monoskillnavigator - general",
+                "rapid os - general",  # deprecated alias
+            }:
                 if content_body is None:
                     raise ValueError("使用模板时必须提供 content_body")
                 if "subject" not in content_body:
@@ -124,7 +128,7 @@ class MailManager(object):
                 with open(self._asset_logo, "rb") as f:
                     logo_base64 = base64.b64encode(f.read()).decode("utf-8")
                 content_body["logo_base64"] = logo_base64
-                content = self._render_rapid_os_general_template(content_body)
+                content = self._render_msn_os_general_template(content_body)
             else:
                 raise KeyError(f"不支持的 template_style: {template_style}")
         # if_template=False 时：content 直接作为 HTML 正文
@@ -206,13 +210,13 @@ class MailManager(object):
     # ------------------------------------------------------------------ #
     # 模板渲染
     # ------------------------------------------------------------------ #
-    def _render_rapid_os_general_template(self, content_body: Dict[str, Any]) -> str:
-        """渲染 Rapid OS - General 风格邮件模板。
+    def _render_msn_os_general_template(self, content_body: Dict[str, Any]) -> str:
+        """渲染 MonoSkillNavigator (MSN) 通用邮件模板。
 
-        模板文件：templates/rapid_os_general_email.html
+        模板文件：templates/msn_os_general_email.html
         占位符语法：${var} 或 $var（使用 string.Template.safe_substitute）
         """
-        template_path = os.path.join(self._templates_dir, "rapid_os_general_email.html")
+        template_path = os.path.join(self._templates_dir, "msn_os_general_email.html")
         if not os.path.exists(template_path):
             raise FileNotFoundError(f"模板文件未找到: {template_path}")
 
@@ -245,7 +249,7 @@ class MailManager(object):
 
         # 处理 signature_name（提供默认）
         if "signature_name" not in body:
-            body["signature_name"] = "<strong>Rapid Team</strong><br><br>"
+            body["signature_name"] = "<strong>MonoSkillNavigator Team</strong><br><br>"
 
         # 处理 name
         name = body.get("name", "").strip()

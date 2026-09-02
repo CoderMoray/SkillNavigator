@@ -123,7 +123,7 @@ def main() -> int:
             to=[to.strip()],
             subject=subject,
             if_template=True,
-            template_style="Rapid OS - General",
+            template_style="MSN - General",
             content_body={
                 "subject": subject,
                 "name": username.strip(),

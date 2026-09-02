@@ -24,7 +24,7 @@
         padding: 40px;
     }
     .header {
-        background: #3a5bd7; /* 做一次基础声明用来支持老的前端系统 */
+        background: #3a5bd7;
         background: linear-gradient(135deg, #4A6CF7, #8A2BE2);
         padding: 0px;
         border-radius: 10px;
@@ -43,7 +43,7 @@
         border: 1.5px solid rgba(255, 255, 255, 0.25);
         border-radius: 10px;
         padding: 16px 0;
-        box-shadow: 
+        box-shadow:
             0 3px 12px rgba(0, 0, 0, 0.15),
             inset 0 0.5px 0 rgba(255, 255, 255, 0.2);
         text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -88,6 +88,12 @@
         color: #86868b;
         margin-top: 4px;
     }
+    .signature-logo {
+        display: block;
+        width: 100px;
+        height: auto;
+        opacity: 0.32;
+    }
 
 </style>
 </head>
@@ -111,17 +117,16 @@
             Best Regards,<br>
             <strong>${signature_name}</strong><br>
             ${signature_email}
-            <div class="signature-desc">Real-time Analytics Processing Insights Dashboard</div>
-            <div class="signature-email">Support by APPLE, China |  Rapid Team</div>
+            <div class="signature-desc">MonoSkillNavigator · Agent Skill 注册与审查平台</div>
+            <div class="signature-email">Support by APPLE, China | MonoSkillNavigator Team</div>
         </div>
         <!-- 右侧：Logo，和文字同行 -->
         <div style="margin-left: 16px; margin-right: 4px;">
-            <img src="data:image/png;base64,${logo_base64}" 
-                    alt="Rapid Logo" 
-                    style="width: 40px; 
-                            height: auto; 
-                            opacity: 0.25;
-                            ">
+            <img
+                class="signature-logo"
+                src="data:image/png;base64,${logo_base64}"
+                alt="MonoSkillNavigator Logo"
+            >
         </div>
     </div>
 </div>
