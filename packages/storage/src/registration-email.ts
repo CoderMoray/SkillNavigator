@@ -6,7 +6,8 @@ export interface RegistrationEmailPayload {
   to: string;
   username: string;
   verifyUrl: string;
-  mailType?: "verify" | "password_reset";
+  mailType?: "verify" | "verify_resend" | "password_reset";
+  mailKind?: "register" | "resend";
 }
 
 export interface PasswordResetEmailPayload {

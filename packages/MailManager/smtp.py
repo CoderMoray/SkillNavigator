@@ -6,10 +6,12 @@ SMTP 发送层（从原 apple/core/mailmanager.py 提取，去除 IMAP 与硬编
 import os
 import time as _time
 import smtplib
+import uuid
 from email.header import Header
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formatdate, make_msgid
 
 
 class SMTPServer(object):
@@ -90,12 +92,16 @@ class SMTPServer(object):
                     # 构造邮件
                     message = MIMEMultipart()
                     message["From"] = self.__user
-                    message["To"] = Header(",".join(to))
+                    # RFC 5322: To/Cc use plain address lists; Header() here can break delivery.
+                    message["To"] = ", ".join(to)
                     if cc:
-                        message["CC"] = Header(",".join(cc))
+                        message["Cc"] = ", ".join(cc)
                     message["Subject"] = Header(subject, "utf-8")
+                    message["Date"] = formatdate(localtime=True)
+                    domain = self.__user.split("@", 1)[-1] if "@" in self.__user else "localhost"
+                    message["Message-ID"] = make_msgid(domain=domain)
                     if reply_to:
-                        message.add_header("reply-to", ",".join(reply_to))
+                        message.add_header("Reply-To", ", ".join(reply_to))
                     att_part = MIMEText(content, "html", "utf-8")
                     att_part["Content-Type"] = "text/html;charset=utf-8"
                     att_part["Content-Disposition"] = "inline"

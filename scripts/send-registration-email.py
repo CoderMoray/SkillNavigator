@@ -10,6 +10,8 @@ import contextlib
 import json
 import os
 import sys
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -60,7 +62,7 @@ def main() -> int:
     to = payload.get("to")
     username = payload.get("username")
     mail_type = payload.get("mailType") or "verify"
-    url_field = "verifyUrl" if mail_type == "verify" else "resetUrl"
+    url_field = "resetUrl" if mail_type == "password_reset" else "verifyUrl"
     action_url = payload.get(url_field)
     if not isinstance(to, str) or not to.strip():
         print(json.dumps({"ok": False, "error": "missing_to"}))
@@ -102,7 +104,13 @@ def main() -> int:
         note = "若您未发起重置请求，请忽略此邮件，您的密码不会被更改。"
         comment = "链接有效期为 1 小时，过期后请重新申请。"
     else:
-        subject = "请验证您的 MonoSkillNavigator 账户邮箱"
+        mail_kind = payload.get("mailKind") or ("resend" if mail_type == "verify_resend" else "register")
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
+        nonce = uuid.uuid4().hex[:6]
+        if mail_kind == "resend":
+            subject = f"请验证您的 MonoSkillNavigator 账户邮箱（重发 {stamp}-{nonce}）"
+        else:
+            subject = f"请验证您的 MonoSkillNavigator 账户邮箱（{stamp}-{nonce}）"
         main_content = (
             "感谢注册 MonoSkillNavigator。请点击下方链接验证邮箱后完成账户激活："
             f'<br><br><a href="{action_url.strip()}">{action_url.strip()}</a>'

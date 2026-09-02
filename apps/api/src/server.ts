@@ -356,7 +356,9 @@ export function buildServer() {
       await sendRegistrationVerificationEmail({
         to: user.email,
         username: user.username,
-        verifyUrl
+        verifyUrl,
+        mailKind: "resend",
+        mailType: "verify_resend"
       });
 
       return { ok: true, email: user.email };
@@ -1423,7 +1425,9 @@ async function sendRegistrationVerificationForUser(
   await sendRegistrationVerificationEmail({
     to: user.email,
     username: user.username,
-    verifyUrl
+    verifyUrl,
+    mailKind: "register",
+    mailType: "verify"
   });
 }
 
