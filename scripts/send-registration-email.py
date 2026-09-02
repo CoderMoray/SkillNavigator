@@ -10,8 +10,6 @@ import contextlib
 import json
 import os
 import sys
-import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -105,12 +103,10 @@ def main() -> int:
         comment = "链接有效期为 1 小时，过期后请重新申请。"
     else:
         mail_kind = payload.get("mailKind") or ("resend" if mail_type == "verify_resend" else "register")
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
-        nonce = uuid.uuid4().hex[:6]
         if mail_kind == "resend":
-            subject = f"请验证您的 MonoSkillNavigator 账户邮箱（重发 {stamp}-{nonce}）"
+            subject = "请验证您的 MonoSkillNavigator 账户邮箱（重发）"
         else:
-            subject = f"请验证您的 MonoSkillNavigator 账户邮箱（{stamp}-{nonce}）"
+            subject = "请验证您的 MonoSkillNavigator 账户邮箱"
         main_content = (
             "感谢注册 MonoSkillNavigator。请点击下方链接验证邮箱后完成账户激活："
             f'<br><br><a href="{action_url.strip()}">{action_url.strip()}</a>'
