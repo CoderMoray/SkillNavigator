@@ -38,7 +38,7 @@ function VerifyEmailContent() {
           setAuthToken(session.token);
           setStatus("success");
           setMessage("邮箱验证成功，正在进入平台…");
-          saveFlashToast("邮箱验证成功，已自动登录。");
+          saveFlashToast("邮箱验证成功，已自动登录，欢迎使用MonoSkillNavigator");
           router.replace(creatorProfilePath(session.user.username));
         }
       })
