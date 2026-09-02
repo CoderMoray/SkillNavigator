@@ -7,7 +7,7 @@ import { LogIn } from "lucide-react";
 import { AppShell } from "../../components/AppShell";
 import { ErrorToast } from "../../components/ErrorToast";
 import { SuccessToast } from "../../components/SuccessToast";
-import { loginUser } from "../../lib/api";
+import { loginUser, ApiRequestError } from "../../lib/api";
 import { setAuthToken } from "../../lib/auth-token";
 import { creatorProfilePath } from "../../lib/creators";
 
@@ -54,6 +54,24 @@ function LoginContent() {
       setAuthToken(session.token);
       router.push(creatorProfilePath(session.user.username));
     } catch (err) {
+      if (err instanceof ApiRequestError && err.response?.error === "email_not_verified") {
+        const email = err.response.email;
+        if (err.response.verificationEmailSent && email) {
+          router.push(`/register/pending?email=${encodeURIComponent(email)}&resent=1`);
+          return;
+        }
+        if (err.response.verificationEmailRateLimited) {
+          const seconds = err.response.retryAfterSeconds ?? 60;
+          setErrorToast(`邮箱尚未验证。验证邮件发送过于频繁，请 ${seconds} 秒后再试。`);
+          return;
+        }
+        if (email) {
+          router.push(`/register/pending?email=${encodeURIComponent(email)}`);
+          return;
+        }
+        setErrorToast("邮箱尚未验证，请查收验证邮件或重新发送");
+        return;
+      }
       setErrorToast(formatLoginError(err instanceof Error ? err.message : "登录失败"));
     } finally {
       setSubmitting(false);

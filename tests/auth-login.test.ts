@@ -94,6 +94,27 @@ describe("登录：用户名或邮箱（FileAuthStore）", () => {
     });
   });
 
+  describe("邮箱验证", () => {
+    beforeEach(async () => {
+      rmSync(dir, { recursive: true, force: true });
+      dir = mkdtempSync(path.join(tmpdir(), "skillnav-auth-"));
+      store = new FileAuthStore(dir);
+      vi.stubEnv("REGISTRATION_EMAIL_VERIFICATION_REQUIRED", "true");
+      alice = await store.register("alice", "password123", "alice@example.com");
+    });
+
+    test("未验证邮箱无法登录", async () => {
+      await expect(store.login("alice", "password123")).rejects.toThrow("Email not verified");
+      await expect(store.login("alice@example.com", "password123")).rejects.toThrow("Email not verified");
+    });
+
+    test("validateUnverifiedUserForVerification 支持邮箱", async () => {
+      const user = await store.validateUnverifiedUserForVerification("alice@example.com", "password123");
+      expect(user.username).toBe("alice");
+      expect(user.email).toBe("alice@example.com");
+    });
+  });
+
   describe("重置密码", () => {
     test("用邮箱请求重置 -> 旧密码失效 -> 新密码可登录", async () => {
       // 宽松模式便于断言旧密码已失效（严格模式下统一返回 Invalid username or password）

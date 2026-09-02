@@ -612,6 +612,12 @@ interface ApiErrorResponse {
   retryable?: boolean;
   retryAfterSeconds?: number;
   failedStages?: ReviewStageFailure[];
+  verificationRequired?: boolean;
+  verificationEmailSent?: boolean;
+  verificationEmailRateLimited?: boolean;
+  email?: string;
+  reason?: string;
+  sendError?: string;
 }
 
 export class ApiRequestError extends Error {

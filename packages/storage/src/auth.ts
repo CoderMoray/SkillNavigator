@@ -385,11 +385,9 @@ abstract class JsonAuthStore implements AuthStore {
   }
 
   async validateUnverifiedUserForVerification(username: string, password: string): Promise<PublicUser> {
-    const normalizedUsername = normalizeUsername(username);
+    const lookup = resolveLoginIdentifier(username);
     const data = await this.load();
-    const user = Object.values(data.users).find(
-      (item) => item.username.toLowerCase() === normalizedUsername.toLowerCase()
-    );
+    const user = findUserByIdentifier(Object.values(data.users), lookup.raw);
 
     if (!user || !verifyPassword(password, user.passwordHash)) {
       throw new Error("Invalid username or password");
@@ -1083,14 +1081,15 @@ export class PostgresAuthStore implements AuthStore {
   }
 
   async validateUnverifiedUserForVerification(username: string, password: string): Promise<PublicUser> {
-    const normalizedUsername = normalizeUsername(username);
+    const lookup = resolveLoginIdentifier(username);
     await this.ensureSchema();
     const result = await this.pool.query<DatabaseUserRow>(
       `select ${USER_COLUMNS}
        from platform_users
-       where lower(username) = lower($1)
+       where (lower(username) = lower($1))
+          or (email is not null and lower(email) = lower($1))
        limit 1`,
-      [normalizedUsername]
+      [lookup.raw]
     );
     const user = result.rows[0];
     if (!user || !verifyPassword(password, user.password_hash)) {

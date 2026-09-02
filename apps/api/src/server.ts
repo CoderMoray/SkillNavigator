@@ -330,36 +330,16 @@ export function buildServer() {
         return reply.code(503).send({ error: "registration_email_not_configured" });
       }
 
-      const expiresMs = getRegistrationVerifyExpiresMs();
       const user = await authStore.validateUnverifiedUserForVerification(
         request.body.username,
         request.body.password
       );
-      const rateLimit = verificationEmailRateLimiter.check(user.id);
-      if (!rateLimit.allowed) {
-        return reply
-          .code(429)
-          .header("Retry-After", String(rateLimit.retryAfterSeconds))
-          .send({
-            error: "verification_email_rate_limited",
-            retryAfterSeconds: rateLimit.retryAfterSeconds
-          });
-      }
-      verificationEmailRateLimiter.recordAttempt(user.id);
-
-      const token = await authStore.createEmailVerificationToken(user.id, expiresMs);
-      if (!user.email) {
-        return reply.code(400).send({ error: "User email is missing" });
-      }
-
-      const verifyUrl = `${getWebPublicUrl()}/verify-email?token=${encodeURIComponent(token)}`;
-      await sendRegistrationVerificationEmail({
-        to: user.email,
-        username: user.username,
-        verifyUrl,
-        mailKind: "resend",
-        mailType: "verify_resend"
-      });
+      await sendRegistrationVerificationForUser(
+        authStore,
+        user,
+        verificationEmailRateLimiter,
+        { mailKind: "resend", mailType: "verify_resend" }
+      );
 
       return { ok: true, email: user.email };
     } catch (error) {
@@ -370,9 +350,13 @@ export function buildServer() {
           : message === "verification_email_rate_limited"
             ? 429
             : 400;
+      const retryAfterSeconds = getVerificationEmailRateLimitRetryAfter(error);
+      if (status === 429 && retryAfterSeconds !== undefined) {
+        reply.header("Retry-After", String(retryAfterSeconds));
+      }
       return reply.code(status).send({
         error: message,
-        retryAfterSeconds: getVerificationEmailRateLimitRetryAfter(error)
+        retryAfterSeconds
       });
     }
   });
@@ -382,7 +366,58 @@ export function buildServer() {
       const session = await authStore.login(request.body.username, request.body.password);
       return { user: session.user, token: session.token, expiresAt: session.expiresAt };
     } catch (error) {
-      return reply.code(401).send({ error: errorMessage(error) });
+      const message = errorMessage(error);
+      if (message === "Email not verified" && isRegistrationEmailVerificationRequired()) {
+        if (!isRegistrationEmailConfigured()) {
+          return reply.code(403).send({
+            error: "email_not_verified",
+            verificationRequired: true,
+            verificationEmailSent: false,
+            reason: "registration_email_not_configured"
+          });
+        }
+
+        try {
+          const user = await authStore.validateUnverifiedUserForVerification(
+            request.body.username,
+            request.body.password
+          );
+          await sendRegistrationVerificationForUser(
+            authStore,
+            user,
+            verificationEmailRateLimiter,
+            { mailKind: "resend", mailType: "verify_resend" }
+          );
+          return reply.code(403).send({
+            error: "email_not_verified",
+            verificationRequired: true,
+            verificationEmailSent: true,
+            email: user.email
+          });
+        } catch (resendError) {
+          const resendMessage = errorMessage(resendError);
+          if (resendMessage === "verification_email_rate_limited") {
+            return reply
+              .code(403)
+              .header("Retry-After", String(getVerificationEmailRateLimitRetryAfter(resendError) ?? 60))
+              .send({
+                error: "email_not_verified",
+                verificationRequired: true,
+                verificationEmailSent: false,
+                verificationEmailRateLimited: true,
+                retryAfterSeconds: getVerificationEmailRateLimitRetryAfter(resendError)
+              });
+          }
+          return reply.code(403).send({
+            error: "email_not_verified",
+            verificationRequired: true,
+            verificationEmailSent: false,
+            sendError: resendMessage
+          });
+        }
+      }
+
+      return reply.code(401).send({ error: message });
     }
   });
 
@@ -1405,7 +1440,11 @@ function stripDataUrlPrefix(value: string): string {
 async function sendRegistrationVerificationForUser(
   authStore: AuthStore,
   user: { id: string; username: string; email: string | null },
-  rateLimiter: VerificationEmailRateLimiter
+  rateLimiter: VerificationEmailRateLimiter,
+  options: {
+    mailKind?: "register" | "resend";
+    mailType?: "verify" | "verify_resend";
+  } = {}
 ): Promise<void> {
   if (!user.email) {
     throw new Error("User email is missing");
@@ -1419,6 +1458,8 @@ async function sendRegistrationVerificationForUser(
   }
   rateLimiter.recordAttempt(user.id);
 
+  const mailKind = options.mailKind ?? "register";
+  const mailType = options.mailType ?? (mailKind === "resend" ? "verify_resend" : "verify");
   const expiresMs = getRegistrationVerifyExpiresMs();
   const token = await authStore.createEmailVerificationToken(user.id, expiresMs);
   const verifyUrl = `${getWebPublicUrl()}/verify-email?token=${encodeURIComponent(token)}`;
@@ -1426,8 +1467,8 @@ async function sendRegistrationVerificationForUser(
     to: user.email,
     username: user.username,
     verifyUrl,
-    mailKind: "register",
-    mailType: "verify"
+    mailKind,
+    mailType
   });
 }
 

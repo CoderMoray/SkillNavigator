@@ -9,6 +9,7 @@ import { AppShell } from "../../../components/AppShell";
 function RegisterPendingContent() {
   const searchParams = useSearchParams();
   const email = searchParams.get("email");
+  const resent = searchParams.get("resent") === "1";
 
   return (
     <AppShell title="验证邮箱">
@@ -20,7 +21,9 @@ function RegisterPendingContent() {
           </span>
           <h1>请验证邮箱</h1>
           <p className="description">
-            注册成功。我们已向{email ? ` ${email} ` : "你的邮箱"}发送验证邮件，请点击邮件中的链接完成账户激活。
+            {resent
+              ? `登录时检测到邮箱尚未验证，我们已向${email ? ` ${email} ` : "你的邮箱"}重新发送验证邮件，请点击邮件中的链接完成账户激活。`
+              : `注册成功。我们已向${email ? ` ${email} ` : "你的邮箱"}发送验证邮件，请点击邮件中的链接完成账户激活。`}
           </p>
           <p className="description">验证完成后即可登录。若未收到邮件，可在验证失败页重新发送。</p>
           <Link className="button primary" href="/login">
