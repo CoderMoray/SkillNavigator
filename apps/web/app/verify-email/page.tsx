@@ -1,19 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useEffect, useState } from "react";
 import { MailCheck, MailWarning } from "lucide-react";
 import { AppShell } from "../../components/AppShell";
 import { ErrorToast } from "../../components/ErrorToast";
 import { SuccessToast } from "../../components/SuccessToast";
 import { resendVerificationEmail, verifyEmailToken, ApiRequestError } from "../../lib/api";
+import { setAuthToken } from "../../lib/auth-token";
+import { creatorProfilePath } from "../../lib/creators";
 
 function VerifyEmailContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
   const [status, setStatus] = useState<"pending" | "success" | "error">("pending");
-  const [message, setMessage] = useState("正在验证邮箱…");
+  const [message, setMessage] = useState("正在验证邮箱并登录…");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [successToast, setSuccessToast] = useState<string | null>(null);
@@ -29,10 +32,12 @@ function VerifyEmailContent() {
 
     let cancelled = false;
     void verifyEmailToken(token)
-      .then(() => {
+      .then((session) => {
         if (!cancelled) {
+          setAuthToken(session.token);
           setStatus("success");
-          setMessage("邮箱验证成功，你现在可以登录平台。");
+          setMessage("邮箱验证成功，正在进入平台…");
+          router.replace(creatorProfilePath(session.user.username));
         }
       })
       .catch((error) => {
@@ -45,7 +50,7 @@ function VerifyEmailContent() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, router]);
 
   async function handleResend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -81,9 +86,9 @@ function VerifyEmailContent() {
           <p className="description">{message}</p>
 
           {status === "success" ? (
-            <Link className="button primary" href="/login">
-              去登录
-            </Link>
+            <button className="button" disabled type="button">
+              正在跳转…
+            </button>
           ) : null}
 
           {status === "error" ? (

@@ -198,11 +198,16 @@ export async function registerUser(
   });
 }
 
-export async function verifyEmailToken(token: string): Promise<{ user: PublicUser; verified: true }> {
-  return request<{ user: PublicUser; verified: true }>(apiUrl("/auth/verify-email"), {
-    method: "POST",
-    body: JSON.stringify({ token })
-  });
+export async function verifyEmailToken(
+  token: string
+): Promise<{ user: PublicUser; token: string; expiresAt: string; verified: true }> {
+  return request<{ user: PublicUser; token: string; expiresAt: string; verified: true }>(
+    apiUrl("/auth/verify-email"),
+    {
+      method: "POST",
+      body: JSON.stringify({ token })
+    }
+  );
 }
 
 export async function resendVerificationEmail(username: string, password: string): Promise<{ ok: true; email: string }> {

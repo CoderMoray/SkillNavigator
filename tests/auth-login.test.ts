@@ -113,6 +113,16 @@ describe("登录：用户名或邮箱（FileAuthStore）", () => {
       expect(user.username).toBe("alice");
       expect(user.email).toBe("alice@example.com");
     });
+
+    test("verifyEmail 验证成功后自动创建登录会话", async () => {
+      const rawToken = await store.createEmailVerificationToken(alice.id, 3_600_000);
+      const session = await store.verifyEmail(rawToken);
+      expect(session.user.emailVerified).toBe(true);
+      expect(session.token.startsWith("skp_")).toBe(true);
+
+      const currentUser = await store.getUserByToken(session.token);
+      expect(currentUser?.username).toBe("alice");
+    });
   });
 
   describe("重置密码", () => {

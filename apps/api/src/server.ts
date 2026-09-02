@@ -313,8 +313,13 @@ export function buildServer() {
 
   app.post<{ Body: VerifyEmailBody }>("/auth/verify-email", async (request, reply) => {
     try {
-      const user = await authStore.verifyEmail(request.body.token);
-      return { user, verified: true };
+      const session = await authStore.verifyEmail(request.body.token);
+      return {
+        user: session.user,
+        token: session.token,
+        expiresAt: session.expiresAt,
+        verified: true
+      };
     } catch (error) {
       return reply.code(400).send({ error: errorMessage(error) });
     }

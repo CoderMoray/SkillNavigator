@@ -25,7 +25,7 @@ function RegisterPendingContent() {
               ? `登录时检测到邮箱尚未验证，我们已向${email ? ` ${email} ` : "你的邮箱"}重新发送验证邮件，请点击邮件中的链接完成账户激活。`
               : `注册成功。我们已向${email ? ` ${email} ` : "你的邮箱"}发送验证邮件，请点击邮件中的链接完成账户激活。`}
           </p>
-          <p className="description">验证完成后即可登录。若未收到邮件，可在验证失败页重新发送。</p>
+          <p className="description">验证完成后将自动登录。若未收到邮件，可在验证失败页重新发送。</p>
           <Link className="button primary" href="/login">
             去登录
           </Link>

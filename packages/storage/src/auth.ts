@@ -91,7 +91,7 @@ export interface AuthStore {
   updateProfile(sessionToken: string, input: UpdateProfileInput): Promise<PublicUser>;
   deleteAccount(token: string, password: string): Promise<void>;
   createEmailVerificationToken(userId: string, expiresMs: number): Promise<string>;
-  verifyEmail(token: string): Promise<PublicUser>;
+  verifyEmail(token: string): Promise<LoginResult>;
   resendEmailVerification(username: string, password: string, expiresMs: number): Promise<{ user: PublicUser; token: string }>;
   validateUnverifiedUserForVerification(username: string, password: string): Promise<PublicUser>;
   purgeExpiredUnverifiedUsers(retentionDays: number): Promise<number>;
@@ -343,7 +343,7 @@ abstract class JsonAuthStore implements AuthStore {
     return rawToken;
   }
 
-  async verifyEmail(token: string): Promise<PublicUser> {
+  async verifyEmail(token: string): Promise<LoginResult> {
     const data = await this.load();
     const tokenHash = hashToken(token.trim());
     const user = Object.values(data.users).find(
@@ -365,8 +365,25 @@ abstract class JsonAuthStore implements AuthStore {
     user.emailVerified = true;
     delete user.pendingEmailVerification;
     user.updatedAt = now;
+
+    const sessionToken = `skp_${randomBytes(32).toString("base64url")}`;
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString();
+    const session: StoredSession = {
+      id: randomUUID(),
+      tokenHash: hashToken(sessionToken),
+      userId: user.id,
+      createdAt: now,
+      expiresAt
+    };
+    data.sessions[session.id] = session;
+    pruneExpiredSessions(data);
     await this.save(data);
-    return toPublicUser(user);
+
+    return {
+      token: sessionToken,
+      user: toPublicUser(user),
+      expiresAt
+    };
   }
 
   async resendEmailVerification(
@@ -1021,9 +1038,10 @@ export class PostgresAuthStore implements AuthStore {
     }
   }
 
-  async verifyEmail(token: string): Promise<PublicUser> {
+  async verifyEmail(token: string): Promise<LoginResult> {
     await this.ensureSchema();
     const client = await this.pool.connect();
+    let user: DatabaseUserRow | undefined;
     try {
       await client.query("begin");
       await client.query("delete from email_verification_tokens where expires_at <= now()");
@@ -1055,19 +1073,34 @@ export class PostgresAuthStore implements AuthStore {
          where id = $1`,
         [tokenRow.user_id]
       );
-      const user = userResult.rows[0];
+      user = userResult.rows[0];
       if (!user) {
         throw new Error("User not found");
       }
 
       await client.query("commit");
-      return toPublicDatabaseUser(user);
     } catch (error) {
       await client.query("rollback").catch(() => undefined);
       throw error;
     } finally {
       client.release();
     }
+
+    const sessionToken = `skp_${randomBytes(32).toString("base64url")}`;
+    const sessionNow = new Date();
+    const expiresAt = new Date(sessionNow.getTime() + 1000 * 60 * 60 * 24 * 7).toISOString();
+    await this.pool.query("delete from auth_sessions where expires_at <= now()");
+    await this.pool.query(
+      `insert into auth_sessions (id, token_hash, user_id, created_at, expires_at)
+       values ($1, $2, $3, $4, $5)`,
+      [randomUUID(), hashToken(sessionToken), user.id, sessionNow.toISOString(), expiresAt]
+    );
+
+    return {
+      token: sessionToken,
+      user: toPublicDatabaseUser(user),
+      expiresAt
+    };
   }
 
   async resendEmailVerification(
