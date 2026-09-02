@@ -10,6 +10,7 @@ import { SuccessToast } from "../../components/SuccessToast";
 import { resendVerificationEmail, verifyEmailToken, ApiRequestError } from "../../lib/api";
 import { setAuthToken } from "../../lib/auth-token";
 import { creatorProfilePath } from "../../lib/creators";
+import { saveFlashToast } from "../../lib/flash-toast";
 
 function VerifyEmailContent() {
   const router = useRouter();
@@ -37,6 +38,7 @@ function VerifyEmailContent() {
           setAuthToken(session.token);
           setStatus("success");
           setMessage("邮箱验证成功，正在进入平台…");
+          saveFlashToast("邮箱验证成功，已自动登录。");
           router.replace(creatorProfilePath(session.user.username));
         }
       })
