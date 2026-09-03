@@ -5,20 +5,22 @@ import { Copy } from "lucide-react";
 import { ErrorToast } from "../ErrorToast";
 import { SuccessToast } from "../SuccessToast";
 import { copyTextToClipboard } from "../../lib/copy-text";
-import {
-  buildRegistryInstallGuideUrl,
-  buildRegistryStoreInstallPrompt,
-  DEFAULT_WEB_ORIGIN,
-} from "../../lib/registry-install-guide";
+import { resolveRegistryStoreInstallPrompt } from "../../lib/registry-install-guide";
+
+const HAS_CONFIGURED_INSTALL_URL = Boolean(
+  process.env.NEXT_PUBLIC_REGISTRY_INSTALL_GUIDE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_WEB_URL?.trim()
+);
 
 export function HomeAgentInstallBar() {
-  const [prompt, setPrompt] = useState(() =>
-    buildRegistryStoreInstallPrompt(buildRegistryInstallGuideUrl(DEFAULT_WEB_ORIGIN))
-  );
+  const [prompt, setPrompt] = useState(() => resolveRegistryStoreInstallPrompt());
   const [copyState, setCopyState] = useState<"success" | "error" | null>(null);
 
   useEffect(() => {
-    setPrompt(buildRegistryStoreInstallPrompt(buildRegistryInstallGuideUrl(window.location.origin)));
+    if (HAS_CONFIGURED_INSTALL_URL) {
+      return;
+    }
+    setPrompt(resolveRegistryStoreInstallPrompt(window.location.origin));
   }, []);
 
   async function handleCopy() {
