@@ -4732,10 +4732,11 @@ button {
   gap: clamp(32px, 6vw, 82px);
   overflow: hidden;
   width: 100vw;
+  min-height: clamp(420px, 46vh, 520px);
   margin-inline: calc(50% - 50vw);
   background: transparent;
   color: var(--foreground);
-  padding-block: clamp(44px, 6.5vw, 88px);
+  padding-block: clamp(52px, 7.5vw, 104px);
   padding-inline: max(var(--layout-gutter), calc((100vw - (var(--layout-max-width) - var(--layout-gutter) * 2)) / 2));
 }
 
@@ -4811,7 +4812,8 @@ button {
 
 .homepage-agent-install {
   display: flex;
-  max-width: 720px;
+  width: 100%;
+  max-width: 920px;
   align-items: center;
   gap: 12px;
   margin-top: 30px;
