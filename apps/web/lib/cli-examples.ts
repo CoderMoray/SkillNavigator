@@ -64,7 +64,7 @@ export function skillnavAgentInstallPrompt(): string {
     "  更多：skillnav <命令> --help",
     "",
     "【文档】",
-    "  · CLI 安装/登录/发布全流程 → /docs/cli-developer-guide",
+    "  · CLI 安装/登录/发布全流程 → /docs/cli-guide",
     "  · 完整系统提示词（含 FAQ）→ /docs/platform-agent-prompt",
     "",
     "【安全】sk_… 密钥绝不写入 Git；正式发布等写操作须用户确认。",

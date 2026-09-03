@@ -320,7 +320,7 @@ export default function HomePage() {
               <Link className="button homepage-button-primary" href="/skills/publish">
                 从 Web 发布 <ArrowRight aria-hidden="true" size={16} />
               </Link>
-              <Link className="button homepage-button-secondary" href="/docs/cli-developer-guide">
+              <Link className="button homepage-button-secondary" href="/docs/cli-guide">
                 阅读 CLI 指南
               </Link>
             </div>

@@ -26,11 +26,11 @@ const DOC_NAV_BASE: DocNavItem[] = [
     filename: "quick-start-tutorial.md"
   },
   {
-    slug: "cli-developer-guide",
+    slug: "cli-guide",
     title: "CLI 指南：从 0 到 1 发布 Skill",
     sidebarTitle: "CLI 指南",
-    href: "/docs/cli-developer-guide",
-    filename: "cli-developer-guide.md"
+    href: "/docs/cli-guide",
+    filename: "cli-guide.md"
   },
   {
     slug: "platform-agent-prompt",

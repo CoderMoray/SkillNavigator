@@ -272,7 +272,7 @@ def enrich_api_error(raw: str, *, status: int, body: Any = None) -> ErrorHint:
         next_steps=_steps(
             "Read the message above and fix the request input.",
             "Use --json for the raw response body when debugging.",
-            "See Web docs: /docs/cli-developer-guide",
+            "See Web docs: /docs/cli-guide",
         ),
     )
 

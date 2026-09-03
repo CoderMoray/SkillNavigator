@@ -28,7 +28,7 @@ const quickLinks: { href: string; label: string; description: string; icon: Luci
     icon: ShieldCheck,
   },
   {
-    href: "/docs/cli-developer-guide",
+    href: "/docs/cli-guide",
     label: "站内文档",
     description: "格式规范、发布流程与 CLI 教程。",
     icon: BookOpen,

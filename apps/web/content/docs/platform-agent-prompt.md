@@ -2,7 +2,7 @@
 
 面向 Agent 的**可复制系统提示词**，指导 AI 帮用户完成 Skill 从登录到发布、审查与迭代的完整流程。
 
-> 命令细节见 [CLI 指南](./cli-developer-guide.md)；CLI 命令索引见仓库 `examples/skillnav-skill/`。
+> 命令细节见 [CLI 指南](./cli-guide.md)；CLI 命令索引见仓库 `examples/skillnav-skill/`。
 
 ---
 
@@ -28,7 +28,7 @@
 【原则】勿将 sk_… 写入 Git；写操作（正式发布、删 contributor）须用户确认。
 
 【FAQ·文档】Web 文档路径前缀 /docs/（本地示例 http://127.0.0.1:3001/docs/…）：
-· CLI 安装/登录/发布全流程 → /docs/cli-developer-guide
+· CLI 安装/登录/发布全流程 → /docs/cli-guide
 · SKILL.md 与 frontmatter → /docs/skill-format
 · 发布步骤与 verdict → /docs/publish-workflow
 · SkillSpector / VirusTotal 报告 → /docs/security-scan

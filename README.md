@@ -40,7 +40,7 @@ skillnav search demo
 skillnav info demo-skill
 ```
 
-CLI 详细流程见 Web `/docs/cli-developer-guide`；Agent 专用命令参考见 `examples/skillnav-skill/`。
+CLI 详细流程见 Web `/docs/cli-guide`；Agent 专用命令参考见 `examples/skillnav-skill/`。
 
 ## 数据库
 

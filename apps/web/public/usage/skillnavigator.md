@@ -110,6 +110,6 @@ skillnav report <slug>          # 完整安全/质量报告
 
 ## 文档
 
-- CLI 全流程：`/docs/cli-developer-guide`
+- CLI 全流程：`/docs/cli-guide`
 - 平台 Agent 系统提示词：`/docs/platform-agent-prompt`
 - Skill 格式规范：`/docs/skill-format`

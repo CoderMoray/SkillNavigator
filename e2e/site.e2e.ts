@@ -14,7 +14,7 @@ function apiUrl(path: string): URL {
 const DOC_SLUGS = [
   "monoskill-navigator",
   "quick-start-tutorial",
-  "cli-developer-guide",
+  "cli-guide",
   "platform-agent-prompt",
   "skill-format",
   "publish-workflow",

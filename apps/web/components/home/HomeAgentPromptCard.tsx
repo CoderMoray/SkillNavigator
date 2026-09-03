@@ -42,7 +42,7 @@ export function HomeAgentPromptCard() {
             <ExternalLink size={14} />
             系统提示词
           </Link>
-          <Link className="button secondary compact" href="/docs/cli-developer-guide">
+          <Link className="button secondary compact" href="/docs/cli-guide">
             <BookOpen size={14} />
             CLI 指南
           </Link>

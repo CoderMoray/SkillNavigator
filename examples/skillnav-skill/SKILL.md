@@ -142,7 +142,7 @@ skillnav status <slug> / report <slug>
 
 ## 平台文档
 
-- Web CLI 指南：仓库 `apps/web/content/docs/cli-developer-guide.md`
+- Web CLI 指南：仓库 `apps/web/content/docs/cli-guide.md`
 - **平台 Agent 系统提示词**：Web `/docs/platform-agent-prompt`（可复制系统提示词，含 FAQ 与文档链接）
 - Skill 包规范：仓库 `docs/rules/skill-spec.md`
 - CLI 设计：仓库 `docs/cli-design.md`
