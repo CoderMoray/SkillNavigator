@@ -30,6 +30,9 @@
   color-scheme: dark;
   --background: #0f1117;
   --background-strong: #171922;
+  --surface-top: #0b0d12;
+  --header-bg: rgba(11, 13, 18, 0.72);
+  --header-bg-scrolled: rgba(11, 13, 18, 0.85);
   --foreground: #f4f6fb;
   --muted: #9ca3af;
   --muted-strong: #c6cad3;
@@ -73,7 +76,7 @@ body {
 }
 
 :root[data-theme="dark"] body {
-  background: linear-gradient(180deg, #0b0d12 0%, var(--background) 40%);
+  background: linear-gradient(180deg, var(--surface-top) 0%, var(--background) 40%);
   background-attachment: fixed;
 }
 
@@ -118,12 +121,14 @@ button {
 }
 
 :root[data-theme="dark"] .site-header {
-  background: rgba(15, 17, 23, 0.97);
+  background: var(--header-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 :root[data-theme="dark"] .site-header.is-scrolled {
-  background: rgba(15, 17, 23, 0.97);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+  background: var(--header-bg-scrolled);
+  box-shadow: none;
 }
 
 .sidebar {
