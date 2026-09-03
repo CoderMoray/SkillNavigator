@@ -1,3 +1,5 @@
+import { resolveBrandName } from "./brand-name";
+
 import { publicAssetPath } from "./public-asset";
 
 export const REGISTRY_INSTALL_GUIDE_ASSET = "/usage/monoskillnavigator.md";
@@ -15,7 +17,7 @@ export function buildRegistryInstallGuideUrl(origin: string): string {
 
 /** One-line prompt copied from the homepage (SkillHub-style). */
 export function buildRegistryStoreInstallPrompt(installGuideUrl: string): string {
-  return `根据 ${installGuideUrl} 安装 MonoSkillNavigator 平台。`;
+  return `根据 ${installGuideUrl} 安装 ${resolveBrandName()} 平台。`;
 }
 
 function normalizeOrigin(origin: string): string {

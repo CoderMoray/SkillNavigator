@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { BarChart3, BookOpen, Boxes, LayoutDashboard, ShieldCheck, UserCircle } from "lucide-react";
 import { AuthStatus } from "./AuthStatus";
+import { resolveBrandName } from "../lib/brand-name";
 import { PLATFORM_LOGO_DARK_PATH, PLATFORM_LOGO_PATH, publicAssetPath } from "../lib/public-asset";
 
 const navItems = [
@@ -51,7 +52,7 @@ export function AppShell({ children, title = "概览" }: { children: ReactNode; 
       <header className={`site-header${isScrolled ? " is-scrolled" : ""}`}>
         <Link className="brand" href="/">
           <img
-            alt="MonoSkillNavigator"
+            alt={resolveBrandName()}
             className="brand-logo"
             decoding="async"
             height={40}

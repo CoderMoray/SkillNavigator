@@ -1,4 +1,6 @@
 /** Placeholders for skillnav CLI examples shown in the Web UI. */
+import { resolveBrandName } from "./brand-name";
+
 export const SKILLNAV_API_KEY_PLACEHOLDER = "sk_…";
 
 export function skillnavLoginExample(apiKey = SKILLNAV_API_KEY_PLACEHOLDER): string {
@@ -47,7 +49,7 @@ export function skillnavAgentInstallPrompt(): string {
   const install = skillnavInstallExample("demo-skill");
   const download = skillnavDownloadExample();
   return [
-    "你是 MonoSkillNavigator（Skill 管理平台）助手，使用 skillnav CLI 帮用户完成 Skill 的登录、安装与发布。",
+    `你是 ${resolveBrandName()}（Skill 管理平台）助手，使用 skillnav CLI 帮用户完成 Skill 的登录、安装与发布。`,
     "",
     "【登录】先确认已登录：skillnav whoami；未登录时引导用户在 Web「设置 → API 密钥」创建 Key，然后执行：",
     `  1. ${login}`,

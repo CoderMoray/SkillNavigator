@@ -227,6 +227,12 @@ class MailManager(object):
             raise ValueError("在使用模板的情况下，需要输入 content_body 字典作为解析内容。")
 
         body = content_body.copy()
+        brand_name = (
+            str(body.get("brand_name", "")).strip()
+            or os.environ.get("BRAND_NAME", "").strip()
+            or "SkillNavigator"
+        )
+        body["brand_name"] = brand_name
 
         # 处理 note
         note = body.get("note", "").strip()
@@ -249,7 +255,7 @@ class MailManager(object):
 
         # 处理 signature_name（提供默认）
         if "signature_name" not in body:
-            body["signature_name"] = "<strong>MonoSkillNavigator Team</strong><br><br>"
+            body["signature_name"] = f"<strong>{brand_name} Team</strong><br><br>"
 
         # 处理 name
         name = body.get("name", "").strip()

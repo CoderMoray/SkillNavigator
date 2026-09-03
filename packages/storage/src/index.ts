@@ -1,4 +1,11 @@
 export {
+  applyBrandName,
+  BRAND_NAME_PLACEHOLDER,
+  DEFAULT_BRAND_NAME,
+  getBrandName,
+} from "./brand-name.js";
+
+export {
   assertAssignableContributorRole,
   ASSIGNABLE_CONTRIBUTOR_ROLES,
   CONTRIBUTOR_ROLES,

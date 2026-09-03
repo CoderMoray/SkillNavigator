@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { resolveBrandName } from "../lib/brand-name";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Skill 管理平台",
+  title: resolveBrandName(),
   description: "可信 Skill 注册、审查、评分和分发平台"
 };
 

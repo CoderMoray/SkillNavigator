@@ -1,6 +1,6 @@
-# MonoSkillNavigator 介绍
+# {{brand_name}} 介绍
 
-MonoSkillNavigator（Skill 管理平台）是一个用于 **发布、审查、评估、搜索和下载** Agent Skill 的注册中心。Skill 以 `SKILL.md` 为入口的文件夹或 ZIP 包形式分发，平台为每个 Skill 分配不可变的 **slug**，并保留完整的版本历史与审查记录。
+{{brand_name}}（Skill 管理平台）是一个用于 **发布、审查、评估、搜索和下载** Agent Skill 的注册中心。Skill 以 `SKILL.md` 为入口的文件夹或 ZIP 包形式分发，平台为每个 Skill 分配不可变的 **slug**，并保留完整的版本历史与审查记录。
 
 ## 适合谁使用
 

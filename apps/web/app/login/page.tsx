@@ -9,6 +9,7 @@ import { ErrorToast } from "../../components/ErrorToast";
 import { SuccessToast } from "../../components/SuccessToast";
 import { loginUser, ApiRequestError } from "../../lib/api";
 import { setAuthToken } from "../../lib/auth-token";
+import { resolveBrandName } from "../../lib/brand-name";
 import { creatorProfilePath } from "../../lib/creators";
 
 function formatLoginError(message: string): string {
@@ -93,7 +94,7 @@ function LoginContent() {
             <LogIn size={14} />
             Sign in
           </span>
-          <h1>登录 Skill 管理平台</h1>
+          <h1>登录 {resolveBrandName()}</h1>
           <p className="description">登录后可以进入用户中心，并使用后续需要身份态的协作能力。</p>
 
           <form className="form-grid" onSubmit={handleSubmit}>

@@ -1,6 +1,6 @@
 # 安全检测（SkillSpector 与 VirusTotal）
 
-MonoSkillNavigator 对每次发布（或重审）的 Skill 快照做 **静态安全扫描**，主要包括：
+{{brand_name}} 对每次发布（或重审）的 Skill 快照做 **静态安全扫描**，主要包括：
 
 1. **SkillSpector**（默认启用）：规则与静态分析，不执行包内脚本。
 2. **VirusTotal**（可选）：对发布 ZIP 的 SHA-256 做 hash lookup；未命中时可按配置上传样本并轮询结果。若 hash 已存在但引擎统计尚未就绪，平台会继续等待，**不会**把「零检出 / 零引擎数」误判为扫描完成。

@@ -1,6 +1,6 @@
 # skillnav — 配置与鉴权
 
-管理 CLI 与 MonoSkillNavigator 平台的连接与身份。
+管理 CLI 与 SkillNavigator 平台的连接与身份。
 
 > **前置**：发布、下载、评分、contributor 管理等命令需有效 API Key。
 
@@ -10,7 +10,7 @@
 
 ```bash
 skillnav config add prod --registry https://your-api.example.com
-skillnav config add embed --registry https://host/MonoSkillNavigator/api
+skillnav config add embed --registry https://host/SkillNavigator/api
 ```
 
 | 参数 | 必填 | 说明 |

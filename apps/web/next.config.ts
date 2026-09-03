@@ -19,11 +19,17 @@ const configuredWebUrl =
   process.env.WEB_PUBLIC_URL?.trim() ||
   "";
 
+const configuredBrandName =
+  process.env.BRAND_NAME?.trim() ||
+  process.env.NEXT_PUBLIC_BRAND_NAME?.trim() ||
+  "SkillNavigator";
+
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_WEB_URL: configuredWebUrl,
     NEXT_PUBLIC_REGISTRY_INSTALL_GUIDE_URL:
       process.env.NEXT_PUBLIC_REGISTRY_INSTALL_GUIDE_URL?.trim() || "",
+    NEXT_PUBLIC_BRAND_NAME: configuredBrandName,
   },
   basePath: process.env.NEXT_PUBLIC_BASE_PATH ?? "",
   reactStrictMode: true,

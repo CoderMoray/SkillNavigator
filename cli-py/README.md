@@ -1,6 +1,6 @@
 # skillnav
 
-Official CLI client for the Skill management platform (MonoSkillNavigator).
+Official CLI client for the Skill management platform (SkillNavigator).
 
 Specification: `docs/cli-design.md` in the platform repository.
 

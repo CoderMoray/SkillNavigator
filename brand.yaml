@@ -1,9 +1,6 @@
 # 品牌配置 — 平台品牌名的唯一事实来源 (Single Source of Truth)
 #
-# 后续如需全局更换品牌名（例如改为 SkillNavigator），只修改本文件的 brand
-# 字段，并通过自动化同步到 Web UI、邮件、CLI、文档等引用处。
-#
-# 注意：当前代码与文档仍内嵌使用该名称，尚未接入自动同步；
-# 接入完成前，改这里不会自动改代码。
+# Web UI 展示名由 .env 的 BRAND_NAME 控制（默认 SkillNavigator），
+# 构建时注入 NEXT_PUBLIC_BRAND_NAME。改这里不会自动改 .env。
 
 brand: MonoSkillNavigator

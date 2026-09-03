@@ -2,6 +2,7 @@ import {
   skillnavInstallWithRegistryExample,
   skillnavLoginExample,
 } from "./cli-examples";
+import { resolveBrandName } from "./brand-name";
 import type { RegistrySkill } from "./types";
 
 const REGISTRY_API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3000";
@@ -18,7 +19,7 @@ export function buildSkillInstallPrompt(input: {
   const author = skill.versions[version]?.manifest.author ?? "未声明";
 
   return [
-    "请帮我从 Skill 管理平台安装以下 Agent Skill。",
+    `请帮我从 ${resolveBrandName()} 安装以下 Agent Skill。`,
     "",
     "Skill 信息：",
     `- 名称：${skill.name}`,

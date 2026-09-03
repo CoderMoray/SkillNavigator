@@ -1,6 +1,6 @@
-# MonoSkillNavigator 新手教程
+# {{brand_name}} 新手教程
 
-本教程面向第一次使用 MonoSkillNavigator 的 Skill 作者、使用者和团队管理员。完成后，你将能够浏览可信 Skill、查看审查结果、下载或收藏 Skill，并将自己的 Skill 发布到平台。
+本教程面向第一次使用 {{brand_name}} 的 Skill 作者、使用者和团队管理员。完成后，你将能够浏览可信 Skill、查看审查结果、下载或收藏 Skill，并将自己的 Skill 发布到平台。
 
 > **适用范围：** 本文以 Web 界面为主；CLI、API 和运维配置仅在需要时补充说明。
 

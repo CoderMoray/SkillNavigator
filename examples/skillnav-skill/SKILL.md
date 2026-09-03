@@ -1,7 +1,7 @@
 ---
 slug: skillnav-skill
 name: skillnav CLI
-description: "MonoSkillNavigator 官方 CLI（skillnav）：多 profile 配置、API Key 登录、Skill 发布与远程审查、状态/报告查询、搜索下载、评分与 Issue。当用户需要通过命令行发布/更新 Skill、预审查包、查看 verdict 与 HaluCatch 报告、搜索或安装 Skill，或 Agent 需要代用户操作本平台 CLI 时使用本技能。"
+description: "SkillNavigator 官方 CLI（skillnav）：多 profile 配置、API Key 登录、Skill 发布与远程审查、状态/报告查询、搜索下载、评分与 Issue。当用户需要通过命令行发布/更新 Skill、预审查包、查看 verdict 与 HaluCatch 报告、搜索或安装 Skill，或 Agent 需要代用户操作本平台 CLI 时使用本技能。"
 version: 1.0.0
 categories:
   - Developer Tools
@@ -18,7 +18,7 @@ allowed-tools:
 
 # skillnav
 
-MonoSkillNavigator 官方命令行客户端，纯 API 客户端——审查（SkillSpector、VirusTotal）与质量评估（HaluCatch）均在**服务端**执行。
+SkillNavigator 官方命令行客户端，纯 API 客户端——审查（SkillSpector、VirusTotal）与质量评估（HaluCatch）均在**服务端**执行。
 
 ## 安装与检测
 
@@ -45,7 +45,7 @@ pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/
 
 | 全局选项 | 说明 |
 | --- | --- |
-| `--registry <url>` | API 根 URL（可含路径前缀，如 `https://host/MonoSkillNavigator/api`） |
+| `--registry <url>` | API 根 URL（可含路径前缀，如 `https://host/SkillNavigator/api`） |
 | `--profile <name>` | 使用指定 profile |
 | `--json` | 机器可读 JSON 输出（脚本/Agent 推荐） |
 | `--no-input` | 禁止交互提示；缺参数或未登录时直接失败 |

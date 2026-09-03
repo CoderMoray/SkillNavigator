@@ -9,6 +9,7 @@ import { ConfirmToast } from "./ConfirmToast";
 import { ErrorToast } from "./ErrorToast";
 import { SuccessToast } from "./SuccessToast";
 import { PillSelect } from "./PillSelect";
+import { resolveBrandName } from "../lib/brand-name";
 import { getAuthToken } from "../lib/auth-token";
 import { getBookmarkedSkills, getRecycleBin, purgeRecycleBinSkill, restoreSkill, type RecycleBinSkill } from "../lib/api";
 import { normalizeHandle, type CreatorSummary } from "../lib/creators";
@@ -62,7 +63,7 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
     ? `Publisher behind ${topSkillNames}.`
     : isOwner && viewer?.role === "admin"
       ? "Platform administrator."
-      : "Publisher on MonoSkillNavigator.";
+      : `Publisher on ${resolveBrandName()}.`;
   const aboutText = creator.about ?? defaultAbout;
 
   useEffect(() => {

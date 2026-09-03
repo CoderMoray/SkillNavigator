@@ -9,6 +9,7 @@ import { ErrorToast } from "../../components/ErrorToast";
 import { SuccessToast } from "../../components/SuccessToast";
 import { resendVerificationEmail, verifyEmailToken, ApiRequestError } from "../../lib/api";
 import { setAuthToken } from "../../lib/auth-token";
+import { resolveBrandName } from "../../lib/brand-name";
 import { creatorProfilePath } from "../../lib/creators";
 import { saveFlashToast } from "../../lib/flash-toast";
 
@@ -38,7 +39,7 @@ function VerifyEmailContent() {
           setAuthToken(session.token);
           setStatus("success");
           setMessage("邮箱验证成功，正在进入平台…");
-          saveFlashToast("邮箱验证成功，已自动登录，欢迎使用MonoSkillNavigator");
+          saveFlashToast(`邮箱验证成功，已自动登录，欢迎使用${resolveBrandName()}`);
           router.replace(creatorProfilePath(session.user.username));
         }
       })

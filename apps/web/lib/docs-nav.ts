@@ -1,3 +1,5 @@
+import { applyBrandName } from "./brand-name";
+
 export type DocNavItem = {
   slug: string;
   title: string;
@@ -8,10 +10,10 @@ export type DocNavItem = {
 
 export const DEFAULT_DOC_SLUG = "monoskill-navigator";
 
-export const DOC_NAV: DocNavItem[] = [
+const DOC_NAV_BASE: DocNavItem[] = [
   {
     slug: "monoskill-navigator",
-    title: "MonoSkillNavigator 介绍",
+    title: "{{brand_name}} 介绍",
     sidebarTitle: "平台介绍",
     href: "/docs/monoskill-navigator",
     filename: "monoskill-navigator.md"
@@ -67,12 +69,28 @@ export const DOC_NAV: DocNavItem[] = [
   }
 ];
 
+function resolveDocNavItem(item: DocNavItem): DocNavItem {
+  return {
+    ...item,
+    title: applyBrandName(item.title),
+  };
+}
+
+/** Doc nav with brand name resolved in titles. */
+export function getDocNavItems(): DocNavItem[] {
+  return DOC_NAV_BASE.map(resolveDocNavItem);
+}
+
+/** @deprecated Prefer getDocNavItems(); kept for link resolution helpers. */
+export const DOC_NAV = DOC_NAV_BASE;
+
 export function getDocNavBySlug(slug: string): DocNavItem | undefined {
-  return DOC_NAV.find((item) => item.slug === slug);
+  const item = DOC_NAV_BASE.find((entry) => entry.slug === slug);
+  return item ? resolveDocNavItem(item) : undefined;
 }
 
 export function getDocSlugs(): string[] {
-  return DOC_NAV.map((item) => item.slug);
+  return DOC_NAV_BASE.map((item) => item.slug);
 }
 
 /** Rewrite relative *.md links to in-app /docs routes. */
@@ -96,7 +114,7 @@ export function resolveDocHref(href: string | undefined): string | undefined {
     if (base.toLowerCase() === "readme") {
       return `/docs/${DEFAULT_DOC_SLUG}${hash ? `#${hash}` : ""}`;
     }
-    const nav = DOC_NAV.find((item) => item.slug === base || item.filename === normalized);
+    const nav = DOC_NAV_BASE.find((item) => item.slug === base || item.filename === normalized);
     if (nav) {
       return `${nav.href}${hash ? `#${hash}` : ""}`;
     }

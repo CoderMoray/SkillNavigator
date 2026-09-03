@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { DocsMarkdownContent } from "../../../components/DocsMarkdownContent";
 import { getDocNavBySlug, getDocSlugs } from "../../../lib/docs-nav";
 import { loadDocFile } from "../../../lib/docs-server";
+import { resolveBrandName } from "../../../lib/brand-name";
 import { PLATFORM_AGENT_PROMPT_DOC_SLUG } from "../../../lib/platform-agent-prompt";
 
 type PageProps = {
@@ -21,7 +22,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
   return {
     title: `${nav.title} · 文档`,
-    description: `${nav.title} — MonoSkillNavigator 平台帮助文档`
+    description: `${nav.title} — ${resolveBrandName()} 平台帮助文档`
   };
 }
 

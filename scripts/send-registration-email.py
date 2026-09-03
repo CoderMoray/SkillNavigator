@@ -39,6 +39,13 @@ def _smtp_tls_default(port: int, smtp_ssl: bool) -> bool:
     return not smtp_ssl and port == 587
 
 
+DEFAULT_BRAND_NAME = "SkillNavigator"
+
+
+def _brand_name() -> str:
+    return os.environ.get("BRAND_NAME", "").strip() or DEFAULT_BRAND_NAME
+
+
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
@@ -93,8 +100,10 @@ def main() -> int:
         maildrop_dir=maildrop_dir,
     )
 
+    brand = _brand_name()
+
     if mail_type == "password_reset":
-        subject = "重置您的 MonoSkillNavigator 账户密码"
+        subject = f"重置您的 {brand} 账户密码"
         main_content = (
             "我们收到了重置密码的请求。请点击下方链接设置新密码："
             f'<br><br><a href="{action_url.strip()}">{action_url.strip()}</a>'
@@ -104,11 +113,11 @@ def main() -> int:
     else:
         mail_kind = payload.get("mailKind") or ("resend" if mail_type == "verify_resend" else "register")
         if mail_kind == "resend":
-            subject = "请验证您的 MonoSkillNavigator 账户邮箱（重发）"
+            subject = f"请验证您的 {brand} 账户邮箱（重发）"
         else:
-            subject = "请验证您的 MonoSkillNavigator 账户邮箱"
+            subject = f"请验证您的 {brand} 账户邮箱"
         main_content = (
-            "感谢注册 MonoSkillNavigator。请点击下方链接验证邮箱后完成账户激活："
+            f"感谢注册 {brand}。请点击下方链接验证邮箱后完成账户激活："
             f'<br><br><a href="{action_url.strip()}">{action_url.strip()}</a>'
         )
         note = "若您未发起注册，请忽略此邮件。"
@@ -127,8 +136,9 @@ def main() -> int:
                 "note": note,
                 "end_content": "",
                 "comment": comment,
-                "signature_name": "<strong>MonoSkillNavigator Team</strong>",
+                "signature_name": f"<strong>{brand} Team</strong>",
                 "signature_email": os.environ["REPORT_MAIL_USERNAME"],
+                "brand_name": brand,
             },
         )
         mail.send_from_maildrop()

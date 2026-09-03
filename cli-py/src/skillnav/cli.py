@@ -156,7 +156,7 @@ def main(
         ),
     ] = None,
 ) -> None:
-    """CLI client for the Skill management platform (MonoSkillNavigator)."""
+    """CLI client for the Skill management platform (SkillNavigator)."""
     _state["ctx"] = CliContext.resolve(
         registry_flag=registry,
         profile_flag=profile,

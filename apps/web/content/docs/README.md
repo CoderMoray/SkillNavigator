@@ -1,10 +1,10 @@
 # 平台帮助文档
 
-面向 Skill 作者与使用者的说明，与 MonoSkillNavigator Web 展示一致。
+面向 Skill 作者与使用者的说明，与 {{brand_name}} Web 展示一致。
 
 | 文档 | 说明 |
 | --- | --- |
-| [MonoSkillNavigator 介绍](./monoskill-navigator.md) | 平台是什么、能做什么 |
+| [{{brand_name}} 介绍](./monoskill-navigator.md) | 平台是什么、能做什么 |
 | [CLI 指南](./cli-developer-guide.md) | 安装 skillnav、登录、AI 写 Skill、发布与审查迭代 |
 | [平台 Agent 系统提示词](./platform-agent-prompt.md) | 可复制系统提示词（含 FAQ 与文档链接） |
 | [Skill 格式](./skill-format.md) | 包结构、SKILL.md 与必填字段 |

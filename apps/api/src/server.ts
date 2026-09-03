@@ -27,6 +27,7 @@ import {
   createEmptyCreatorSummary,
   createRegistryStoreFromEnv,
   getApiBodyLimitBytes,
+  getBrandName,
   isSessionCredential,
   isSkillContributor,
   isSkillOwner,
@@ -267,6 +268,7 @@ export function buildServer() {
   app.get("/health", async () => ({
     ok: true,
     service: "skill-platform-api",
+    brandName: getBrandName(),
     timestamp: new Date().toISOString()
   }));
 

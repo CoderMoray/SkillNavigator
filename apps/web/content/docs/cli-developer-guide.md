@@ -32,7 +32,7 @@ skillnav status / report → 解读 verdict
 
 ## 1. 安装 skillnav CLI
 
-**skillnav** 是 MonoSkillNavigator 的官方命令行客户端（Python ≥ 3.9）。推荐安装：
+**skillnav** 是 {{brand_name}} 的官方命令行客户端（Python ≥ 3.9）。推荐安装：
 
 ```bash
 pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/
@@ -42,7 +42,7 @@ pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/
 
 ```bash
 # 从本平台源码（开发者）
-git clone <repo-url> && cd MonoSkillNavigator
+git clone <repo-url> && cd {{brand_name}}
 pip install -e "cli-py[dev]"
 ```
 
@@ -109,7 +109,7 @@ CLI 发布需要 API 密钥，密钥与 Web 登录账户绑定。若你还没有
 
 ### 3.2 配置平台地址（可选）
 
-默认 registry 为 `http://127.0.0.1:3000`（API 端口）。若平台部署在其他地址或带有路径前缀（例如 `https://host/MonoSkillNavigator/api`），先添加 profile：
+默认 registry 为 `http://127.0.0.1:3000`（API 端口）。若平台部署在其他地址或带有路径前缀（例如 `https://host/{{brand_name}}/api`），先添加 profile：
 
 ```bash
 skillnav config add prod --registry https://your-api.example.com
@@ -437,7 +437,7 @@ Web 个人中心回收站中的 Skill 需先恢复，再 CLI 发布。
 
 ### 连接自定义部署 API
 
-Registry URL 可带路径前缀；CLI 使用字符串拼接，请传入完整 API 根路径，例如 `https://example.com/MonoSkillNavigator/api`。
+Registry URL 可带路径前缀；CLI 使用字符串拼接，请传入完整 API 根路径，例如 `https://example.com/{{brand_name}}/api`。
 
 ---
 

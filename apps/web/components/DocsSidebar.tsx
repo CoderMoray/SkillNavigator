@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BookOpen } from "lucide-react";
-import { DOC_NAV } from "../lib/docs-nav";
+import { getDocNavItems } from "../lib/docs-nav";
 
 export function DocsSidebar() {
   const pathname = usePathname();
@@ -15,7 +15,7 @@ export function DocsSidebar() {
         <span>帮助文档</span>
       </div>
       <nav className="docs-sidebar-nav">
-        {DOC_NAV.map((item) => {
+        {getDocNavItems().map((item) => {
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link

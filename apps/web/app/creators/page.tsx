@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Download, Search, Sparkles, UserRound } from "lucide-react";
 import { AppShell } from "../../components/AppShell";
+import { resolveBrandName } from "../../lib/brand-name";
 import { getCreators } from "../../lib/api";
 import type { CreatorSummary } from "../../lib/creators";
 import { formatNumber } from "../../lib/format";
@@ -105,7 +106,7 @@ export default function CreatorsPage() {
                       <strong>{creator.name}</strong>
                       <span>@{creator.handle}</span>
                     </div>
-                    <p>{creator.skills.slice(0, 3).map((skill) => skill.name).join(" · ") || "Publisher on MonoSkillNavigator."}</p>
+                    <p>{creator.skills.slice(0, 3).map((skill) => skill.name).join(" · ") || `Publisher on ${resolveBrandName()}.`}</p>
                   </div>
                   <div className="publisher-stats">
                     <span><UserRound size={13} /> {formatNumber(creator.published)} published</span>
