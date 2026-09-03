@@ -50,7 +50,7 @@ pip install -e "cli-py[dev]"
 
 ```bash
 skillnav --version
-# skillnav 0.3.0
+# skillnav 0.3.1
 
 skillnav config test
 # 默认连接 http://127.0.0.1:3000，输出 registry 健康检查结果

@@ -148,8 +148,8 @@ npm run test:e2e       # Playwright 浏览器端到端测试（e2e/site.e2e.ts�
 维护者在 `cli-py/pyproject.toml` 更新版本号后：
 
 ```bash
-git tag skillnav-0.3.0
-git push origin skillnav-0.3.0
+git tag skillnav-0.3.1
+git push origin skillnav-0.3.1
 ```
 
 推送 `skillnav-*` tag 会触发 `.github/workflows/pypi.yml` 构建并发布到 PyPI（Trusted Publishing / OIDC）。也可在 GitHub Actions 手动 `workflow_dispatch`。

@@ -117,7 +117,7 @@ Skill 管理平台是一个 TypeScript npm workspaces monorepo，用于 Agent Sk
 | 发现 | **rejected** 已从搜索/榜单隐藏；**默认下载仍指向 latest 版本**，尚未切换为「最新通过审查」版本 |
 | 测试 | 烟雾测试未覆盖重复注册、token 过期、回收站边界等 |
 | CI / VT | upload-on-miss 轮询默认 90s 超时；无分步 timeout + retry |
-| CLI（skillnav） | 0.3.0：命令树已实现（Typer）；report VT 展示、全量测试、1.0.0 稳定化待完成 |
+| CLI（skillnav） | 0.3.1：命令树已实现（Typer）；report VT 展示、全量测试、1.0.0 稳定化待完成 |
 | 品牌 | `brand.yaml` 为事实来源，但尚未接入自动化同步到 Web/邮件/CLI/文档 |
 | 旧 CLI | `apps/cli`（TypeScript/Commander）为内部形态，对外分发由 skillnav 取代，逐步下线 |
 
