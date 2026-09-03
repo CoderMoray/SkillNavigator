@@ -13,7 +13,6 @@ import {
   GitBranch,
   Search,
   ShieldCheck,
-  Sparkles,
 } from "lucide-react";
 import { AppShell } from "../components/AppShell";
 import { SkillCategoryLabel } from "../components/SkillCategoryIcon";
@@ -101,10 +100,6 @@ export default function HomePage() {
       <div className="homepage">
         <section aria-labelledby="home-hero-title" className="homepage-hero">
           <div className="homepage-hero-copy">
-            <span className="homepage-kicker">
-              <Sparkles aria-hidden="true" size={14} />
-              MonoSkillNavigator · 开放 Agent Skill 注册表
-            </span>
             <h1 id="home-hero-title">发现可信Skill，放心复用</h1>
             <p className="homepage-hero-lead">发布要审查、安装有记录、质量有评分、版本可追溯</p>
 
