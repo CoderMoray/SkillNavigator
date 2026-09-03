@@ -5319,7 +5319,7 @@ button {
 }
 
 .homepage-category-card:hover {
-  border-color: rgba(36, 122, 118, 0.38);
+  border-color: rgba(var(--homepage-accent-rgb), 0.38);
   background: var(--homepage-accent-soft);
   color: var(--homepage-ink);
   transform: translateY(-1px);
@@ -5355,7 +5355,6 @@ button {
 }
 
 .homepage-featured {
-  border-top: 1px solid var(--homepage-border);
   padding-top: clamp(42px, 6vw, 68px);
 }
 
