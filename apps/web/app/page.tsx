@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Boxes,
@@ -11,10 +9,10 @@ import {
   Code2,
   FileText,
   GitBranch,
-  Search,
   ShieldCheck,
 } from "lucide-react";
 import { AppShell } from "../components/AppShell";
+import { HomeAgentInstallBar } from "../components/home/HomeAgentInstallBar";
 import { SkillCategoryLabel } from "../components/SkillCategoryIcon";
 import { SkillCard } from "../components/SkillCard";
 import { skillnavHomeCliExamples } from "../lib/cli-examples";
@@ -53,10 +51,8 @@ const trustRecords = [
 ];
 
 export default function HomePage() {
-  const router = useRouter();
   const [items, setItems] = useState<SkillSearchResult[]>([]);
   const [sort, setSort] = useState("downloads");
-  const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,12 +85,6 @@ export default function HomePage() {
     };
   }, [sort]);
 
-  function handleSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const target = query.trim() ? `/skills?query=${encodeURIComponent(query.trim())}` : "/skills";
-    router.push(target);
-  }
-
   return (
     <AppShell title="首页">
       <div className="homepage">
@@ -103,18 +93,7 @@ export default function HomePage() {
             <h1 id="home-hero-title">发现可信Skill，放心复用</h1>
             <p className="homepage-hero-lead">发布要审查、安装有记录、质量有评分、版本可追溯</p>
 
-            <form className="homepage-search" onSubmit={handleSearch}>
-              <Search aria-hidden="true" size={18} />
-              <input
-                aria-label="搜索 Skill"
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="搜索 Skill、作者或使用场景"
-                value={query}
-              />
-              <button aria-label="提交搜索" type="submit">
-                <ArrowRight aria-hidden="true" size={17} />
-              </button>
-            </form>
+            <HomeAgentInstallBar />
 
             <div className="homepage-hero-actions">
               <Link className="button homepage-button-primary" href="/skills">
