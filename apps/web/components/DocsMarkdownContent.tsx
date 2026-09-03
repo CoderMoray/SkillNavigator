@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import type { ComponentPropsWithoutRef } from "react";
+import { type ComponentPropsWithoutRef } from "react";
 import { resolveDocHref, resolveDocImageSrc } from "../lib/docs-nav";
+import { DocsPreWithCopy } from "./docs/DocsPreWithCopy";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
@@ -47,13 +48,23 @@ function DocImage({ src, alt, ...rest }: ComponentPropsWithoutRef<"img">) {
   return <img src={resolved} alt={alt} {...rest} />;
 }
 
-export function DocsMarkdownContent({ children }: { children: string }) {
+export function DocsMarkdownContent({
+  children,
+  enableAgentPromptCopy = false,
+}: {
+  children: string;
+  enableAgentPromptCopy?: boolean;
+}) {
   return (
     <div className="markdown-content docs-markdown">
       <ReactMarkdown
         remarkPlugins={remarkPlugins}
         rehypePlugins={rehypePlugins}
-        components={{ a: DocAnchor, img: DocImage }}
+        components={{
+          a: DocAnchor,
+          img: DocImage,
+          pre: (props) => <DocsPreWithCopy {...props} enableAgentPromptCopy={enableAgentPromptCopy} />,
+        }}
       >
         {children}
       </ReactMarkdown>

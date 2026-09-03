@@ -4416,6 +4416,58 @@ button {
   box-shadow: var(--shadow-sm);
 }
 
+.docs-copyable-pre {
+  margin: 16px 0;
+}
+
+.docs-copyable-pre-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: var(--card-solid);
+  padding: 10px 14px;
+}
+
+.docs-copyable-pre-label {
+  color: var(--muted-strong);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.docs-agent-prompt-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--background-strong);
+  color: var(--foreground);
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.docs-agent-prompt-copy:hover {
+  border-color: var(--border-strong);
+  background: var(--card-solid);
+}
+
+.docs-copyable-pre pre {
+  margin: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
 @keyframes shimmer {
   to {
     background-position: -240% 0;

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { DocsMarkdownContent } from "../../../components/DocsMarkdownContent";
 import { getDocNavBySlug, getDocSlugs } from "../../../lib/docs-nav";
 import { loadDocFile } from "../../../lib/docs-server";
+import { PLATFORM_AGENT_PROMPT_DOC_SLUG } from "../../../lib/platform-agent-prompt";
 
 type PageProps = {
   params: Promise<{ slug: string }>;
@@ -35,7 +36,9 @@ export default async function DocSlugPage({ params }: PageProps) {
 
   return (
     <article className="docs-page-inner">
-      <DocsMarkdownContent>{markdown}</DocsMarkdownContent>
+      <DocsMarkdownContent enableAgentPromptCopy={slug === PLATFORM_AGENT_PROMPT_DOC_SLUG}>
+        {markdown}
+      </DocsMarkdownContent>
     </article>
   );
 }

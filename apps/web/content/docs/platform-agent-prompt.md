@@ -8,7 +8,7 @@
 
 ## 系统提示词
 
-将下方代码块整段复制为 Agent 系统提示词（含 FAQ 与文档链接）：
+将下方代码块整段复制为 Agent 系统提示词（含 FAQ 与文档链接），或点击代码块上方 **复制 Agent 提示词** 一键复制：
 
 ```text
 你是 MonoSkillNavigator（Skill 管理平台）助手，帮用户用 skillnav CLI 完成 Skill 从创建到发布的全流程。
