@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { BarChart3, BookOpen, Boxes, LayoutDashboard, ShieldCheck, UserCircle } from "lucide-react";
 import { AuthStatus } from "./AuthStatus";
-import { PLATFORM_LOGO_PATH, publicAssetPath } from "../lib/public-asset";
+import { PLATFORM_LOGO_DARK_PATH, PLATFORM_LOGO_PATH, publicAssetPath } from "../lib/public-asset";
 
 const navItems = [
   { href: "/", label: "首页", icon: LayoutDashboard },
@@ -19,6 +19,7 @@ const navItems = [
 export function AppShell({ children, title = "概览" }: { children: ReactNode; title?: string }) {
   const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
+  const [logoSrc, setLogoSrc] = useState(() => publicAssetPath(PLATFORM_LOGO_PATH));
 
   useEffect(() => {
     function syncScrollState() {
@@ -33,6 +34,18 @@ export function AppShell({ children, title = "概览" }: { children: ReactNode; 
     return () => window.removeEventListener("scroll", syncScrollState);
   }, []);
 
+  useEffect(() => {
+    function syncLogo() {
+      const isDark = document.documentElement.dataset.theme === "dark";
+      setLogoSrc(publicAssetPath(isDark ? PLATFORM_LOGO_DARK_PATH : PLATFORM_LOGO_PATH));
+    }
+
+    syncLogo();
+    const observer = new MutationObserver(syncLogo);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className="app-shell">
       <header className={`site-header${isScrolled ? " is-scrolled" : ""}`}>
@@ -42,7 +55,7 @@ export function AppShell({ children, title = "概览" }: { children: ReactNode; 
             className="brand-logo"
             decoding="async"
             height={40}
-            src={publicAssetPath(PLATFORM_LOGO_PATH)}
+            src={logoSrc}
             width={211}
           />
         </Link>
