@@ -42,6 +42,8 @@ interface StoredUser extends PublicUser {
     tokenHash: string;
     expiresAt: string;
   };
+  /** 已消费的邮箱验证 token 痕迹（tokenHash → 消费时间/原过期时间），用于识别"链接已使用"。 */
+  usedEmailVerificationTokens?: Record<string, { usedAt: string; expiresAt: string }>;
   pendingPasswordReset?: {
     tokenHash: string;
     expiresAt: string;
@@ -80,6 +82,44 @@ export interface LoginResult {
   expiresAt: string;
 }
 
+export type VerificationTokenErrorCode = "other_account" | "used_self" | "used_other" | "invalid";
+
+/**
+ * 邮箱验证 token 无法/不应完成激活时的分类错误。
+ * - other_account：有效但归属其他已登录账号（token 已被服务端作废）
+ * - used_self / used_other：token 已消费过，按归属与当前登录账号是否一致区分
+ * - invalid：token 无效、已过期或无法归属
+ */
+export class VerificationTokenError extends Error {
+  constructor(
+    readonly code: VerificationTokenErrorCode,
+    readonly username?: string
+  ) {
+    super(
+      code === "other_account"
+        ? "Verification token belongs to another account"
+        : code === "invalid"
+          ? "Invalid or expired verification token"
+          : "Verification token already used"
+    );
+    this.name = "VerificationTokenError";
+  }
+}
+
+function throwUsedVerificationError(
+  sessionUserId: string | undefined,
+  ownerUserId: string,
+  ownerUsername: string
+): never {
+  if (sessionUserId === undefined) {
+    throw new VerificationTokenError("invalid");
+  }
+  throw new VerificationTokenError(
+    sessionUserId === ownerUserId ? "used_self" : "used_other",
+    ownerUsername
+  );
+}
+
 export interface AuthStore {
   register(username: string, password: string, email: string, options?: RegisterOptions): Promise<PublicUser>;
   login(username: string, password: string): Promise<LoginResult>;
@@ -91,7 +131,12 @@ export interface AuthStore {
   updateProfile(sessionToken: string, input: UpdateProfileInput): Promise<PublicUser>;
   deleteAccount(token: string, password: string): Promise<void>;
   createEmailVerificationToken(userId: string, expiresMs: number): Promise<string>;
-  verifyEmail(token: string): Promise<LoginResult>;
+  /**
+   * 校验并消费邮箱验证 token。
+   * @param sessionUserId 当前已登录用户 id（无登录态时为 undefined），用于判定链接归属场景。
+   * @throws VerificationTokenError 按 code 区分 four scenarios。
+   */
+  verifyEmail(token: string, sessionUserId?: string): Promise<LoginResult>;
   resendEmailVerification(username: string, password: string, expiresMs: number): Promise<{ user: PublicUser; token: string }>;
   validateUnverifiedUserForVerification(username: string, password: string): Promise<PublicUser>;
   purgeExpiredUnverifiedUsers(retentionDays: number): Promise<number>;
@@ -343,47 +388,86 @@ abstract class JsonAuthStore implements AuthStore {
     return rawToken;
   }
 
-  async verifyEmail(token: string): Promise<LoginResult> {
+  async verifyEmail(token: string, sessionUserId?: string): Promise<LoginResult> {
     const data = await this.load();
     const tokenHash = hashToken(token.trim());
     const user = Object.values(data.users).find(
-      (item) => item.pendingEmailVerification?.tokenHash === tokenHash
+      (item) =>
+        item.pendingEmailVerification?.tokenHash === tokenHash ||
+        item.usedEmailVerificationTokens?.[tokenHash] !== undefined
     );
 
-    if (!user?.pendingEmailVerification) {
-      throw new Error("Invalid or expired verification token");
+    if (!user || !user.email) {
+      throw new VerificationTokenError("invalid");
     }
 
-    if (new Date(user.pendingEmailVerification.expiresAt).getTime() <= Date.now()) {
+    const nowMs = Date.now();
+    const pending = user.pendingEmailVerification;
+
+    if (pending?.tokenHash === tokenHash) {
+      if (new Date(pending.expiresAt).getTime() <= nowMs) {
+        delete user.pendingEmailVerification;
+        await this.save(data);
+        throw new VerificationTokenError("invalid");
+      }
+      if (sessionUserId !== undefined && sessionUserId !== user.id) {
+        // 有效链接属于其他已登录账号：作废该链接（删除 pending）。
+        delete user.pendingEmailVerification;
+        await this.save(data);
+        throw new VerificationTokenError("other_account", user.username);
+      }
+      if (user.emailVerifiedAt) {
+        // 历史残留：账号已激活却仍有 pending，按"已使用"处理。
+        user.usedEmailVerificationTokens ??= {};
+        user.usedEmailVerificationTokens[tokenHash] = {
+          usedAt: new Date().toISOString(),
+          expiresAt: pending.expiresAt
+        };
+        delete user.pendingEmailVerification;
+        await this.save(data);
+        throwUsedVerificationError(sessionUserId, user.id, user.username);
+      }
+
+      const now = new Date().toISOString();
+      const sessionToken = `skp_${randomBytes(32).toString("base64url")}`;
+      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString();
+      const session: StoredSession = {
+        id: randomUUID(),
+        tokenHash: hashToken(sessionToken),
+        userId: user.id,
+        createdAt: now,
+        expiresAt
+      };
+      data.sessions[session.id] = session;
+      pruneExpiredSessions(data);
+
+      user.emailVerifiedAt = now;
+      user.emailVerified = true;
+      user.updatedAt = now;
+      user.usedEmailVerificationTokens ??= {};
+      user.usedEmailVerificationTokens[tokenHash] = { usedAt: now, expiresAt: pending.expiresAt };
       delete user.pendingEmailVerification;
       await this.save(data);
-      throw new Error("Invalid or expired verification token");
+
+      return {
+        token: sessionToken,
+        user: toPublicUser(user),
+        expiresAt
+      };
     }
 
-    const now = new Date().toISOString();
-    user.emailVerifiedAt = now;
-    user.emailVerified = true;
-    delete user.pendingEmailVerification;
-    user.updatedAt = now;
+    // 命中"已使用"痕迹：仍在有效期内 → 按归属区分；已过期 → 视为无效。
+    const used = user.usedEmailVerificationTokens?.[tokenHash];
+    if (used) {
+      if (new Date(used.expiresAt).getTime() <= nowMs) {
+        delete user.usedEmailVerificationTokens?.[tokenHash];
+        await this.save(data);
+        throw new VerificationTokenError("invalid");
+      }
+      throwUsedVerificationError(sessionUserId, user.id, user.username);
+    }
 
-    const sessionToken = `skp_${randomBytes(32).toString("base64url")}`;
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString();
-    const session: StoredSession = {
-      id: randomUUID(),
-      tokenHash: hashToken(sessionToken),
-      userId: user.id,
-      createdAt: now,
-      expiresAt
-    };
-    data.sessions[session.id] = session;
-    pruneExpiredSessions(data);
-    await this.save(data);
-
-    return {
-      token: sessionToken,
-      user: toPublicUser(user),
-      expiresAt
-    };
+    throw new VerificationTokenError("invalid");
   }
 
   async resendEmailVerification(
@@ -1022,7 +1106,11 @@ export class PostgresAuthStore implements AuthStore {
       const rawToken = `ev_${randomBytes(32).toString("base64url")}`;
       const now = new Date().toISOString();
       const expiresAt = new Date(Date.now() + expiresMs).toISOString();
-      await client.query("delete from email_verification_tokens where user_id = $1", [userId]);
+      // 只清掉旧的未使用 token，保留 used 行作为"链接已使用"的识别痕迹。
+      await client.query(
+        "delete from email_verification_tokens where user_id = $1 and used_at is null",
+        [userId]
+      );
       await client.query(
         `insert into email_verification_tokens (id, user_id, token_hash, expires_at, created_at)
          values ($1, $2, $3, $4, $5)`,
@@ -1038,24 +1126,62 @@ export class PostgresAuthStore implements AuthStore {
     }
   }
 
-  async verifyEmail(token: string): Promise<LoginResult> {
+  async verifyEmail(token: string, sessionUserId?: string): Promise<LoginResult> {
     await this.ensureSchema();
+    const tokenHash = hashToken(token.trim());
     const client = await this.pool.connect();
     let user: DatabaseUserRow | undefined;
     try {
       await client.query("begin");
       await client.query("delete from email_verification_tokens where expires_at <= now()");
-      const tokenResult = await client.query<{ user_id: string }>(
-        `select user_id
-         from email_verification_tokens
-         where token_hash = $1 and expires_at > now()
+      const tokenResult = await client.query<{
+        user_id: string;
+        username: string;
+        used_at: AuthDatabaseTimestamp | null;
+      }>(
+        `select t.user_id, t.used_at, u.username
+         from email_verification_tokens t
+         join platform_users u on u.id = t.user_id
+         where t.token_hash = $1
          limit 1
          for update`,
-        [hashToken(token.trim())]
+        [tokenHash]
       );
       const tokenRow = tokenResult.rows[0];
       if (!tokenRow) {
-        throw new Error("Invalid or expired verification token");
+        await client.query("commit");
+        throw new VerificationTokenError("invalid");
+      }
+
+      // 已被消费（used_at 已标记）：按归属区分场景。
+      if (tokenRow.used_at !== null) {
+        await client.query("commit");
+        throwUsedVerificationError(sessionUserId, tokenRow.user_id, tokenRow.username);
+      }
+
+      const ownerResult = await client.query<DatabaseUserRow>(
+        `select ${USER_COLUMNS}
+         from platform_users
+         where id = $1
+         for update`,
+        [tokenRow.user_id]
+      );
+      const owner = ownerResult.rows[0];
+      if (owner?.email_verified_at) {
+        // 历史残留：账号已激活却仍有未标记 token 行 → 补标记并按"已使用"处理。
+        await client.query(
+          `update email_verification_tokens set used_at = now() where token_hash = $1`,
+          [tokenHash]
+        );
+        await client.query("commit");
+        throwUsedVerificationError(sessionUserId, tokenRow.user_id, tokenRow.username);
+      }
+
+      if (sessionUserId !== undefined && sessionUserId !== tokenRow.user_id) {
+        // 有效链接属于其他已登录账号：删除该 token 行使链接立即失效。
+        await client.query("delete from email_verification_tokens where token_hash = $1", [tokenHash]);
+        await client.query("commit");
+        throw new VerificationTokenError("other_account", tokenRow.username);
       }
 
       const now = new Date().toISOString();
@@ -1065,7 +1191,11 @@ export class PostgresAuthStore implements AuthStore {
          where id = $2`,
         [now, tokenRow.user_id]
       );
-      await client.query("delete from email_verification_tokens where user_id = $1", [tokenRow.user_id]);
+      // 标记已使用而非删除，供后续再次点击识别场景。
+      await client.query(
+        `update email_verification_tokens set used_at = $1 where token_hash = $2`,
+        [now, tokenHash]
+      );
 
       const userResult = await client.query<DatabaseUserRow>(
         `select ${USER_COLUMNS}
@@ -1505,7 +1635,8 @@ export class PostgresAuthStore implements AuthStore {
         user_id text not null references platform_users(id) on delete cascade,
         token_hash text not null unique,
         expires_at timestamptz not null,
-        created_at timestamptz not null
+        created_at timestamptz not null,
+        used_at timestamptz
       )
     `);
     await client.query(
@@ -1515,6 +1646,28 @@ export class PostgresAuthStore implements AuthStore {
     await client.query(
       `create index if not exists email_verification_tokens_expires_at_idx
        on email_verification_tokens (expires_at)`
+    );
+
+    await client.query(
+      `insert into platform_schema_migrations (name, applied_at)
+       values ($1, now())
+       on conflict (name) do nothing`,
+      [migrationName]
+    );
+  }
+
+  private async migrateEmailVerificationUsedAt(client: pg.PoolClient): Promise<void> {
+    const migrationName = "auth-email-verification-used-at-v1";
+    const applied = await client.query<{ name: string }>(
+      "select name from platform_schema_migrations where name = $1",
+      [migrationName]
+    );
+    if (applied.rows.length > 0) {
+      return;
+    }
+
+    await client.query(
+      `alter table email_verification_tokens add column if not exists used_at timestamptz`
     );
 
     await client.query(
@@ -1669,6 +1822,7 @@ export class PostgresAuthStore implements AuthStore {
         await this.migrateLegacyAuth(client);
         await this.migrateEmailColumn(client);
         await this.migrateEmailVerification(client);
+        await this.migrateEmailVerificationUsedAt(client);
         await this.migratePasswordReset(client);
         await this.migrateApiKeys(client);
         await this.migrateApiKeyUniqueNames(client);

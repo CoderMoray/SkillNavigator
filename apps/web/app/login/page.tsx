@@ -7,8 +7,8 @@ import { LogIn } from "lucide-react";
 import { AppShell } from "../../components/AppShell";
 import { ErrorToast } from "../../components/ErrorToast";
 import { SuccessToast } from "../../components/SuccessToast";
-import { loginUser, ApiRequestError } from "../../lib/api";
-import { setAuthToken } from "../../lib/auth-token";
+import { getCurrentUser, loginUser, ApiRequestError } from "../../lib/api";
+import { clearAuthToken, getAuthToken, setAuthToken } from "../../lib/auth-token";
 import { resolveBrandName } from "../../lib/brand-name";
 import { creatorProfilePath } from "../../lib/creators";
 
@@ -38,8 +38,48 @@ function LoginContent() {
   const [errorToast, setErrorToast] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [resetNotice, setResetNotice] = useState(false);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // 已登录用户直接进入个人主页，避免看到登录表单。
+  useEffect(() => {
+    let cancelled = false;
+
+    async function redirectIfSignedIn() {
+      const token = getAuthToken();
+      if (!token) {
+        if (!cancelled) {
+          setCheckingAuth(false);
+        }
+        return;
+      }
+      try {
+        const user = await getCurrentUser(token);
+        if (!cancelled) {
+          router.replace(creatorProfilePath(user.username));
+        }
+      } catch {
+        // token 失效：清除后停留在登录页正常登录。
+        clearAuthToken();
+        if (!cancelled) {
+          setCheckingAuth(false);
+        }
+      }
+    }
+
+    void redirectIfSignedIn();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   useEffect(() => {
+    const notice = searchParams.get("notice");
+    if (notice === "logged_out") {
+      setNoticeMessage("已退出原账号，请重新登录。");
+    } else if (notice === "invalid_link") {
+      setNoticeMessage("激活链接无效或已过期，请重新登录。");
+    }
     if (searchParams.get("reset") === "ok") {
       setResetNotice(true);
     }
@@ -79,6 +119,16 @@ function LoginContent() {
     }
   }
 
+  if (checkingAuth) {
+    return (
+      <AppShell title="登录">
+        <div className="auth-page">
+          <div className="empty">加载中…</div>
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell title="登录">
       {errorToast ? <ErrorToast message={errorToast} onClose={() => setErrorToast(null)} /> : null}
@@ -87,6 +137,9 @@ function LoginContent() {
           message="密码已重置，请使用新密码登录。"
           onClose={() => setResetNotice(false)}
         />
+      ) : null}
+      {noticeMessage ? (
+        <SuccessToast message={noticeMessage} onClose={() => setNoticeMessage(null)} />
       ) : null}
       <div className="auth-page">
         <section className="auth-card card">

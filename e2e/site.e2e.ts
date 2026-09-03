@@ -259,4 +259,26 @@ test.describe.serial("MonoSkillNavigator browser flows", () => {
 
     expectNoRuntimeErrors(errors);
   });
+
+  test("verify-email routes signed-out users to login for expired links", async ({ page }) => {
+    await page.route(
+      (url) => url.origin === API_BASE_URL && url.pathname === "/auth/verify-email",
+      async (route) => {
+        await route.fulfill({
+          status: 400,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "verification_token_invalid" })
+        });
+      }
+    );
+
+    await visit(page, "/verify-email?token=e2e-expired-token");
+    await expect(page.getByRole("heading", { name: "链接无效" })).toBeVisible();
+    await expect(
+      page.getByText("该激活链接无效或已过期。如需验证邮箱，请重新登录以获取新的验证邮件。")
+    ).toBeVisible();
+    // 3 秒停留后自动前往登录页，并带 notice 提示。
+    await expect(page).toHaveURL(/\/login\?notice=invalid_link$/, { timeout: 8000 });
+    await expect(page.getByText("激活链接无效或已过期，请重新登录。")).toBeVisible();
+  });
 });

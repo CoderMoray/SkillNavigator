@@ -40,6 +40,7 @@ import {
   PublishPreflightError,
   PublishRateLimiter,
   VerificationEmailRateLimiter,
+  VerificationTokenError,
   getPasswordResetExpiresMs,
   getRegistrationVerifyExpiresMs,
   getRegistrationUnverifiedRetentionDays,
@@ -315,7 +316,8 @@ export function buildServer() {
 
   app.post<{ Body: VerifyEmailBody }>("/auth/verify-email", async (request, reply) => {
     try {
-      const session = await authStore.verifyEmail(request.body.token);
+      const sessionUser = await getAuthenticatedUser(request.headers.authorization, authStore);
+      const session = await authStore.verifyEmail(request.body.token, sessionUser?.id);
       return {
         user: session.user,
         token: session.token,
@@ -323,6 +325,12 @@ export function buildServer() {
         verified: true
       };
     } catch (error) {
+      if (error instanceof VerificationTokenError) {
+        // other_account 已在服务端作废链接，用 403 强提示；其余按 400 分类返回。
+        return reply
+          .code(error.code === "other_account" ? 403 : 400)
+          .send({ error: `verification_token_${error.code}`, username: error.username });
+      }
       return reply.code(400).send({ error: errorMessage(error) });
     }
   });

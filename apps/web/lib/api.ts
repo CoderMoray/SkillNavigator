@@ -199,13 +199,15 @@ export async function registerUser(
 }
 
 export async function verifyEmailToken(
-  token: string
+  token: string,
+  sessionToken?: string
 ): Promise<{ user: PublicUser; token: string; expiresAt: string; verified: true }> {
   return request<{ user: PublicUser; token: string; expiresAt: string; verified: true }>(
     apiUrl("/auth/verify-email"),
     {
       method: "POST",
-      body: JSON.stringify({ token })
+      body: JSON.stringify({ token }),
+      token: sessionToken
     }
   );
 }
@@ -623,6 +625,8 @@ interface ApiErrorResponse {
   email?: string;
   reason?: string;
   sendError?: string;
+  /** verification_token_* 错误中携带链接归属账号的用户名。 */
+  username?: string;
 }
 
 export class ApiRequestError extends Error {
