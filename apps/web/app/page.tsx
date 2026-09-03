@@ -179,7 +179,7 @@ export default function HomePage() {
           <div className="homepage-section-heading">
             <div>
               <span className="homepage-section-label">探索</span>
-              <h2 id="home-discovery-title">从正在解决的问题开始。</h2>
+              <h2 id="home-discovery-title">从正在解决的问题开始</h2>
               <p>按领域浏览公开 Skill，再进入详情查看版本、发布者与审查信息。</p>
             </div>
           </div>
@@ -216,7 +216,7 @@ export default function HomePage() {
           <div className="homepage-section-heading homepage-featured-heading">
             <div>
               <span className="homepage-section-label">精选内容</span>
-              <h2 id="home-featured-title">此刻值得细看的 Skill。</h2>
+              <h2 id="home-featured-title">此刻值得细看的 Skill</h2>
               <p>按热度、评分或最近更新，从公开平台中挑选三个可继续探索的条目。</p>
             </div>
             <Link className="homepage-inline-link" href="/leaderboard">
@@ -277,7 +277,7 @@ export default function HomePage() {
           <div className="homepage-trust-heading">
             <div>
               <span className="homepage-section-label">可信审查</span>
-              <h2 id="home-trust-title">不仅看描述，也保留检查的线索。</h2>
+              <h2 id="home-trust-title">不仅看描述，也保留检查的线索</h2>
               <p>每个环节都围绕包结构、静态风险与可靠性报告组织，便于在安装前做自己的判断。</p>
             </div>
             <Link className="homepage-inline-link" href="/reviews">
@@ -312,7 +312,7 @@ export default function HomePage() {
               <GitBranch aria-hidden="true" size={14} />
               发布与版本
             </span>
-            <h2 id="home-publish-title">用习惯的入口，把 Skill 交给平台。</h2>
+            <h2 id="home-publish-title">用习惯的入口，把 Skill 交给平台</h2>
             <p>
               在浏览器上传文件夹或 ZIP，或通过 skillnav CLI 完成登录与发布。每个版本都会关联包快照、审查结果与变更记录。
             </p>
