@@ -29,7 +29,7 @@ export function buildSkillInstallPrompt(input: {
     `- Registry API：${registryUrl}`,
     "",
     "安装步骤：",
-    "1. 安装 skillnav CLI（pipx install skillnav 或 pip install skillnav）",
+    "1. 安装 skillnav CLI（pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/）",
     `2. ${skillnavLoginExample("<从 Web 账户创建的 API 密钥>")}`,
     `3. ${installCommand}`,
     "",

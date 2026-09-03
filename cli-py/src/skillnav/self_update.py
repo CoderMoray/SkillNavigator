@@ -15,6 +15,7 @@ from skillnav.api import request_json
 from skillnav.errors import SkillnavError
 
 PYPI_PROJECT_URL = "https://pypi.org/pypi/skillnav/json"
+PYPI_INSTALL_INDEX = "https://mirrors.aliyun.com/pypi/simple/"
 _RELEASE_VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)")
 
 
@@ -85,7 +86,7 @@ def _installed_via_pipx() -> bool:
 def build_upgrade_command() -> list[str]:
     if shutil.which("pipx") and _installed_via_pipx():
         return ["pipx", "upgrade", "skillnav"]
-    return [sys.executable, "-m", "pip", "install", "--upgrade", "skillnav"]
+    return [sys.executable, "-m", "pip", "install", "--upgrade", "skillnav", "-i", PYPI_INSTALL_INDEX]
 
 
 def run_upgrade_command() -> None:
@@ -127,7 +128,8 @@ def perform_update(*, check_only: bool = False, current: str | None = None) -> U
 
     if is_editable_install():
         raise SkillnavError(
-            "Editable install detected; update from source or reinstall with pip install skillnav"
+            "Editable install detected; update from source or reinstall with "
+            f"pip install skillnav -i {PYPI_INSTALL_INDEX}"
         )
 
     run_upgrade_command()

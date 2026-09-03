@@ -33,7 +33,7 @@ npm run setup            # 安装 SkillSpector + 写入种子用户与 Demo Skil
 **skillnav CLI**（需 Python 3.9+）：
 
 ```bash
-pipx install skillnav    # 或 pip install -e "cli-py[dev]"
+pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/    # 或 pip install -e "cli-py[dev]"
 # Web → 设置 → API 密钥 创建密钥后：
 skillnav login --api-key sk_...
 skillnav search demo

@@ -16,16 +16,15 @@ command -v skillnav && skillnav --version
 ```
 
 - 已安装 → 执行 `skillnav config test` 检查 Registry 连通性；通过则直接进入第三节。
-- 未安装 → 执行安装（任选其一）：
+- 未安装 → 执行安装：
 
 ```bash
-pipx install skillnav          # 推荐
-pip install --user skillnav    # 用户级 pip
+pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/
 ```
 
 源码开发者可在 monorepo 根目录执行：`pip install -e "cli-py[dev]"`。
 
-> 沙箱限网时需以允许联网的权限执行 `pip` / `pipx`。
+> 沙箱限网时需以允许联网的权限执行 `pip`。
 
 升级：`skillnav update`（`skillnav update --check` 仅检查新版本）。
 

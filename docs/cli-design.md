@@ -17,7 +17,7 @@ Skill 管理平台（MonoSkillNavigator）对外提供 Web UI 与 HTTP API。`sk
 |---|---|
 | 包名 / 命令名 | `skillnav`（PyPI 未占用，2026-08-19 确认；npm 亦可用） |
 | 技术栈 | Python ≥ 3.9，CLI 框架：typer（正式版）/ argparse（占位壳） |
-| 安装 | `pipx install skillnav` 或 `pip install --user skillnav` |
+| 安装 | `pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/` |
 | 环境变量前缀 | `SKILLNAV_` |
 
 **取代关系**：对外分发的 CLI 形态为 skillnav；仓库内 `apps/cli`（TypeScript/Commander）逐步下线，或仅作开发期内部工具保留。

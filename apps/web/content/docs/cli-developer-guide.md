@@ -32,20 +32,15 @@ skillnav status / report → 解读 verdict
 
 ## 1. 安装 skillnav CLI
 
-**skillnav** 是 MonoSkillNavigator 的官方命令行客户端（Python ≥ 3.9）。推荐用 **pipx** 安装，避免与系统 Python 包冲突：
+**skillnav** 是 MonoSkillNavigator 的官方命令行客户端（Python ≥ 3.9）。推荐安装：
 
 ```bash
-pipx install skillnav
+pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/
 ```
-
-若尚未安装 pipx，可先执行 `pip install pipx && pipx ensurepath`，然后重新打开终端。
 
 **其他安装方式：**
 
 ```bash
-# 用户级 pip
-pip install --user skillnav
-
 # 从本平台源码（开发者）
 git clone <repo-url> && cd MonoSkillNavigator
 pip install -e "cli-py[dev]"

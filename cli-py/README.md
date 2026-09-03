@@ -7,7 +7,7 @@ Specification: `docs/cli-design.md` in the platform repository.
 ## Install
 
 ```bash
-pipx install skillnav
+pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/
 # or from this repo:
 pip install -e "cli-py[dev]"
 ```

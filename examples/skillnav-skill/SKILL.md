@@ -29,11 +29,10 @@ skillnav --version
 skillnav config test
 ```
 
-若命令不存在，引导用户安装（任选其一）：
+若命令不存在，引导用户安装：
 
 ```bash
-pipx install skillnav          # 推荐
-pip install --user skillnav    # 用户级 pip
+pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/
 ```
 
 源码开发者可在 monorepo 根目录执行：`pip install -e "cli-py[dev]"`。
