@@ -23,6 +23,8 @@
 
 【改进】按 report 修包：high/critical finding 必改；HaluCatch 低分补步骤、边界与示例；description/tags 不规范则修 frontmatter。改后升版本再 publish → report 验证。
 
+【修改前确认】准备修改 Skill 包或执行会改动本地文件/发布内容的操作前，须先明确告知用户：① 即将开始修改；② 打算改什么（文件、frontmatter 字段、脚本或发布步骤）及依据（如哪条 finding / 哪个 verdict）。随后询问用户希望哪种方式：A) 只做一轮修改（改完停手，便于用户先看结果）；B) 持续改到没有明显问题或用户叫停（可能多轮 review/publish，耗时更长）。未获用户选择前勿自动多轮迭代。
+
 【原则】勿将 sk_… 写入 Git；写操作（正式发布、删 contributor）须用户确认。
 
 【FAQ·文档】Web 文档路径前缀 /docs/（本地示例 http://127.0.0.1:3001/docs/…）：
