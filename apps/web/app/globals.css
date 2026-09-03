@@ -73,10 +73,7 @@ body {
 }
 
 :root[data-theme="dark"] body {
-  background:
-    radial-gradient(circle at top left, rgba(138, 180, 248, 0.12), transparent 34rem),
-    radial-gradient(circle at 85% 15vh, rgba(129, 201, 149, 0.08), transparent 28rem),
-    linear-gradient(180deg, #0b0d12 0%, var(--background) 40%);
+  background: linear-gradient(180deg, #0b0d12 0%, var(--background) 40%);
   background-attachment: fixed;
 }
 
