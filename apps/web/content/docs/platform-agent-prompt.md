@@ -1,6 +1,6 @@
 # 平台 Agent 系统提示词
 
-面向 Cursor Rules、Custom Instructions 或内置 Agent 的**可复制系统提示词**，指导 AI 帮用户完成 Skill 从登录到发布、审查与迭代的完整流程。
+面向 Agent 的**可复制系统提示词**，指导 AI 帮用户完成 Skill 从登录到发布、审查与迭代的完整流程。
 
 > 命令细节见 [CLI 指南](./cli-developer-guide.md)；CLI 命令索引见仓库 `examples/skillnav-skill/`。
 
