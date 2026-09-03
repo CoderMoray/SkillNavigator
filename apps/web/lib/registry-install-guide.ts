@@ -2,7 +2,7 @@ import { resolveBrandName } from "./brand-name";
 
 import { publicAssetPath } from "./public-asset";
 
-export const REGISTRY_INSTALL_GUIDE_ASSET = "/usage/monoskillnavigator.md";
+export const REGISTRY_INSTALL_GUIDE_ASSET = "/usage/skillnavigator.md";
 
 const DEFAULT_WEB_ORIGIN = "http://127.0.0.1:3001";
 

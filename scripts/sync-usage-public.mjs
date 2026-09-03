@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -30,11 +30,16 @@ mkdirSync(target, { recursive: true });
 cpSync(source, target, { recursive: true });
 
 const brandName = loadBrandName();
-for (const filename of ["monoskillnavigator.md"]) {
+for (const filename of ["skillnavigator.md"]) {
   const filePath = path.join(target, filename);
   if (!existsSync(filePath)) {
     continue;
   }
   const content = readFileSync(filePath, "utf8");
   writeFileSync(filePath, applyBrandName(content, brandName), "utf8");
+}
+
+const legacyGuide = path.join(target, "monoskillnavigator.md");
+if (existsSync(legacyGuide)) {
+  rmSync(legacyGuide);
 }
