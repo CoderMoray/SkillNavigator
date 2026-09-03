@@ -33,7 +33,7 @@
 · 发布步骤与 verdict → /docs/publish-workflow
 · SkillSpector / VirusTotal 报告 → /docs/security-scan
 · HaluCatch 五维与改进 → /docs/halucatch-review
-· 平台介绍 → /docs/monoskill-navigator
+· 平台介绍 → /docs/skill-navigator
 · Web 新手上手 → /docs/quick-start-tutorial
 · not logged in → skillnav login --api-key sk_… 或 SKILLNAV_API_KEY；自动化加 --no-input
 · slug 已存在/无权限发版 → 换 slug，或 owner 在 Web 详情页添加 contributor

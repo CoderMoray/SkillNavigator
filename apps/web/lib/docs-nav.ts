@@ -8,15 +8,15 @@ export type DocNavItem = {
   filename: string;
 };
 
-export const DEFAULT_DOC_SLUG = "monoskill-navigator";
+export const DEFAULT_DOC_SLUG = "skill-navigator";
 
 const DOC_NAV_BASE: DocNavItem[] = [
   {
-    slug: "monoskill-navigator",
+    slug: "skill-navigator",
     title: "{{brand_name}} 介绍",
     sidebarTitle: "平台介绍",
-    href: "/docs/monoskill-navigator",
-    filename: "monoskill-navigator.md"
+    href: "/docs/skill-navigator",
+    filename: "skill-navigator.md"
   },
   {
     slug: "quick-start-tutorial",

@@ -12,7 +12,7 @@ function apiUrl(path: string): URL {
   return new URL(path.replace(/^\/+/, ""), `${API_BASE_URL.replace(/\/+$/, "")}/`);
 }
 const DOC_SLUGS = [
-  "monoskill-navigator",
+  "skill-navigator",
   "quick-start-tutorial",
   "cli-guide",
   "platform-agent-prompt",
@@ -165,7 +165,7 @@ test.describe.serial("MonoSkillNavigator browser flows", () => {
     ).toBeVisible();
 
     await visit(page, "/docs");
-    await expect(page).toHaveURL(/\/docs\/monoskill-navigator$/);
+    await expect(page).toHaveURL(/\/docs\/skill-navigator$/);
     await expect(page.locator("article")).toBeVisible();
     for (const slug of DOC_SLUGS) {
       await visit(page, `/docs/${slug}`);
