@@ -31,7 +31,7 @@ export function HomeTrustSection() {
         <div>
           <span className="eyebrow">可信发布</span>
           <h2>把专业能力，发布成可信的 Skill</h2>
-          <p>面向个人开发者：格式、安全与可靠性审查结果与发布包一起进入注册表。</p>
+          <p>面向个人开发者：格式、安全与可靠性审查结果与发布包一起进入平台。</p>
         </div>
         <div className="home-trust-actions">
           <Link className="button primary compact" href="/skills/publish">

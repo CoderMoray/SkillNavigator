@@ -13,7 +13,7 @@ export function buildRegistryInstallGuideUrl(origin: string): string {
 
 /** One-line prompt copied from the homepage (SkillHub-style). */
 export function buildRegistryStoreInstallPrompt(installGuideUrl: string): string {
-  return `根据 ${installGuideUrl} 安装 MonoSkillNavigator Skill 注册表。`;
+  return `根据 ${installGuideUrl} 安装 MonoSkillNavigator 平台。`;
 }
 
 export const DEFAULT_WEB_ORIGIN =

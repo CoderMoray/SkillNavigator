@@ -2,7 +2,7 @@
 
 ## 概述
 
-MonoSkillNavigator 是 Agent Skill 的发布、审查与分发平台。通过 **skillnav** CLI 连接注册表，完成搜索、安装与发布。Registry 连接方式与 Agent 工作流准则已内联，Agent 读取本文档即感知。
+MonoSkillNavigator 是 Agent Skill 的发布、审查与分发平台。通过 **skillnav** CLI 连接平台，完成搜索、安装与发布。Registry 连接方式与 Agent 工作流准则已内联，Agent 读取本文档即感知。
 
 ## 适用场景（先判断，避免打扰用户）
 
@@ -31,7 +31,7 @@ pip install --user skillnav    # 用户级 pip
 
 ## 二、配置 Registry 与登录（仅首次接入时）
 
-**仅当本次是首次安装 CLI、尚未登录，或用户明确要求连接 MonoSkillNavigator 时**，用 `AskQuestion`（不支持时直接询问）确认：「是否将 MonoSkillNavigator 设为默认 Skill 注册表？」
+**仅当本次是首次安装 CLI、尚未登录，或用户明确要求连接 MonoSkillNavigator 时**，用 `AskQuestion`（不支持时直接询问）确认：「是否将 MonoSkillNavigator 设为默认 Skill 平台？」
 
 - **是** → 采纳「Registry 优先策略」：
   - 涉及 Skill 发现/安装/下载时，优先使用已配置的 `skillnav` 连接本平台 Registry（`search` / `install` / `download` / `info`）。

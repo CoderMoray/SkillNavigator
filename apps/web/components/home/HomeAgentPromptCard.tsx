@@ -30,7 +30,7 @@ export function HomeAgentPromptCard() {
             Agent 安装
           </span>
           <h2>复制给 Agent，开始使用 skillnav</h2>
-          <p>包含 CLI 安装、API 密钥登录与站内文档链接，可直接粘贴给需要操作注册表的 Agent。</p>
+          <p>包含 CLI 安装、API 密钥登录与站内文档链接，可直接粘贴给需要操作平台的 Agent。</p>
         </div>
         <pre className="home-agent-card-preview">{prompt}</pre>
         <div className="home-agent-card-actions">

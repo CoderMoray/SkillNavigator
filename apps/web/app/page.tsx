@@ -204,7 +204,7 @@ export default function HomePage() {
             <aside className="homepage-discovery-note">
               <span className="homepage-panel-label">更快缩小范围</span>
               <strong>从名称、作者或使用场景搜索。</strong>
-              <p>目录用于浏览，搜索用于直接抵达；两种方式都能通向同一份公开注册表。</p>
+              <p>目录用于浏览，搜索用于直接抵达；两种方式都能通向同一个公开平台。</p>
               <Link className="homepage-inline-link" href="/skills">
                 浏览全部 Skill <ArrowRight aria-hidden="true" size={15} />
               </Link>
@@ -217,7 +217,7 @@ export default function HomePage() {
             <div>
               <span className="homepage-section-label">精选内容</span>
               <h2 id="home-featured-title">此刻值得细看的 Skill。</h2>
-              <p>按热度、评分或最近更新，从公开注册表中挑选三个可继续探索的条目。</p>
+              <p>按热度、评分或最近更新，从公开平台中挑选三个可继续探索的条目。</p>
             </div>
             <Link className="homepage-inline-link" href="/leaderboard">
               打开榜单 <ArrowRight aria-hidden="true" size={15} />
@@ -238,7 +238,7 @@ export default function HomePage() {
                 </button>
               ))}
             </div>
-            <span className="homepage-featured-source">来自公开 Skill 注册表</span>
+            <span className="homepage-featured-source">来自公开 Skill 平台</span>
           </div>
 
           {error ? (
@@ -259,7 +259,7 @@ export default function HomePage() {
             <div className="homepage-load-state">
               <Boxes aria-hidden="true" size={22} />
               <div>
-                <strong>公开注册表还没有可展示的 Skill。</strong>
+                <strong>公开平台还没有可展示的 Skill。</strong>
                 <p>可先从 <code>SKILL.md</code> 准备一个能力包，再通过 Web 或 skillnav 发布。</p>
               </div>
               <Link className="button secondary compact" href="/skills/publish">前往发布</Link>
@@ -312,7 +312,7 @@ export default function HomePage() {
               <GitBranch aria-hidden="true" size={14} />
               发布与版本
             </span>
-            <h2 id="home-publish-title">用习惯的入口，把 Skill 交给注册表。</h2>
+            <h2 id="home-publish-title">用习惯的入口，把 Skill 交给平台。</h2>
             <p>
               在浏览器上传文件夹或 ZIP，或通过 skillnav CLI 完成登录与发布。每个版本都会关联包快照、审查结果与变更记录。
             </p>
