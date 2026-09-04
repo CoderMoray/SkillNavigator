@@ -118,13 +118,18 @@ test.describe.serial("MonoSkillNavigator browser flows", () => {
 
     await visit(page, "/");
     await expect(page.getByRole("heading", { name: "发现可信Skill，放心复用" })).toBeVisible();
-    await page.getByRole("textbox", { name: "搜索 Skill" }).fill(skill.name);
-    await page.getByRole("textbox", { name: "搜索 Skill" }).press("Enter");
-    await expect(page).toHaveURL(new RegExp(`/skills\\?query=${encodeURIComponent(skill.name)}`));
-    await expect(page.getByText(skill.name).first()).toBeVisible();
+    // 首页搜索框已被 copy-to-AI 安装条取代（a007b23），搜索入口移到 /skills。
+    await expect(page.getByRole("link", { name: "探索公开 Skill" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "复制给 AI 安装" })).toBeVisible();
 
     await visit(page, "/skills");
     await expect(page.getByRole("button", { name: "Plugins", exact: true })).toBeVisible();
+    // 在 Skills 市场页执行搜索（输入即查询）。
+    await page.getByRole("textbox", { name: "搜索 Skill" }).fill(skill.name);
+    await expect(page.getByText(skill.name).first()).toBeVisible();
+    // URL query 直达同样生效。
+    await visit(page, `/skills?query=${encodeURIComponent(skill.name)}`);
+    await expect(page.getByText(skill.name).first()).toBeVisible();
     await page.getByRole("button", { name: "Plugins", exact: true }).click();
     await expect(page.getByText("Plugins 页面正在建设中，当前先开放 Skills 市场。")).toBeVisible();
     await page.getByRole("button", { name: "Skills", exact: true }).click();
@@ -173,7 +178,8 @@ test.describe.serial("MonoSkillNavigator browser flows", () => {
     }
 
     await visit(page, "/login");
-    await expect(page.getByRole("heading", { name: "登录 Skill 管理平台" })).toBeVisible();
+    // 登录页标题为 "登录 {BRAND_NAME}"（默认 SkillNavigator），避免与品牌强耦合。
+    await expect(page.getByRole("heading", { name: /^登录 / })).toBeVisible();
     await visit(page, "/register");
     await expect(page.getByRole("heading", { name: "注册平台用户" })).toBeVisible();
     await visit(page, "/register/pending?email=e2e-route@example.test");
