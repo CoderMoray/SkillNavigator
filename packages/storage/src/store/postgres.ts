@@ -19,12 +19,15 @@ import * as schema from "../schema";
 import type {
   ArtifactDescriptor, ArtifactProvider, ArtifactStore,
   ContributorRole, IssueSeverity, IssueStatus, IssueType,
+  MarkSkillReviewStatusOptions,
   PostgresRegistryStoreOptions,
   RegistryContributor, RegistryData, RegistryIssue, RegistryRating,
   RegistrySkill, RegistryVersion, SkillSearchResult, LeaderboardSort,
   RecycleBinSkill,
+  SkillReviewStatus,
   SkillSlugAvailability,
 } from "../types";
+import { DEFAULT_SKILL_REVIEW_STATUS, isSkillReviewStatus } from "../review-status.js";
 import { skillRecyclePurgeAt, skillRecycleRetentionMs } from "../recycle-bin";
 import { parseSkillSpectorReviewRow, skillSpectorReviewColumns } from "../skillspector-review";
 import { parseVirusTotalReviewRow, virusTotalReviewColumns } from "../virustotal-review";
@@ -45,6 +48,10 @@ type EvaluationFindingRow = {
   message: string;
   recommendation: string;
 };
+
+function parseSkillReviewStatus(value: string | null | undefined): SkillReviewStatus {
+  return value && isSkillReviewStatus(value) ? value : DEFAULT_SKILL_REVIEW_STATUS;
+}
 
 function toFunctionalEvaluationFinding(row: EvaluationFindingRow): FunctionalEvaluationFinding {
   return {
@@ -306,6 +313,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         name: schema.skills.name,
         description: schema.skills.description,
         latestVersion: schema.skills.latestVersion,
+        reviewStatus: schema.skills.reviewStatus,
         status: schema.skillVersions.status,
         categories: schema.skillVersions.categories,
         qualityScore: schema.skillReviews.qualityScore,
@@ -341,6 +349,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         and(
           isNull(schema.skills.deletedAt),
           eq(schema.skills.published, true),
+          eq(schema.skills.reviewStatus, "completed"),
           options.excludeRejected ? ne(schema.skillVersions.status, "rejected") : undefined,
           q
             ? or(
@@ -359,7 +368,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       )
       .groupBy(
         schema.skills.slug, schema.skills.name, schema.skills.description,
-        schema.skills.latestVersion, schema.skillVersions.status, schema.skillVersions.categories,
+        schema.skills.latestVersion, schema.skills.reviewStatus, schema.skillVersions.status, schema.skillVersions.categories,
         schema.skillReviews.qualityScore, schema.skillReviews.securityScore,
         schema.skillReviews.reliabilityScore, schema.skills.averageRating,
         schema.skills.ratingCount, schema.skills.updatedAt, schema.skillVersions.createdAt
@@ -387,6 +396,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       name: r.name,
       description: r.description,
       latestVersion: r.latestVersion,
+      reviewStatus: parseSkillReviewStatus(r.reviewStatus),
       status: r.status as SkillSearchResult["status"],
       scores: {
         qualityScore: Number(r.qualityScore),
@@ -423,6 +433,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         name: schema.skills.name,
         description: schema.skills.description,
         latestVersion: schema.skills.latestVersion,
+        reviewStatus: schema.skills.reviewStatus,
         status: schema.skillVersions.status,
         categories: schema.skillVersions.categories,
         qualityScore: schema.skillReviews.qualityScore,
@@ -460,6 +471,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         schema.skills.name,
         schema.skills.description,
         schema.skills.latestVersion,
+        schema.skills.reviewStatus,
         schema.skillVersions.status,
         schema.skillVersions.categories,
         schema.skillReviews.qualityScore,
@@ -492,6 +504,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       name: r.name,
       description: r.description,
       latestVersion: r.latestVersion,
+      reviewStatus: parseSkillReviewStatus(r.reviewStatus),
       status: r.status as SkillSearchResult["status"],
       scores: {
         qualityScore: Number(r.qualityScore),
@@ -528,6 +541,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         name: schema.skills.name,
         description: schema.skills.description,
         latestVersion: schema.skills.latestVersion,
+        reviewStatus: schema.skills.reviewStatus,
         published: schema.skills.published,
         status: schema.skillVersions.status,
         categories: schema.skillVersions.categories,
@@ -566,6 +580,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         schema.skills.name,
         schema.skills.description,
         schema.skills.latestVersion,
+        schema.skills.reviewStatus,
         schema.skills.published,
         schema.skillVersions.status,
         schema.skillVersions.categories,
@@ -599,6 +614,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       name: r.name,
       description: r.description,
       latestVersion: r.latestVersion,
+      reviewStatus: parseSkillReviewStatus(r.reviewStatus),
       status: r.status as SkillSearchResult["status"],
       scores: {
         qualityScore: Number(r.qualityScore),
@@ -858,6 +874,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     return {
       slug: row.slug, name: row.name, description: row.description,
       ownerUserId: row.ownerUserId ?? undefined, latestVersion: row.latestVersion,
+      reviewStatus: parseSkillReviewStatus(row.reviewStatus),
       versions: versionMap,
       contributors: contributors.map((c) => mapContributorRow(c)),
       issues: issues.map((i) => ({
@@ -1114,6 +1131,10 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       .set({ status: review.verdict, updatedAt: new Date() })
       .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
 
+    await this.db.update(schema.skills)
+      .set({ reviewStatus: "completed", updatedAt: new Date() })
+      .where(eq(schema.skills.slug, slug));
+
     return (await this.getSkill(slug))?.versions[version]!;
   }
 
@@ -1145,6 +1166,43 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     });
 
     return (await this.getSkill(slug))?.versions[version]!;
+  }
+
+  async markSkillReviewStatus(
+    slug: string,
+    reviewStatus: SkillReviewStatus,
+    options?: MarkSkillReviewStatusOptions
+  ): Promise<void> {
+    await this.ensureSchema();
+    const now = new Date();
+    const [existing] = await this.db
+      .select({ slug: schema.skills.slug })
+      .from(schema.skills)
+      .where(eq(schema.skills.slug, slug))
+      .limit(1);
+
+    if (existing) {
+      await this.db.update(schema.skills)
+        .set({ reviewStatus, updatedAt: now })
+        .where(eq(schema.skills.slug, slug));
+      return;
+    }
+
+    if (!options) {
+      throw new Error(`Skill not found: ${slug}`);
+    }
+
+    await this.db.insert(schema.skills).values({
+      slug,
+      name: options.name,
+      description: options.description,
+      ownerUserId: options.ownerUserId ?? null,
+      latestVersion: options.latestVersion,
+      reviewStatus,
+      published: false,
+      createdAt: now,
+      updatedAt: now,
+    });
   }
 
   async publishSnapshot(snapshot: any, review: any, evaluation?: any, options: any = {}): Promise<RegistryVersion> {
@@ -1179,13 +1237,14 @@ export class PostgresRegistryStore extends JsonRegistryStore {
             description,
             latestVersion: releaseTags.includes("latest") ? version : existingSkill.latestVersion,
             published: true,
+            reviewStatus: "completed",
             updatedAt: now
           })
           .where(eq(schema.skills.slug, slug));
       } else {
         await tx.insert(schema.skills).values({
           slug, name, description, ownerUserId: options.owner?.userId ?? null,
-          latestVersion: version, published: true, createdAt: now, updatedAt: now,
+          latestVersion: version, published: true, reviewStatus: "completed", createdAt: now, updatedAt: now,
         });
       }
 
@@ -1313,10 +1372,16 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       .from(schema.skillVersions);
 
     const results: RegistryVersion[] = [];
+    const reviewingSlugs = new Set<string>();
     for (const { slug, version } of versions) {
       const skill = await this.getSkill(slug);
       const rv = skill?.versions[version];
       if (!skill || skill.deletedAt || !rv) continue;
+
+      if (!reviewingSlugs.has(slug)) {
+        await this.markSkillReviewStatus(slug, "reviewing");
+        reviewingSlugs.add(slug);
+      }
 
       const { review, evaluation } = await pipelineFn(rv.snapshot, version);
       await this.upsertReview(slug, version, review);
@@ -1325,6 +1390,85 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       results.push((await this.getSkill(slug))!.versions[version]!);
     }
     return results;
+  }
+
+  async listReviewPendingSkillsForOwner(ownerUserId: string): Promise<SkillSearchResult[]> {
+    await this.ensureSchema();
+    const ownerMatch = or(
+      eq(schema.skills.ownerUserId, ownerUserId),
+      sql`exists (
+        select 1 from ${schema.skillContributors} sc
+        where sc.skill_slug = ${schema.skills.slug}
+        and sc.role = 'owner'
+        and sc.user_id = ${ownerUserId}
+      )`
+    );
+
+    const rows = await this.db
+      .select({
+        slug: schema.skills.slug,
+        name: schema.skills.name,
+        description: schema.skills.description,
+        latestVersion: schema.skills.latestVersion,
+        reviewStatus: schema.skills.reviewStatus,
+        published: schema.skills.published,
+        averageRating: schema.skills.averageRating,
+        ratingCount: schema.skills.ratingCount,
+        updatedAt: schema.skills.updatedAt,
+        openIssues: sql<number>`(
+          select count(*) from ${schema.skillIssues}
+          where ${schema.skillIssues.skillSlug} = ${schema.skills.slug}
+          and ${schema.skillIssues.status} != 'closed'
+        )`.mapWith(Number),
+      })
+      .from(schema.skills)
+      .where(
+        and(
+          isNull(schema.skills.deletedAt),
+          ownerMatch,
+          or(eq(schema.skills.reviewStatus, "reviewing"), eq(schema.skills.reviewStatus, "failed"))
+        )
+      )
+      .orderBy(desc(schema.skills.updatedAt));
+
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const slugs = rows.map((row) => row.slug);
+    const allContributors = await this.db
+      .select()
+      .from(schema.skillContributors)
+      .where(inArray(schema.skillContributors.skillSlug, slugs));
+
+    const contributorsMap = new Map<string, SkillSearchResult["contributors"]>();
+    for (const contributor of allContributors) {
+      const list = contributorsMap.get(contributor.skillSlug) ?? [];
+      list.push(mapContributorRow(contributor));
+      contributorsMap.set(contributor.skillSlug, list);
+    }
+
+    return rows.map((row) => ({
+      slug: row.slug,
+      name: row.name,
+      description: row.description,
+      latestVersion: row.latestVersion,
+      reviewStatus: parseSkillReviewStatus(row.reviewStatus),
+      status: "needs-review",
+      scores: {
+        qualityScore: 0,
+        securityScore: 0,
+        reliabilityScore: 0,
+      },
+      categories: [],
+      averageRating: Number(row.averageRating),
+      ratingCount: Number(row.ratingCount),
+      openIssues: row.openIssues,
+      contributors: contributorsMap.get(row.slug) ?? [],
+      downloads: 0,
+      updatedAt: toIsoTimestampString(row.updatedAt),
+      published: row.published !== false,
+    }));
   }
 
   async listIssues(slug: string, status?: string): Promise<any[]> {
@@ -1571,6 +1715,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         name: schema.skills.name,
         description: schema.skills.description,
         latestVersion: schema.skills.latestVersion,
+        reviewStatus: schema.skills.reviewStatus,
         status: schema.skillVersions.status,
         categories: schema.skillVersions.categories,
         qualityScore: schema.skillReviews.qualityScore,
@@ -1616,6 +1761,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         schema.skills.name,
         schema.skills.description,
         schema.skills.latestVersion,
+        schema.skills.reviewStatus,
         schema.skillVersions.status,
         schema.skillVersions.categories,
         schema.skillReviews.qualityScore,
@@ -1651,6 +1797,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       name: r.name,
       description: r.description,
       latestVersion: r.latestVersion,
+      reviewStatus: parseSkillReviewStatus(r.reviewStatus),
       status: r.status as SkillSearchResult["status"],
       scores: {
         qualityScore: Number(r.qualityScore),

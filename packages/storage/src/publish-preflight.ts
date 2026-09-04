@@ -35,7 +35,7 @@ export function assertPublishPreflight(input: PublishPreflightInput): void {
     throw new PublishPreflightError(`Version already exists: ${slug}@${version}`, 409);
   }
 
-  if (existingSkill) {
+  if (existingSkill?.versions[existingSkill.latestVersion]) {
     const compared = compareSemver(version, existingSkill.latestVersion);
     if (compared !== null && compared <= 0) {
       throw new PublishPreflightError(

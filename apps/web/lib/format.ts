@@ -1,4 +1,4 @@
-import type { ReviewSeverity, ReviewVerdict } from "./types";
+import type { ReviewSeverity, ReviewVerdict, SkillReviewStatus } from "./types";
 
 export function formatDateTime(input: string | undefined): string {
   if (!input) {
@@ -44,6 +44,15 @@ export function verdictLabel(verdict: ReviewVerdict): string {
     rejected: "已拒绝"
   };
   return labels[verdict];
+}
+
+export function skillReviewStatusLabel(status: SkillReviewStatus): string {
+  const labels: Record<SkillReviewStatus, string> = {
+    reviewing: "审查中",
+    completed: "审查完成",
+    failed: "审查失败"
+  };
+  return labels[status];
 }
 
 export function severityLabel(severity: ReviewSeverity): string {

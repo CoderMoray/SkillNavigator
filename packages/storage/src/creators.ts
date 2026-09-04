@@ -146,6 +146,21 @@ export function mergeOwnerRejectedSkills(
   return { ...creator, skills };
 }
 
+/** Appends owner-only reviewing/failed skills to a creator profile. */
+export function mergeOwnerReviewPendingSkills(
+  creator: CreatorSummary,
+  pending: SkillSearchResult[]
+): CreatorSummary {
+  const existingSlugs = new Set(creator.skills.map((skill) => skill.slug));
+  const extra = pending.filter((skill) => !existingSlugs.has(skill.slug));
+  if (extra.length === 0) {
+    return creator;
+  }
+
+  const skills = sortSkillSearchResultsByRecent([...creator.skills, ...extra]);
+  return { ...creator, skills };
+}
+
 function unknownContributor(): RegistryContributor {
   return {
     id: "unknown",

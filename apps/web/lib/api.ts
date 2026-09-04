@@ -7,6 +7,7 @@ import type {
   RegistryRating,
   RegistrySkill,
   ReviewReport,
+  SkillReviewStatus,
   SkillSearchResult,
   UserSearchResult
 } from "./types";
@@ -344,6 +345,7 @@ export interface ReviewPipelineIncompleteResponse {
   error: "review_pipeline_incomplete";
   retryable: true;
   failedStages: ReviewStageFailure[];
+  reviewStatus?: "failed";
 }
 
 export interface PublishPreviewResponse {
@@ -592,6 +594,7 @@ export interface PublishSkillResponse {
   version: string;
   releaseTags: string[];
   status: string;
+  reviewStatus: SkillReviewStatus;
   contentHash: string;
   review: ReviewReport;
   evaluation?: FunctionalEvaluationReport;

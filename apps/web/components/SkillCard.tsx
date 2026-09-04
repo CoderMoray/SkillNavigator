@@ -3,7 +3,7 @@ import { Download, EyeOff, MessageSquare, Star, Users } from "lucide-react";
 import { formatDateTime, formatNumber } from "../lib/format";
 import type { SkillSearchResult } from "../lib/types";
 import { SkillCategoryIcon } from "./SkillCategoryIcon";
-import { VerdictBadge } from "./StatusBadge";
+import { VerdictBadge, SkillReviewStatusBadge } from "./StatusBadge";
 
 function SkillListIcon({ skill }: { skill: SkillSearchResult }) {
   const category = skill.categories[0];
@@ -46,7 +46,11 @@ export function SkillCard({ skill, variant = "card" }: { skill: SkillSearchResul
           <span>
             <Download size={13} /> {formatNumber(skill.downloads)}
           </span>
-          <VerdictBadge verdict={skill.status} />
+          {skill.reviewStatus === "completed" ? (
+            <VerdictBadge verdict={skill.status} />
+          ) : (
+            <SkillReviewStatusBadge status={skill.reviewStatus} />
+          )}
         </div>
       </Link>
     );
@@ -62,9 +66,10 @@ export function SkillCard({ skill, variant = "card" }: { skill: SkillSearchResul
               <EyeOff size={12} /> 已下架
             </span>
           ) : null}
+          <SkillReviewStatusBadge status={skill.reviewStatus} />
           <div className="mono">latest@{skill.latestVersion}</div>
         </div>
-        <VerdictBadge verdict={skill.status} />
+        {skill.reviewStatus === "completed" ? <VerdictBadge verdict={skill.status} /> : null}
       </div>
 
       <p className="description">{skill.description}</p>

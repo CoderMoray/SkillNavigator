@@ -5,6 +5,7 @@ import type { SkillSearchResult } from "../apps/web/lib/types";
 function skill(overrides: Partial<SkillSearchResult> & Pick<SkillSearchResult, "slug" | "name">): SkillSearchResult {
   return {
     description: overrides.description ?? overrides.name,
+    reviewStatus: "completed",
     latestVersion: "1.0.0",
     status: "published",
     scores: { qualityScore: 80, securityScore: 80, reliabilityScore: 80 },

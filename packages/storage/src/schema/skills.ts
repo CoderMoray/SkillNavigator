@@ -6,6 +6,7 @@ export const skills = pgTable("skills", {
   description: text("description").notNull(),
   ownerUserId: text("owner_user_id"),
   latestVersion: text("latest_version").notNull(),
+  reviewStatus: text("review_status").notNull().default("completed"),
   averageRating: numeric("average_rating", { precision: 3, scale: 1 }).notNull().default("0"),
   ratingCount: integer("rating_count").notNull().default(0),
   published: boolean("published").notNull().default(true),
@@ -16,6 +17,7 @@ export const skills = pgTable("skills", {
   index("skills_updated_at_idx").on(table.updatedAt.desc()),
   index("skills_owner_user_id_idx").on(table.ownerUserId),
   index("skills_deleted_at_idx").on(table.deletedAt),
+  index("skills_review_status_idx").on(table.reviewStatus),
 ]);
 
 export const skillVersions = pgTable("skill_versions", {

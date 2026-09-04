@@ -35,6 +35,7 @@ import {
   loadDotEnvIfPresent,
   mergeOwnerUnpublishedSkills,
   mergeOwnerRejectedSkills,
+  mergeOwnerReviewPendingSkills,
   normalizeCategoryFilters,
   normalizeHandle,
   PublishPreflightError,
@@ -691,15 +692,20 @@ export function buildServer() {
     const isProfileOwner = Boolean(viewer && normalizeHandle(viewer.username) === handle);
     let unpublished: Awaited<ReturnType<typeof store.listUnpublishedSkillsForOwner>> = [];
     let rejected: Awaited<ReturnType<typeof store.listRejectedSkillsForOwner>> = [];
+    let reviewPending: Awaited<ReturnType<typeof store.listReviewPendingSkillsForOwner>> = [];
     if (isProfileOwner && viewer) {
-      [unpublished, rejected] = await Promise.all([
+      [unpublished, rejected, reviewPending] = await Promise.all([
         store.listUnpublishedSkillsForOwner(viewer.id),
-        store.listRejectedSkillsForOwner(viewer.id)
+        store.listRejectedSkillsForOwner(viewer.id),
+        store.listReviewPendingSkillsForOwner(viewer.id),
       ]);
     }
 
     const mergeOwnerOnlySkills = (creator: ReturnType<typeof createEmptyCreatorSummary>) =>
-      mergeOwnerRejectedSkills(mergeOwnerUnpublishedSkills(creator, unpublished), rejected);
+      mergeOwnerReviewPendingSkills(
+        mergeOwnerRejectedSkills(mergeOwnerUnpublishedSkills(creator, unpublished), rejected),
+        reviewPending
+      );
 
     const user = await authStore.getUserByUsername(handle);
     const matched = aggregateCreators(skills).find((item) => item.handle === handle);
@@ -785,15 +791,33 @@ export function buildServer() {
       });
       publishRateLimiter.recordAttempt(user.id);
 
-      const { review, evaluation, failedStages } = await reviewAndEvaluateSkillSnapshot(
-        prepared.snapshot,
-        prepared.version
-      );
+      await store.markSkillReviewStatus(prepared.slug, "reviewing", {
+        name: prepared.snapshot.manifest.name,
+        description: prepared.snapshot.manifest.description ?? "",
+        ownerUserId: user.id,
+        latestVersion: prepared.version,
+      });
+
+      let review;
+      let evaluation;
+      let failedStages;
+      try {
+        ({ review, evaluation, failedStages } = await reviewAndEvaluateSkillSnapshot(
+          prepared.snapshot,
+          prepared.version
+        ));
+      } catch (error) {
+        await store.markSkillReviewStatus(prepared.slug, "failed");
+        throw error;
+      }
+
       if (failedStages.length > 0) {
+        await store.markSkillReviewStatus(prepared.slug, "failed");
         return reply.code(503).send({
           error: "review_pipeline_incomplete",
           retryable: true,
-          failedStages
+          failedStages,
+          reviewStatus: "failed",
         });
       }
 
@@ -812,6 +836,7 @@ export function buildServer() {
         version: registryVersion.version,
         releaseTags: registryVersion.releaseTags,
         status: registryVersion.status,
+        reviewStatus: "completed",
         contentHash: registryVersion.contentHash,
         review: registryVersion.review,
         evaluation: registryVersion.evaluation,

@@ -144,6 +144,7 @@ export function toSearchResult(skill: RegistrySkill): SkillSearchResult {
     name: skill.name,
     description: skill.description,
     latestVersion: skill.latestVersion,
+    reviewStatus: skill.reviewStatus,
     status: latest.status,
     scores: latest.review.scores,
     categories: latest.manifest.categories ?? [],

@@ -6,6 +6,13 @@ export {
 } from "./brand-name.js";
 
 export {
+  DEFAULT_SKILL_REVIEW_STATUS,
+  isSkillReviewStatus,
+  skillReviewStatusLabel,
+  SKILL_REVIEW_STATUSES,
+} from "./review-status.js";
+
+export {
   assertAssignableContributorRole,
   ASSIGNABLE_CONTRIBUTOR_ROLES,
   CONTRIBUTOR_ROLES,
@@ -78,12 +85,14 @@ export type {
   CreateIssueInput,
   CreateRatingInput,
   PublishSnapshotOptions,
+  MarkSkillReviewStatusOptions,
   PostgresRegistryStoreOptions,
   FileRegistryStoreOptions,
   MinioArtifactStoreOptions,
   RegistryStore,
   RecycleBinSkill,
   SkillSlugAvailability,
+  SkillReviewStatus,
 } from "./types";
 
 export {
@@ -111,6 +120,7 @@ export {
   listCreators,
   mergeOwnerUnpublishedSkills,
   mergeOwnerRejectedSkills,
+  mergeOwnerReviewPendingSkills,
   normalizeHandle,
   type CreatorSummary,
 } from "./creators";

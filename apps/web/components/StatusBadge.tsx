@@ -1,8 +1,16 @@
-import type { EvaluationStatus, ReviewSeverity, ReviewVerdict } from "../lib/types";
-import { severityLabel, verdictLabel } from "../lib/format";
+import type { EvaluationStatus, ReviewSeverity, ReviewVerdict, SkillReviewStatus } from "../lib/types";
+import { severityLabel, skillReviewStatusLabel, verdictLabel } from "../lib/format";
 
 export function VerdictBadge({ verdict }: { verdict: ReviewVerdict }) {
   return <span className={`badge ${verdict}`}>{verdictLabel(verdict)}</span>;
+}
+
+export function SkillReviewStatusBadge({ status }: { status: SkillReviewStatus }) {
+  if (status === "completed") {
+    return null;
+  }
+
+  return <span className={`badge review-${status}`}>{skillReviewStatusLabel(status)}</span>;
 }
 
 export function EvaluationBadge({ status }: { status: EvaluationStatus }) {

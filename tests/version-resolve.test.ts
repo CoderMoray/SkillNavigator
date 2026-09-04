@@ -50,6 +50,7 @@ function skill(versions: Record<string, RegistryVersion>, latestVersion: string)
     name: "Demo",
     description: "Demo",
     latestVersion,
+    reviewStatus: "completed",
     versions,
     contributors: [],
     issues: [],

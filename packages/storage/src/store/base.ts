@@ -9,6 +9,7 @@ import type {
   IssueStatus,
   LeaderboardSort,
   PublishSnapshotOptions,
+  MarkSkillReviewStatusOptions,
   RegistryContributor,
   RegistryData,
   RegistryIssue,
@@ -16,6 +17,7 @@ import type {
   RegistrySkill,
   RegistryVersion,
   RegistryStore,
+  SkillReviewStatus,
   SkillSearchResult,
   RecycleBinSkill,
   SkillSlugAvailability,
@@ -40,6 +42,46 @@ import {
 
 export abstract class JsonRegistryStore implements RegistryStore {
   protected constructor(protected readonly artifactStore?: ArtifactStore) {}
+
+  async markSkillReviewStatus(
+    slug: string,
+    reviewStatus: SkillReviewStatus,
+    options?: MarkSkillReviewStatusOptions
+  ): Promise<void> {
+    const data = await this.load();
+    const existing = data.skills[slug];
+    const now = new Date().toISOString();
+
+    if (existing) {
+      existing.reviewStatus = reviewStatus;
+      existing.updatedAt = now;
+      await this.save(data);
+      return;
+    }
+
+    if (!options) {
+      throw new Error(`Skill not found: ${slug}`);
+    }
+
+    data.skills[slug] = {
+      slug,
+      name: options.name,
+      description: options.description,
+      ownerUserId: options.ownerUserId,
+      latestVersion: options.latestVersion,
+      reviewStatus,
+      versions: {},
+      contributors: [],
+      issues: [],
+      ratings: [],
+      averageRating: 0,
+      ratingCount: 0,
+      published: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.save(data);
+  }
 
   async publishSnapshot(
     snapshot: SkillSnapshot,
@@ -102,6 +144,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
       description: snapshot.manifest.description,
       ownerUserId: existingSkill?.ownerUserId ?? options.owner?.userId,
       latestVersion: releaseTags.includes("latest") ? version : (existingSkill?.latestVersion ?? version),
+      reviewStatus: "completed",
       versions: { ...versions, [version]: registryVersion },
       contributors,
       issues: existingSkill?.issues ?? [],
@@ -124,6 +167,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
     registryVersion.review = review;
     registryVersion.status = review.verdict;
     registryVersion.updatedAt = new Date().toISOString();
+    data.skills[slug]!.reviewStatus = "completed";
     data.skills[slug]!.updatedAt = registryVersion.updatedAt;
     await this.save(data);
     return registryVersion;
@@ -272,6 +316,10 @@ export abstract class JsonRegistryStore implements RegistryStore {
       .filter((skill) => skill.versions[skill.latestVersion]?.status === "rejected")
       .map((skill) => ({ ...toSearchResult(skill), published: skill.published !== false }))
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }
+
+  async listReviewPendingSkillsForOwner(_ownerUserId: string): Promise<SkillSearchResult[]> {
+    return [];
   }
 
   async getSkill(slug: string): Promise<RegistrySkill | undefined> {

@@ -1,6 +1,15 @@
 import type { ReviewReport, ReviewVerdict } from "@skill-platform/review-engine";
 import type { FunctionalEvaluationReport } from "@skill-platform/evaluator";
 import type { SkillManifest, SkillSnapshot } from "@skill-platform/skill-spec";
+import type { SkillReviewStatus } from "./review-status.js";
+
+export type { SkillReviewStatus } from "./review-status.js";
+export {
+  DEFAULT_SKILL_REVIEW_STATUS,
+  isSkillReviewStatus,
+  skillReviewStatusLabel,
+  SKILL_REVIEW_STATUSES,
+} from "./review-status.js";
 
 export type ContributorRole = "owner" | "contributor";
 export type IssueType = "bug" | "security" | "compatibility" | "feature" | "docs";
@@ -82,6 +91,7 @@ export interface RegistrySkill {
   description: string;
   ownerUserId?: string;
   latestVersion: string;
+  reviewStatus: SkillReviewStatus;
   versions: Record<string, RegistryVersion>;
   contributors: RegistryContributor[];
   issues: RegistryIssue[];
@@ -103,6 +113,7 @@ export interface SkillSearchResult {
   name: string;
   description: string;
   latestVersion: string;
+  reviewStatus: SkillReviewStatus;
   status: ReviewVerdict;
   scores: ReviewReport["scores"];
   categories: string[];
@@ -140,6 +151,13 @@ export interface PublishSnapshotOptions {
   };
   releaseTags?: string[];
   changelog?: string;
+}
+
+export interface MarkSkillReviewStatusOptions {
+  name: string;
+  description: string;
+  ownerUserId?: string;
+  latestVersion: string;
 }
 
 export interface PostgresRegistryStoreOptions {
@@ -187,6 +205,11 @@ export type SkillSlugAvailability =
     };
 
 export interface RegistryStore {
+  markSkillReviewStatus(
+    slug: string,
+    reviewStatus: SkillReviewStatus,
+    options?: MarkSkillReviewStatusOptions
+  ): Promise<void>;
   publishSnapshot(
     snapshot: SkillSnapshot,
     review: ReviewReport,
@@ -204,6 +227,7 @@ export interface RegistryStore {
   listAuditSkills(query?: string): Promise<SkillSearchResult[]>;
   listUnpublishedSkillsForOwner(ownerUserId: string): Promise<SkillSearchResult[]>;
   listRejectedSkillsForOwner(ownerUserId: string): Promise<SkillSearchResult[]>;
+  listReviewPendingSkillsForOwner(ownerUserId: string): Promise<SkillSearchResult[]>;
   getSkill(slug: string): Promise<RegistrySkill | undefined>;
   getSkillSlugAvailability(slug: string): Promise<SkillSlugAvailability>;
   getVersion(slug: string, version?: string): Promise<RegistryVersion | undefined>;

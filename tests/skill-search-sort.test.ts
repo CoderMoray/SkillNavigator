@@ -11,6 +11,7 @@ function skill(overrides: Partial<SkillSearchResult> & Pick<SkillSearchResult, "
   return {
     name: overrides.slug,
     description: "",
+    reviewStatus: "completed",
     latestVersion: "1.0.0",
     status: "published",
     scores: { qualityScore: 0, securityScore: 0, reliabilityScore: 0 },

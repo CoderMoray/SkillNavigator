@@ -1,4 +1,5 @@
 export type ReviewVerdict = "published" | "needs-review" | "rejected";
+export type SkillReviewStatus = "reviewing" | "completed" | "failed";
 export type ReviewSeverity = "low" | "medium" | "high" | "critical";
 export type ReviewCategory =
   | "compliance"
@@ -195,6 +196,7 @@ export interface RegistrySkill {
   description: string;
   ownerUserId?: string;
   latestVersion: string;
+  reviewStatus: SkillReviewStatus;
   versions: Record<string, RegistryVersion>;
   contributors: RegistryContributor[];
   issues: RegistryIssue[];
@@ -212,6 +214,7 @@ export interface SkillSearchResult {
   name: string;
   description: string;
   latestVersion: string;
+  reviewStatus: SkillReviewStatus;
   status: ReviewVerdict;
   scores: ReviewScores;
   categories: string[];

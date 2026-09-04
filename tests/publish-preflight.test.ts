@@ -8,6 +8,7 @@ function skill(overrides: Partial<RegistrySkill> = {}): RegistrySkill {
     name: "Demo",
     description: "Demo skill",
     latestVersion: "1.0.0",
+    reviewStatus: "completed",
     versions: {
       "1.0.0": {
         version: "1.0.0",
@@ -79,6 +80,21 @@ describe("assertPublishPreflight", () => {
         }),
       })
     ).toThrow(/Version must be greater than latest/);
+  });
+
+  it("allows retrying the same version after a failed review stub without a published latest version", () => {
+    expect(() =>
+      assertPublishPreflight({
+        slug: "demo-skill",
+        version: "1.0.0",
+        releaseTags: ["latest"],
+        existingSkill: skill({
+          latestVersion: "1.0.0",
+          reviewStatus: "failed",
+          versions: {},
+        }),
+      })
+    ).not.toThrow();
   });
 
   it("rejects skill in recycle bin", () => {
