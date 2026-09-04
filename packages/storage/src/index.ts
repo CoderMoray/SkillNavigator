@@ -127,6 +127,8 @@ export {
   toIsoTimestampString,
   resolveLatestApprovedVersion,
   resolveVersionReference,
+  canRepublishFailedVersion,
+  hasStoredPendingPackage,
 } from "./utils";
 
 export {

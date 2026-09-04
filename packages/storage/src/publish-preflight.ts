@@ -1,6 +1,6 @@
 import { compareSemver } from "@skill-platform/skill-spec/skill-format";
 import type { RegistrySkill } from "./types.js";
-import { isSkillContributor } from "./utils.js";
+import { canRepublishFailedVersion, isSkillContributor } from "./utils.js";
 
 export class PublishPreflightError extends Error {
   readonly statusCode: number;
@@ -40,9 +40,12 @@ export function assertPublishPreflight(input: PublishPreflightInput): void {
   }
 
   const pendingVersion = existingSkill?.versions[version];
+  const republishingFailedVersion =
+    existingSkill !== undefined && canRepublishFailedVersion(existingSkill, version);
   const allowPendingVersion =
     pendingVersion?.published === false &&
     (allowReviewInProgress ||
+      republishingFailedVersion ||
       (allowFailedReviewRetry &&
         existingSkill?.reviewStatus === "failed" &&
         version === existingSkill.latestVersion));
@@ -60,7 +63,13 @@ export function assertPublishPreflight(input: PublishPreflightInput): void {
       pendingVersion?.published === false &&
       version === existingSkill.latestVersion;
     const compared = compareSemver(version, existingSkill.latestVersion);
-    if (!finalizingPendingVersion && !retryingFailedVersion && compared !== null && compared <= 0) {
+    if (
+      !finalizingPendingVersion &&
+      !retryingFailedVersion &&
+      !republishingFailedVersion &&
+      compared !== null &&
+      compared <= 0
+    ) {
       throw new PublishPreflightError(
         `Version must be greater than latest: ${slug}@${existingSkill.latestVersion}, got ${version}`,
         400

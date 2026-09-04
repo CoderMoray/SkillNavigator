@@ -205,6 +205,30 @@ function canAccessVersion(
   return canAccessUnpublishedVersion(skill, version, user);
 }
 
+async function resolveFailedReviewStoredPackage(
+  store: RegistryStore,
+  skill: RegistrySkill
+): Promise<boolean | undefined> {
+  if (skill.reviewStatus !== "failed") {
+    return undefined;
+  }
+  return Boolean(await store.loadStoredSnapshot(skill.slug, skill.latestVersion));
+}
+
+async function assertPublishDoesNotReplaceStoredRetryPackage(
+  store: RegistryStore,
+  slug: string,
+  version: string,
+  existingSkill: RegistrySkill | undefined
+): Promise<void> {
+  if (existingSkill?.reviewStatus !== "failed" || version !== existingSkill.latestVersion) {
+    return;
+  }
+  if (await store.loadStoredSnapshot(slug, version)) {
+    throw new PublishPreflightError("pending_publish_use_retry", 409);
+  }
+}
+
 function versionManageErrorStatus(message: string): number {
   if (message === "cannot_unpublish_latest_version") {
     return 400;
@@ -771,6 +795,12 @@ export function buildServer() {
       if (request.body.metadata) {
         const prepared = preparePublishRequest(request.body, user.username);
         const existingSkill = await store.getSkill(prepared.slug);
+        await assertPublishDoesNotReplaceStoredRetryPackage(
+          store,
+          prepared.slug,
+          prepared.version,
+          existingSkill
+        );
         assertPublishPreflight({
           slug: prepared.slug,
           version: prepared.version,
@@ -817,6 +847,12 @@ export function buildServer() {
       const changelog = normalizeChangelog(request.body.changelog);
       const prepared = preparePublishRequest(request.body, user.username);
       const existingSkill = await store.getSkill(prepared.slug);
+      await assertPublishDoesNotReplaceStoredRetryPackage(
+        store,
+        prepared.slug,
+        prepared.version,
+        existingSkill
+      );
       assertPublishPreflight({
         slug: prepared.slug,
         version: prepared.version,
@@ -829,6 +865,8 @@ export function buildServer() {
       await store.stagePendingPublishSnapshot(prepared.snapshot, prepared.version, {
         releaseTags: prepared.releaseTags,
         changelog,
+        ownerUserId: user.id,
+        ownerUsername: user.username,
       });
 
       await store.markSkillReviewStatus(prepared.slug, "reviewing", {
@@ -1240,8 +1278,16 @@ export function buildServer() {
     }
 
     const skill = await store.getSkill(request.params.slug);
+    const hasStoredPackage =
+      skill && user && isSkillContributor(skill, user)
+        ? await resolveFailedReviewStoredPackage(store, skill)
+        : undefined;
+    const needsPackageReupload = hasStoredPackage === false ? true : undefined;
     return {
       ...availability,
+      reviewStatus: skill?.reviewStatus,
+      hasStoredPackage: hasStoredPackage === undefined ? undefined : hasStoredPackage,
+      needsPackageReupload,
       viewerCanPublish: skill ? isSkillContributor(skill, user) : false,
     };
   });
@@ -1257,8 +1303,14 @@ export function buildServer() {
       ? await store.isSkillBookmarked(user.id, request.params.slug)
       : undefined;
 
+    const hasStoredPackage =
+      user && isSkillContributor(skill, user)
+        ? await resolveFailedReviewStoredPackage(store, skill)
+        : undefined;
+
     return {
       ...filterSkillVersionsForViewer(skill, user),
+      hasStoredPackage: hasStoredPackage === undefined ? undefined : hasStoredPackage,
       bookmarkedByViewer
     };
   });

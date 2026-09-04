@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { MarkdownContent } from "../../../components/MarkdownContent";
 import type { LucideIcon } from "lucide-react";
 import { compareSemver, isSkillEntryPath } from "@skill-platform/skill-spec/skill-format";
+import { canRetryStoredReview } from "../../../lib/publish-helpers";
 import {
   ArrowLeft,
   BookOpen,
@@ -370,6 +371,7 @@ export default function SkillDetailPage() {
       const message = err instanceof Error ? err.message : "重新发布失败";
       if (message === "pending_publish_snapshot_missing") {
         setErrorToast("未找到已保存的 Skill 包，请通过发布页重新上传。");
+        router.push(`/skills/publish?skill=${encodeURIComponent(skill.slug)}`);
       } else if (message === "skill_review_in_progress") {
         setErrorToast("该 Skill 正在审查中，请稍后再试。");
       } else {
@@ -403,6 +405,8 @@ export default function SkillDetailPage() {
   const isReviewPending = skill.reviewStatus === "reviewing" || skill.reviewStatus === "failed";
   const isOwner = Boolean(viewer && isSkillOwner(skill, viewer));
   const isContributor = Boolean(viewer && isSkillContributor(skill, viewer));
+  const canRetryStoredPackage = canRetryStoredReview(skill, skill.hasStoredPackage);
+  const needsPackageReupload = skill.reviewStatus === "failed" && isContributor && !canRetryStoredPackage;
 
   if (!currentVersion) {
     if (!isReviewPending) {
@@ -452,14 +456,20 @@ export default function SkillDetailPage() {
               ) : null}
               {skill.reviewStatus === "failed" && isContributor ? (
                 <div className="hero-actions" style={{ marginTop: 16 }}>
-                  <button
-                    className="button primary"
-                    disabled={retryingPublishReview}
-                    onClick={() => void handleRetryPublishReview()}
-                    type="button"
-                  >
-                    <RefreshCw size={16} /> {retryingPublishReview ? "提交中…" : "重新发布"}
-                  </button>
+                  {needsPackageReupload ? (
+                    <Link className="button primary" href={`/skills/publish?skill=${encodeURIComponent(skill.slug)}`}>
+                      <Upload size={16} /> 重新上传
+                    </Link>
+                  ) : (
+                    <button
+                      className="button primary"
+                      disabled={retryingPublishReview}
+                      onClick={() => void handleRetryPublishReview()}
+                      type="button"
+                    >
+                      <RefreshCw size={16} /> {retryingPublishReview ? "提交中…" : "重新发布"}
+                    </button>
+                  )}
                 </div>
               ) : null}
             </div>
@@ -1096,14 +1106,20 @@ export default function SkillDetailPage() {
                 <Copy size={16} /> 复制 prompt
               </button>
               {skill.reviewStatus === "failed" && isContributor ? (
-                <button
-                  className="button primary"
-                  disabled={retryingPublishReview}
-                  onClick={() => void handleRetryPublishReview()}
-                  type="button"
-                >
-                  <RefreshCw size={16} /> {retryingPublishReview ? "提交中…" : "重新发布"}
-                </button>
+                needsPackageReupload ? (
+                  <Link className="button primary" href={`/skills/publish?skill=${encodeURIComponent(skill.slug)}`}>
+                    <Upload size={16} /> 重新上传
+                  </Link>
+                ) : (
+                  <button
+                    className="button primary"
+                    disabled={retryingPublishReview}
+                    onClick={() => void handleRetryPublishReview()}
+                    type="button"
+                  >
+                    <RefreshCw size={16} /> {retryingPublishReview ? "提交中…" : "重新发布"}
+                  </button>
+                )
               ) : null}
             </div>
             {skill.reviewStatus === "failed" && skill.reviewFailure ? (

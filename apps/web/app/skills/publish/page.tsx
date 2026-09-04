@@ -37,6 +37,7 @@ import {
 } from "../../../lib/build-skill-zip";
 import type { PublicUser, RegistrySkill } from "../../../lib/types";
 import { compareSemver, SKILL_ENTRY_BASENAMES, validatePublishMetadataInput } from "@skill-platform/skill-spec/skill-format";
+import { canRepublishFailedVersion, canRetryStoredReview, hasStoredPendingPackage } from "../../../lib/publish-helpers";
 import { isSkillContributor } from "../../../lib/skill-contributors";
 import { SKILL_CATEGORY_OPTIONS } from "../../../lib/skill-categories";
 
@@ -154,7 +155,11 @@ function PublishSkillPageContent() {
         setSummary(skill.description);
         setCategories((latest?.manifest.categories ?? []).slice(0, MAX_CATEGORIES));
         setTopics((latest?.manifest.topics ?? []).join(", "));
-        setVersion(suggestNextPatchVersion(skill.latestVersion));
+        setVersion(
+          canRepublishFailedVersion(skill, skill.latestVersion)
+            ? skill.latestVersion
+            : suggestNextPatchVersion(skill.latestVersion)
+        );
         setReleaseTags(latest?.releaseTags.join(", ") || "latest");
         setChangelog("");
       } catch (err) {
@@ -335,6 +340,18 @@ function PublishSkillPageContent() {
       user &&
       slugAvailability.viewerCanPublish
     ) {
+      if (
+        slugAvailability.reviewStatus === "failed" &&
+        slugAvailability.hasStoredPackage
+      ) {
+        return `该 Slug 对应 Skill 已保存完整包文件，请前往详情页使用「重新发布」直接重新审查，无需重复上传。`;
+      }
+      if (
+        slugAvailability.reviewStatus === "failed" &&
+        slugAvailability.needsPackageReupload
+      ) {
+        return `该 Slug 对应 Skill 审查未通过且未保留包文件，请重新上传 v${slugAvailability.latestVersion} 进行审查。`;
+      }
       return `该 Slug 已存在，将为此 Skill 发布新版本（当前最新 v${slugAvailability.latestVersion}）。`;
     }
     return null;
@@ -385,7 +402,11 @@ function PublishSkillPageContent() {
       return metadataError;
     }
 
-    return getVersionConflictMessage(skillForVersionCheck, metadata.version);
+    return getVersionConflictMessage(skillForVersionCheck, metadata.version, {
+      hasStoredPackage: isNewVersion
+        ? sourceSkill?.hasStoredPackage
+        : slugAvailability?.hasStoredPackage,
+    });
   }, [
     categories,
     displayName,
@@ -397,6 +418,7 @@ function PublishSkillPageContent() {
     skillForVersionCheck,
     slug,
     slugPermissionError,
+    slugAvailability,
     sourceSkill,
     summary,
     topics,
@@ -934,7 +956,11 @@ function PublishSkillPageContent() {
                     />
                         <small>
                           {isNewVersion && sourceSkill
-                            ? `须高于当前最新版本 v${sourceSkill.latestVersion}（SemVer），例如 ${suggestNextPatchVersion(sourceSkill.latestVersion)}。`
+                            ? canRetryStoredReview(sourceSkill, sourceSkill.hasStoredPackage)
+                              ? `该 Skill 已保存完整包文件，请返回详情页使用「重新发布」直接重新审查。`
+                              : canRepublishFailedVersion(sourceSkill, sourceSkill.latestVersion)
+                                ? `审查未通过，请重新上传 v${sourceSkill.latestVersion} 进行审查。`
+                                : `须高于当前最新版本 v${sourceSkill.latestVersion}（SemVer），例如 ${suggestNextPatchVersion(sourceSkill.latestVersion)}。`
                             : "采用 SemVer 格式，例如 1.0.0。"}
                         </small>
                   </label>
@@ -1036,9 +1062,22 @@ function validatePublishMetadata(metadata: PublishSkillMetadata): string | undef
   return undefined;
 }
 
-function getVersionConflictMessage(skill: RegistrySkill | null | undefined, versionInput: string): string | null {
+function getVersionConflictMessage(
+  skill: RegistrySkill | null | undefined,
+  versionInput: string,
+  options?: { hasStoredPackage?: boolean }
+): string | null {
   const nextVersion = versionInput.trim();
   if (!skill || !nextVersion) {
+    return null;
+  }
+  if (
+    hasStoredPendingPackage(skill, nextVersion, options?.hasStoredPackage) &&
+    nextVersion === skill.latestVersion
+  ) {
+    return "该版本已有保存的包文件，请前往 Skill 详情页使用「重新发布」直接重新审查。";
+  }
+  if (canRepublishFailedVersion(skill, nextVersion)) {
     return null;
   }
   if (skill.versions[nextVersion]) {
@@ -1067,6 +1106,9 @@ function formatPublishError(message: string): string {
   }
   if (message === "skill_in_recycle_bin") {
     return "该 Slug 对应的 Skill 位于回收站中，请先恢复或等待过期后再发布。";
+  }
+  if (message === "pending_publish_use_retry") {
+    return "该 Skill 已保存完整包文件，请前往详情页使用「重新发布」直接重新审查，无需重复上传。";
   }
   return message;
 }

@@ -1483,6 +1483,36 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     };
 
     await this.db.transaction(async (tx) => {
+      const [skillRow] = await tx
+        .select({ slug: schema.skills.slug })
+        .from(schema.skills)
+        .where(eq(schema.skills.slug, slug))
+        .limit(1);
+
+      if (!skillRow) {
+        await tx.insert(schema.skills).values({
+          slug,
+          name,
+          description,
+          ownerUserId: options.ownerUserId ?? null,
+          latestVersion: version,
+          published: false,
+          uploadedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        });
+      } else {
+        await tx.update(schema.skills)
+          .set({
+            name,
+            description,
+            latestVersion: version,
+            uploadedAt: now,
+            updatedAt: now,
+          })
+          .where(eq(schema.skills.slug, slug));
+      }
+
       if (existingVersion) {
         await tx.update(schema.skillVersions)
           .set(versionWrite)
@@ -1520,9 +1550,9 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       }
     });
 
-    await this.db.update(schema.skills)
-      .set({ uploadedAt: now, updatedAt: now })
-      .where(eq(schema.skills.slug, slug));
+    if (options.ownerUserId && options.ownerUsername) {
+      await this.ensureSkillOwnerContributor(slug, options.ownerUserId, options.ownerUsername);
+    }
   }
 
   async rollbackPendingPublishVersion(slug: string, version: string): Promise<void> {

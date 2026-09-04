@@ -202,6 +202,35 @@ export function resolveVersionReference(skill: RegistrySkill, version: string): 
   return version;
 }
 
+/** Failed review may be retried with the same version when no published version exists yet. */
+export function hasStoredPendingPackage(skill: RegistrySkill, version: string = skill.latestVersion): boolean {
+  const entry = skill.versions[version];
+  if (!entry || entry.published !== false) {
+    return false;
+  }
+  if ("artifact" in entry && entry.artifact) {
+    return true;
+  }
+  return (entry.snapshot?.files?.length ?? 0) > 0;
+}
+
+/** Failed review may be retried with the same version when no published version exists yet. */
+export function canRepublishFailedVersion(skill: RegistrySkill, version: string): boolean {
+  if (skill.reviewStatus !== "failed" || version !== skill.latestVersion) {
+    return false;
+  }
+  if (hasStoredPendingPackage(skill, version)) {
+    return false;
+  }
+
+  const pending = skill.versions[version];
+  if (pending) {
+    return pending.published === false;
+  }
+
+  return !Object.values(skill.versions).some((entry) => entry.published);
+}
+
 export function isSkillOwner(
   skill: RegistrySkill,
   user: { id: string; username: string }

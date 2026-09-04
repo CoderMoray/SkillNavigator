@@ -180,6 +180,8 @@ export interface CommitReviewResultsOptions {
 export interface StagePendingPublishSnapshotOptions {
   releaseTags?: string[];
   changelog?: string;
+  ownerUserId?: string;
+  ownerUsername?: string;
 }
 
 export interface RecoverStaleReviewingSkillsOptions {
@@ -240,6 +242,9 @@ export type SkillSlugAvailability =
       name: string;
       latestVersion: string;
       published: boolean;
+      reviewStatus?: SkillReviewStatus;
+      needsPackageReupload?: boolean;
+      hasStoredPackage?: boolean;
     };
 
 export interface RegistryStore {

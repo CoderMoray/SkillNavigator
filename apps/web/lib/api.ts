@@ -113,6 +113,9 @@ export type SkillSlugAvailabilityResponse =
       name: string;
       latestVersion: string;
       published: boolean;
+      reviewStatus?: SkillReviewStatus;
+      needsPackageReupload?: boolean;
+      hasStoredPackage?: boolean;
       viewerCanPublish?: boolean;
     };
 

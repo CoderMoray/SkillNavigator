@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assertPublishPreflight, PublishPreflightError } from "../packages/storage/src/publish-preflight.js";
 import type { RegistrySkill } from "../packages/storage/src/types.js";
+import { canRepublishFailedVersion } from "../packages/storage/src/utils.js";
 
 function skill(overrides: Partial<RegistrySkill> = {}): RegistrySkill {
   return {
@@ -101,6 +102,44 @@ describe("assertPublishPreflight", () => {
         }),
       })
     ).not.toThrow();
+  });
+
+  it("allows republish preflight for failed orphan stub without a version row", () => {
+    expect(() =>
+      assertPublishPreflight({
+        slug: "demo-skill",
+        version: "0.1.0",
+        releaseTags: ["latest"],
+        existingSkill: skill({
+          latestVersion: "0.1.0",
+          reviewStatus: "failed",
+          published: false,
+          versions: {},
+        }),
+      })
+    ).not.toThrow();
+  });
+
+  it("does not treat failed review with stored package as same-version republish", () => {
+    const failedWithPackage = skill({
+      latestVersion: "1.0.0",
+      reviewStatus: "failed",
+      published: false,
+      versions: {
+        "1.0.0": {
+          ...skill().versions["1.0.0"],
+          published: false,
+          snapshot: {
+            manifest: { name: "Demo", description: "Demo skill" },
+            files: [{ path: "SKILL.md", content: "# Demo\n" }],
+            contentHash: "hash",
+            createdAt: "2026-01-01T00:00:00.000Z",
+          },
+        },
+      },
+    });
+
+    expect(canRepublishFailedVersion(failedWithPackage, "1.0.0")).toBe(false);
   });
 
   it("rejects publish while review is in progress", () => {

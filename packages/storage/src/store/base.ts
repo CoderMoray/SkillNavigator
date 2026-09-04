@@ -15,6 +15,7 @@ import type {
   LeaderboardSort,
   PublishSnapshotOptions,
   CommitReviewResultsOptions,
+  StagePendingPublishSnapshotOptions,
   RecoverStaleReviewingSkillsOptions,
   MarkSkillReviewStatusOptions,
   RegistryContributor,
@@ -225,7 +226,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
   async stagePendingPublishSnapshot(
     snapshot: SkillSnapshot,
     version: string,
-    options: { releaseTags?: string[]; changelog?: string } = {}
+    options: StagePendingPublishSnapshotOptions = {}
   ): Promise<void> {
     const data = await this.load();
     const slug = getSkillSlug(snapshot.manifest);
@@ -266,6 +267,20 @@ export abstract class JsonRegistryStore implements RegistryStore {
     skill.uploadedAt = now;
     skill.latestVersion = version;
     skill.updatedAt = now;
+    if (options.ownerUserId && options.ownerUsername) {
+      const hasOwner = skill.contributors.some((item) => item.role === "owner");
+      if (!hasOwner) {
+        skill.contributors.push({
+          id: `contributor_${Date.now()}`,
+          userId: options.ownerUserId,
+          username: options.ownerUsername,
+          name: options.ownerUsername,
+          role: "owner",
+          addedAt: now,
+        });
+      }
+      skill.ownerUserId = options.ownerUserId;
+    }
     data.skills[slug] = skill;
     await this.save(data);
   }
