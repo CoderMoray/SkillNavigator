@@ -112,10 +112,7 @@ def main() -> int:
         comment = "链接有效期为 1 小时，过期后请重新申请。"
     else:
         mail_kind = payload.get("mailKind") or ("resend" if mail_type == "verify_resend" else "register")
-        if mail_kind == "resend":
-            subject = f"请验证您的 {brand} 账户邮箱（重发）"
-        else:
-            subject = f"请验证您的 {brand} 账户邮箱"
+        subject = f"请验证您的 {brand} 账户邮箱"
         main_content = (
             f"感谢注册 {brand}。请点击下方链接验证邮箱后完成账户激活："
             f'<br><br><a href="{action_url.strip()}">{action_url.strip()}</a>'
