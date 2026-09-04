@@ -28,9 +28,12 @@ import {
   createRegistryStoreFromEnv,
   getApiBodyLimitBytes,
   getBrandName,
+  canAccessSkillDetail,
+  canAccessUnpublishedVersion,
   isSessionCredential,
   isSkillContributor,
   isSkillOwner,
+  isReviewPendingSkillStatus,
   listCreators,
   loadDotEnvIfPresent,
   mergeOwnerUnpublishedSkills,
@@ -175,7 +178,11 @@ interface ContributorParams {
 type LeaderboardQuerySort = LeaderboardSort | "compliance" | "privacy";
 
 function filterSkillVersionsForViewer(skill: RegistrySkill, user: PublicUser | undefined): RegistrySkill {
-  if (user && isSkillOwner(skill, user)) {
+  if (
+    user &&
+    (isSkillOwner(skill, user) ||
+      (isReviewPendingSkillStatus(skill.reviewStatus) && isSkillContributor(skill, user)))
+  ) {
     return skill;
   }
 
@@ -195,10 +202,7 @@ function canAccessVersion(
   if (!skill || !version) {
     return false;
   }
-  if (version.published !== false) {
-    return true;
-  }
-  return Boolean(user && isSkillOwner(skill, user));
+  return canAccessUnpublishedVersion(skill, version, user);
 }
 
 function versionManageErrorStatus(message: string): number {
@@ -1105,23 +1109,12 @@ export function buildServer() {
   });
 
   app.get<{ Params: SkillParams }>("/skills/:slug", async (request, reply) => {
-    const skill = await store.getSkill(request.params.slug);
-    if (!skill) {
-      return reply.code(404).send({ error: "skill_not_found" });
-    }
-
-    if (skill.published === false) {
-      const user = await getAuthenticatedUser(request.headers.authorization, authStore);
-      if (!user || !isSkillOwner(skill, user)) {
-        return reply.code(404).send({ error: "skill_not_found" });
-      }
-    }
-
-    if (skill.deletedAt) {
-      return reply.code(404).send({ error: "skill_not_found" });
-    }
-
     const user = await getAuthenticatedUser(request.headers.authorization, authStore);
+    const skill = await store.getSkill(request.params.slug);
+    if (!skill || !canAccessSkillDetail(skill, user)) {
+      return reply.code(404).send({ error: "skill_not_found" });
+    }
+
     const bookmarkedByViewer = user
       ? await store.isSkillBookmarked(user.id, request.params.slug)
       : undefined;
@@ -1155,15 +1148,8 @@ export function buildServer() {
     }
 
     const skill = await store.getSkill(request.params.slug);
-    if (!skill) {
+    if (!skill || !canAccessSkillDetail(skill, user)) {
       return reply.code(404).send({ error: "skill_not_found" });
-    }
-    if (skill.deletedAt) {
-      return reply.code(404).send({ error: "skill_not_found" });
-    }
-
-    if (skill.published === false && !isSkillOwner(skill, user)) {
-      return reply.code(404).send({ error: "skill_unpublished" });
     }
 
     const registryVersion = await store.getVersion(request.params.slug, request.params.version);
@@ -1374,10 +1360,7 @@ export function buildServer() {
     }
 
     const skill = await store.getSkill(request.params.slug);
-    if (!skill || skill.deletedAt) {
-      return reply.code(404).send({ error: "skill_not_found" });
-    }
-    if (skill.published === false && !isSkillOwner(skill, user)) {
+    if (!skill || !canAccessSkillDetail(skill, user)) {
       return reply.code(404).send({ error: "skill_not_found" });
     }
 

@@ -38,7 +38,7 @@ import { UsernameSuggestInput } from "../../../components/UsernameSuggestInput";
 import { HaluCatchRadar } from "../../../components/HaluCatchRadar";
 import { FindingConfidenceBadge } from "../../../components/FindingConfidenceBadge";
 import { SkillCategoryLabel } from "../../../components/SkillCategoryIcon";
-import { EvaluationBadge, SeverityBadge, VerdictBadge } from "../../../components/StatusBadge";
+import { EvaluationBadge, SeverityBadge, SkillReviewStatusBadge, VerdictBadge } from "../../../components/StatusBadge";
 import { findSkillContributorByHandle, isSkillContributor, isSkillOwner } from "../../../lib/skill-contributors";
 import { buildSkillInstallPrompt } from "../../../lib/skill-install-prompt";
 import { skillnavInstallExample } from "../../../lib/cli-examples";
@@ -64,7 +64,7 @@ import {
 } from "../../../lib/api";
 import { getAuthToken } from "../../../lib/auth-token";
 import { creatorProfilePath } from "../../../lib/creators";
-import { formatDateTime, formatFileSize, formatNumber } from "../../../lib/format";
+import { formatDateTime, formatFileSize, formatNumber, formatSkillReviewFailureSummary } from "../../../lib/format";
 import { buildHaluCatchReportPath, extractHaluCatchSummary } from "../../../lib/halucatch-report";
 import { localizeSkillSpectorFinding } from "@skill-platform/review-engine/skillspector-i18n";
 import {
@@ -353,10 +353,74 @@ export default function SkillDetailPage() {
     );
   }
 
-  if (error || !skill || !currentVersion) {
+  if (error || !skill) {
     return (
       <AppShell title={skillSlug}>
         <div className="error">{error ?? "Skill 不存在"}</div>
+      </AppShell>
+    );
+  }
+
+  const isReviewPending = skill.reviewStatus === "reviewing" || skill.reviewStatus === "failed";
+  const isOwner = Boolean(viewer && isSkillOwner(skill, viewer));
+  const isContributor = Boolean(viewer && isSkillContributor(skill, viewer));
+
+  if (!currentVersion) {
+    if (!isReviewPending) {
+      return (
+        <AppShell title={skillSlug}>
+          <div className="error">Skill 不存在</div>
+        </AppShell>
+      );
+    }
+
+    return (
+      <AppShell title={skill.name}>
+        {errorToast ? <ErrorToast message={errorToast} onClose={() => setErrorToast(null)} /> : null}
+        <div className="page-stack">
+          <Link className="button secondary" href="/skills" style={{ width: "fit-content" }}>
+            <ArrowLeft size={16} /> 返回 Skill 广场
+          </Link>
+
+          <section className="hero skill-detail-hero">
+            <div className="hero-card">
+              <div className="card-head">
+                <span className="eyebrow">Skill Detail</span>
+                <SkillReviewStatusBadge
+                  status={skill.reviewStatus}
+                  title={
+                    skill.reviewStatus === "failed" && skill.reviewFailure
+                      ? formatSkillReviewFailureSummary(skill.reviewFailure)
+                      : undefined
+                  }
+                />
+              </div>
+              <h1>{skill.name}</h1>
+              <p>{skill.description}</p>
+              <div className="tag-row">
+                <span className="badge mono">{skill.slug}</span>
+                {skill.latestVersion ? <span className="badge">v{skill.latestVersion}</span> : null}
+              </div>
+              {skill.reviewStatus === "failed" && skill.reviewFailure ? (
+                <p className="description skill-review-failure" style={{ marginTop: 12 }}>
+                  {formatSkillReviewFailureSummary(skill.reviewFailure)}
+                </p>
+              ) : null}
+              {skill.reviewStatus === "reviewing" ? (
+                <p className="description" style={{ marginTop: 12 }}>
+                  审查仍在进行中。完成后此页将显示版本、文件与审查结果；请稍后刷新。
+                </p>
+              ) : null}
+              {isContributor ? (
+                <div className="hero-actions" style={{ marginTop: 16 }}>
+                  <Link className="button primary" href={`/skills/publish?skill=${encodeURIComponent(skill.slug)}`}>
+                    <Upload size={16} /> 重新发布
+                  </Link>
+                </div>
+              ) : null}
+            </div>
+          </section>
+        </div>
       </AppShell>
     );
   }
@@ -369,8 +433,6 @@ export default function SkillDetailPage() {
     ? stripFrontmatter(skillMdFile.content).trim()
     : (snapshot?.readme?.trim() ?? "");
   const selectedFile = files.find((file) => file.path === selectedFilePath) ?? files[0];
-  const isOwner = Boolean(viewer && skill && isSkillOwner(skill, viewer));
-  const isContributor = Boolean(viewer && skill && isSkillContributor(skill, viewer));
   const categories = currentVersion.manifest.categories ?? [];
   const openIssues = skill.issues.filter((issue) => issue.status !== "closed");
   const reviewFindings = currentVersion.review?.findings ?? [];
@@ -913,7 +975,18 @@ export default function SkillDetailPage() {
           <div className="hero-card">
             <div className="card-head">
               <span className="eyebrow">Skill Detail</span>
-              <VerdictBadge verdict={currentVersion.status} />
+              {isReviewPending ? (
+                <SkillReviewStatusBadge
+                  status={skill.reviewStatus}
+                  title={
+                    skill.reviewStatus === "failed" && skill.reviewFailure
+                      ? formatSkillReviewFailureSummary(skill.reviewFailure)
+                      : undefined
+                  }
+                />
+              ) : (
+                <VerdictBadge verdict={currentVersion.status} />
+              )}
             </div>
             <h1>{skill.name}</h1>
             <p>{skill.description}</p>

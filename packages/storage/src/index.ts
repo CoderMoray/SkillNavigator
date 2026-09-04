@@ -12,6 +12,7 @@ export {
   formatSkillReviewFailureSummary,
   isSkillReviewStage,
   isSkillReviewStatus,
+  isReviewPendingSkillStatus,
   parseSkillReviewStages,
   skillReviewStageLabel,
   skillReviewStatusLabel,
@@ -115,6 +116,8 @@ export {
 } from "./recycle-bin";
 
 export {
+  canAccessSkillDetail,
+  canAccessUnpublishedVersion,
   isSkillContributor,
   isSkillOwner,
   normalizeCategoryFilters,

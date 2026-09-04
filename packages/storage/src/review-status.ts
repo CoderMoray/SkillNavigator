@@ -21,6 +21,10 @@ export function isSkillReviewStage(value: string): value is SkillReviewStage {
   return (SKILL_REVIEW_STAGES as readonly string[]).includes(value);
 }
 
+export function isReviewPendingSkillStatus(reviewStatus: SkillReviewStatus): boolean {
+  return reviewStatus === "reviewing" || reviewStatus === "failed";
+}
+
 export function skillReviewStatusLabel(status: SkillReviewStatus): string {
   switch (status) {
     case "reviewing":

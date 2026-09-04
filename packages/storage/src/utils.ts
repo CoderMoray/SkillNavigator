@@ -1,6 +1,7 @@
 import type { ReviewReport } from "@skill-platform/review-engine";
 import type { SkillSnapshot } from "@skill-platform/skill-spec";
 import { compareSemver } from "@skill-platform/skill-spec/skill-format";
+import { isReviewPendingSkillStatus } from "./review-status";
 import {
   type RegistryContributor,
   type RegistryData,
@@ -218,4 +219,48 @@ export function isSkillContributor(
   if (user.role === "admin") return true;
   if (skill.ownerUserId && skill.ownerUserId === user.id) return true;
   return skill.contributors.some((c) => matchesContributorUser(c, user.id, user.username));
+}
+
+type SkillDetailAccessSubject = Pick<
+  RegistrySkill,
+  "published" | "reviewStatus" | "ownerUserId" | "contributors" | "deletedAt"
+>;
+
+export function canAccessSkillDetail(
+  skill: SkillDetailAccessSubject,
+  user: { id: string; username: string; role?: string } | undefined
+): boolean {
+  if (skill.deletedAt) {
+    return false;
+  }
+  if (skill.published !== false && skill.reviewStatus === "completed") {
+    return true;
+  }
+  if (!user) {
+    return false;
+  }
+  if (isReviewPendingSkillStatus(skill.reviewStatus)) {
+    return isSkillContributor(skill as RegistrySkill, user);
+  }
+  if (skill.published === false) {
+    return isSkillOwner(skill as RegistrySkill, user);
+  }
+  return true;
+}
+
+export function canAccessUnpublishedVersion(
+  skill: RegistrySkill,
+  version: { published?: boolean },
+  user: { id: string; username: string; role?: string } | undefined
+): boolean {
+  if (version.published !== false) {
+    return true;
+  }
+  if (!user) {
+    return false;
+  }
+  if (isReviewPendingSkillStatus(skill.reviewStatus)) {
+    return isSkillContributor(skill, user);
+  }
+  return isSkillOwner(skill, user);
 }

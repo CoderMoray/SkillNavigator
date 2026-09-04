@@ -353,9 +353,10 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
               <>
                 {isOwner &&
                 (creator.skills.some((skill) => skill.published === false) ||
-                  creator.skills.some((skill) => skill.status === "rejected")) ? (
+                  creator.skills.some((skill) => skill.status === "rejected") ||
+                  creator.skills.some((skill) => skill.reviewStatus === "reviewing" || skill.reviewStatus === "failed")) ? (
                   <p className="description" style={{ marginBottom: 12 }}>
-                    已下架或审查未通过（已拒绝）的 Skill 仅在此个人中心对你可见，不会出现在 Skill 广场或搜索页。
+                    审查中、审查失败、已下架或审查未通过（已拒绝）的 Skill 仅在此个人中心对你可见，不会出现在 Skill 广场或搜索页。
                   </p>
                 ) : null}
                 {visibleSkills.length === 0 ? (

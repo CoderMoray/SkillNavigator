@@ -1636,15 +1636,14 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     return results;
   }
 
-  async listReviewPendingSkillsForOwner(ownerUserId: string): Promise<SkillSearchResult[]> {
+  async listReviewPendingSkillsForOwner(memberUserId: string): Promise<SkillSearchResult[]> {
     await this.ensureSchema();
-    const ownerMatch = or(
-      eq(schema.skills.ownerUserId, ownerUserId),
+    const memberMatch = or(
+      eq(schema.skills.ownerUserId, memberUserId),
       sql`exists (
         select 1 from ${schema.skillContributors} sc
         where sc.skill_slug = ${schema.skills.slug}
-        and sc.role = 'owner'
-        and sc.user_id = ${ownerUserId}
+        and sc.user_id = ${memberUserId}
       )`
     );
 
@@ -1671,7 +1670,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       .where(
         and(
           isNull(schema.skills.deletedAt),
-          ownerMatch,
+          memberMatch,
           or(eq(schema.skills.reviewStatus, "reviewing"), eq(schema.skills.reviewStatus, "failed"))
         )
       )
