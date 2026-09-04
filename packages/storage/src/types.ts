@@ -157,6 +157,7 @@ export interface MarkSkillReviewStatusOptions {
   name: string;
   description: string;
   ownerUserId?: string;
+  ownerUsername?: string;
   latestVersion: string;
 }
 

@@ -368,14 +368,16 @@ export async function publishSkillArchive(
   token: string,
   archiveBase64: string,
   metadata: PublishSkillMetadata,
-  changelog?: string
-): Promise<PublishSkillResponse> {
-  return request<PublishSkillResponse>(apiUrl("/skills/publish"), {
+  changelog?: string,
+  options?: { async?: boolean }
+): Promise<PublishSkillResponse | PublishSkillAcceptedResponse> {
+  return request<PublishSkillResponse | PublishSkillAcceptedResponse>(apiUrl("/skills/publish"), {
     method: "POST",
     token,
     body: JSON.stringify({
       archiveBase64,
       metadata,
+      async: options?.async ?? false,
       ...(changelog?.trim() ? { changelog: changelog.trim() } : {})
     })
   });
@@ -587,6 +589,13 @@ type RegisterAuthResponse =
       user: PublicUser;
       verificationRequired: true;
     };
+
+export interface PublishSkillAcceptedResponse {
+  slug: string;
+  name: string;
+  version: string;
+  reviewStatus: "reviewing";
+}
 
 export interface PublishSkillResponse {
   slug: string;

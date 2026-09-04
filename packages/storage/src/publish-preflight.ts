@@ -27,6 +27,10 @@ export function assertPublishPreflight(input: PublishPreflightInput): void {
     throw new PublishPreflightError("skill_in_recycle_bin", 409);
   }
 
+  if (existingSkill?.reviewStatus === "reviewing") {
+    throw new PublishPreflightError("skill_review_in_progress", 409);
+  }
+
   if (existingSkill && user && !isSkillContributor(existingSkill, user)) {
     throw new PublishPreflightError("Only skill contributors can publish new versions", 403);
   }

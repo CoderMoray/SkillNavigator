@@ -22,6 +22,7 @@ import {
   type ReviewStage,
   type SkillSlugAvailabilityResponse
 } from "../../../lib/api";
+import { saveFlashToast } from "../../../lib/flash-toast";
 import { savePublishNotice } from "../../../lib/publish-notice";
 import { getAuthToken } from "../../../lib/auth-token";
 import { creatorProfilePath } from "../../../lib/creators";
@@ -639,19 +640,41 @@ function PublishSkillPageContent() {
     setSubmitting(true);
     try {
       const archiveBase64 = await readFileAsBase64(file);
-      const published = await publishSkillArchive(token, archiveBase64, metadata, isNewVersion ? changelog : undefined);
-      savePublishNotice({
-        slug: published.slug,
-        name: published.name,
-        version: published.version,
-        verdict: published.review.verdict,
+      const published = await publishSkillArchive(
+        token,
+        archiveBase64,
+        metadata,
+        isNewVersion ? changelog : undefined,
+        { async: true }
+      );
+
+      if (published.reviewStatus === "completed") {
+        savePublishNotice({
+          slug: published.slug,
+          name: published.name,
+          version: published.version,
+          verdict: published.review.verdict,
+          isNewVersion
+        });
+        router.push(user ? creatorProfilePath(user.username) : "/account");
+        return;
+      }
+
+      saveFlashToast(
         isNewVersion
-      });
-      router.push(user ? creatorProfilePath(user.username) : "/account");
+          ? `${published.name} v${published.version} 已提交审查，可在 Skill 列表查看进度。`
+          : `${published.name} 已提交审查，可在 Skill 列表查看进度。`
+      );
+      router.push(creatorProfilePath(user.username));
+      return;
     } catch (err) {
       const retryableFailure = getRetryableReviewFailure(err);
       if (retryableFailure) {
         setReviewFailure(retryableFailure);
+        return;
+      }
+      if (err instanceof ApiRequestError && err.response?.error === "skill_review_in_progress") {
+        setErrorToast("该 Skill 正在审查中，请稍后在个人中心查看进度。");
         return;
       }
       if (err instanceof ApiRequestError && err.response?.error === "publish_rate_limited") {
@@ -943,7 +966,7 @@ function PublishSkillPageContent() {
                     ) : null}
 
                     <button className="button primary" disabled={submitting} type="submit">
-                      {submitting ? "发布并审查中..." : isNewVersion ? "发布新版本" : "发布 Skill"}
+                      {submitting ? "提交中..." : isNewVersion ? "发布新版本" : "发布 Skill"}
                   <ArrowRight size={16} />
                 </button>
 

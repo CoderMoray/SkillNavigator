@@ -55,6 +55,24 @@ export abstract class JsonRegistryStore implements RegistryStore {
     if (existing) {
       existing.reviewStatus = reviewStatus;
       existing.updatedAt = now;
+      if (options) {
+        existing.name = options.name;
+        existing.description = options.description;
+        existing.latestVersion = options.latestVersion;
+      }
+      if (options?.ownerUserId && options.ownerUsername) {
+        const hasOwner = existing.contributors.some((item) => item.role === "owner");
+        if (!hasOwner) {
+          existing.contributors.push({
+            id: `contributor_${Date.now()}`,
+            userId: options.ownerUserId,
+            username: options.ownerUsername,
+            name: options.ownerUsername,
+            role: "owner",
+            addedAt: now,
+          });
+        }
+      }
       await this.save(data);
       return;
     }
@@ -71,7 +89,19 @@ export abstract class JsonRegistryStore implements RegistryStore {
       latestVersion: options.latestVersion,
       reviewStatus,
       versions: {},
-      contributors: [],
+      contributors:
+        options.ownerUserId && options.ownerUsername
+          ? [
+              {
+                id: `contributor_${Date.now()}`,
+                userId: options.ownerUserId,
+                username: options.ownerUsername,
+                name: options.ownerUsername,
+                role: "owner",
+                addedAt: now,
+              },
+            ]
+          : [],
       issues: [],
       ratings: [],
       averageRating: 0,

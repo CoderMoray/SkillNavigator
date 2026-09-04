@@ -70,6 +70,7 @@ interface PublishBody {
   version?: string;
   metadata?: SkillPublishMetadata;
   changelog?: string;
+  async?: boolean;
 }
 
 interface ReviewBody {
@@ -795,8 +796,19 @@ export function buildServer() {
         name: prepared.snapshot.manifest.name,
         description: prepared.snapshot.manifest.description ?? "",
         ownerUserId: user.id,
+        ownerUsername: user.username,
         latestVersion: prepared.version,
       });
+
+      if (request.body.async) {
+        void runBackgroundPublishReview(store, prepared, user.id, user.username, changelog);
+        return reply.code(202).send({
+          slug: prepared.slug,
+          name: prepared.snapshot.manifest.name,
+          version: prepared.version,
+          reviewStatus: "reviewing",
+        });
+      }
 
       let review;
       let evaluation;
@@ -1423,6 +1435,44 @@ interface PreparedPublishRequest {
   version: string;
   slug: string;
   releaseTags: string[];
+}
+
+async function runBackgroundPublishReview(
+  store: RegistryStore,
+  prepared: PreparedPublishRequest,
+  ownerUserId: string,
+  ownerUsername: string,
+  changelog?: string
+): Promise<void> {
+  try {
+    const { review, evaluation, failedStages } = await reviewAndEvaluateSkillSnapshot(
+      prepared.snapshot,
+      prepared.version
+    );
+    if (failedStages.length > 0) {
+      await store.markSkillReviewStatus(prepared.slug, "failed");
+      return;
+    }
+
+    await store.publishSnapshot(prepared.snapshot, review, evaluation, {
+      owner: {
+        userId: ownerUserId,
+        username: ownerUsername,
+      },
+      releaseTags: prepared.releaseTags,
+      changelog,
+    });
+  } catch (error) {
+    console.error(
+      `Background publish review failed for ${prepared.slug}@${prepared.version}:`,
+      error
+    );
+    try {
+      await store.markSkillReviewStatus(prepared.slug, "failed");
+    } catch (markError) {
+      console.error(`Failed to mark review status failed for ${prepared.slug}:`, markError);
+    }
+  }
 }
 
 function preparePublishRequest(body: PublishBody, username: string): PreparedPublishRequest {

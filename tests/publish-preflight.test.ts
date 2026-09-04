@@ -97,6 +97,21 @@ describe("assertPublishPreflight", () => {
     ).not.toThrow();
   });
 
+  it("rejects publish while review is in progress", () => {
+    expect(() =>
+      assertPublishPreflight({
+        slug: "demo-skill",
+        version: "1.0.0",
+        releaseTags: ["latest"],
+        existingSkill: skill({
+          latestVersion: "1.0.0",
+          reviewStatus: "reviewing",
+          versions: {},
+        }),
+      })
+    ).toThrow(/skill_review_in_progress/);
+  });
+
   it("rejects skill in recycle bin", () => {
     expect(() =>
       assertPublishPreflight({

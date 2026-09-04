@@ -1183,25 +1183,64 @@ export class PostgresRegistryStore extends JsonRegistryStore {
 
     if (existing) {
       await this.db.update(schema.skills)
-        .set({ reviewStatus, updatedAt: now })
+        .set({
+          reviewStatus,
+          updatedAt: now,
+          ...(options
+            ? {
+                name: options.name,
+                description: options.description,
+                latestVersion: options.latestVersion,
+              }
+            : {}),
+        })
         .where(eq(schema.skills.slug, slug));
+    } else {
+      if (!options) {
+        throw new Error(`Skill not found: ${slug}`);
+      }
+
+      await this.db.insert(schema.skills).values({
+        slug,
+        name: options.name,
+        description: options.description,
+        ownerUserId: options.ownerUserId ?? null,
+        latestVersion: options.latestVersion,
+        reviewStatus,
+        published: false,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    if (options?.ownerUserId && options.ownerUsername) {
+      await this.ensureSkillOwnerContributor(slug, options.ownerUserId, options.ownerUsername);
+    }
+  }
+
+  private async ensureSkillOwnerContributor(
+    slug: string,
+    userId: string,
+    username: string
+  ): Promise<void> {
+    const [existingContributor] = await this.db
+      .select({ id: schema.skillContributors.id })
+      .from(schema.skillContributors)
+      .where(and(eq(schema.skillContributors.skillSlug, slug), eq(schema.skillContributors.role, "owner")))
+      .limit(1);
+
+    if (existingContributor) {
       return;
     }
 
-    if (!options) {
-      throw new Error(`Skill not found: ${slug}`);
-    }
-
-    await this.db.insert(schema.skills).values({
-      slug,
-      name: options.name,
-      description: options.description,
-      ownerUserId: options.ownerUserId ?? null,
-      latestVersion: options.latestVersion,
-      reviewStatus,
-      published: false,
-      createdAt: now,
-      updatedAt: now,
+    await this.db.insert(schema.skillContributors).values({
+      id: `contributor_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      skillSlug: slug,
+      userId,
+      username,
+      name: username,
+      role: "owner",
+      addedAt: new Date(),
     });
   }
 
