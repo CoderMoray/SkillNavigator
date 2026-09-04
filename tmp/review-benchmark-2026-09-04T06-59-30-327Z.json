@@ -1,0 +1,189 @@
+{
+  "generatedAt": "2026-09-04T06:59:30.327Z",
+  "unlimited": true,
+  "vtCold": true,
+  "env": {
+    "SKILLSPECTOR_TIMEOUT_MS": "180000",
+    "HALUCATCH_TIMEOUT_MS": "600000",
+    "VIRUSTOTAL_ANALYSIS_TIMEOUT_MS": "300000",
+    "VIRUSTOTAL_UPLOAD_ON_MISS": "true"
+  },
+  "results": [
+    {
+      "label": "1mb",
+      "targetMb": 1,
+      "fileCount": 4,
+      "uncompressedBytes": 1048573,
+      "zipBytes": 37491,
+      "stages": [
+        {
+          "stage": "zip_build",
+          "ms": 171.0944,
+          "status": "ok"
+        },
+        {
+          "stage": "zip_parse",
+          "ms": 180.42290000000003,
+          "status": "ok"
+        },
+        {
+          "stage": "spec_validation",
+          "ms": 0.3121999999999616,
+          "status": "ok"
+        },
+        {
+          "stage": "skillspector",
+          "ms": 14302.3971,
+          "status": "ok"
+        },
+        {
+          "stage": "virustotal_cold_upload",
+          "ms": 140271.5976,
+          "status": "ok"
+        },
+        {
+          "stage": "halucatch",
+          "ms": 516.7982999999949,
+          "status": "ok"
+        },
+        {
+          "stage": "full_pipeline",
+          "ms": 158153.41449999998,
+          "status": "error",
+          "detail": "virustotal"
+        },
+        {
+          "stage": "persist_zip_rebuild",
+          "ms": 5.035600000002887,
+          "status": "ok"
+        }
+      ],
+      "parallelSecurityMs": 140271.5976,
+      "estimatedUserWaitMs": 140973.8544,
+      "totalPipelineMs": 158153.41449999998,
+      "verdict": "rejected",
+      "findingCount": 1,
+      "failedStages": [
+        "virustotal"
+      ]
+    },
+    {
+      "label": "10mb",
+      "targetMb": 10,
+      "fileCount": 15,
+      "uncompressedBytes": 10485746,
+      "zipBytes": 368885,
+      "stages": [
+        {
+          "stage": "zip_build",
+          "ms": 1841.8691000000108,
+          "status": "ok"
+        },
+        {
+          "stage": "zip_parse",
+          "ms": 1915.8203000000212,
+          "status": "ok"
+        },
+        {
+          "stage": "spec_validation",
+          "ms": 0.10599999997066334,
+          "status": "ok"
+        },
+        {
+          "stage": "skillspector",
+          "ms": 75365.6901,
+          "status": "ok"
+        },
+        {
+          "stage": "virustotal_cold_upload",
+          "ms": 564.2010000000009,
+          "status": "error",
+          "detail": "VirusTotal file lookup failed at step file_lookup (network): fetch failed (ENOTFOUND) — fetch failed"
+        },
+        {
+          "stage": "halucatch",
+          "ms": 520.7838000000338,
+          "status": "ok"
+        },
+        {
+          "stage": "full_pipeline",
+          "ms": 75874.5183,
+          "status": "error",
+          "detail": "virustotal"
+        },
+        {
+          "stage": "persist_zip_rebuild",
+          "ms": 46.710699999995995,
+          "status": "ok"
+        }
+      ],
+      "parallelSecurityMs": 75365.6901,
+      "estimatedUserWaitMs": 77849.00490000006,
+      "totalPipelineMs": 75874.5183,
+      "verdict": "rejected",
+      "findingCount": 1,
+      "failedStages": [
+        "virustotal"
+      ]
+    },
+    {
+      "label": "50mb",
+      "targetMb": 50,
+      "fileCount": 60,
+      "uncompressedBytes": 52428800,
+      "zipBytes": 1840770,
+      "stages": [
+        {
+          "stage": "zip_build",
+          "ms": 9466.27350000001,
+          "status": "ok"
+        },
+        {
+          "stage": "zip_parse",
+          "ms": 9580.084700000007,
+          "status": "ok"
+        },
+        {
+          "stage": "spec_validation",
+          "ms": 0.11229999997885898,
+          "status": "ok"
+        },
+        {
+          "stage": "skillspector",
+          "ms": 180115.06220000004,
+          "status": "error",
+          "detail": "SkillSpector timed out after 180000ms."
+        },
+        {
+          "stage": "virustotal_cold_upload",
+          "ms": 78243.16590000002,
+          "status": "ok"
+        },
+        {
+          "stage": "halucatch",
+          "ms": 604.4503999999724,
+          "status": "ok"
+        },
+        {
+          "stage": "full_pipeline",
+          "ms": 181292.8663,
+          "status": "error",
+          "detail": "skillspector"
+        },
+        {
+          "stage": "persist_zip_rebuild",
+          "ms": 242.86960000009276,
+          "status": "ok"
+        }
+      ],
+      "parallelSecurityMs": 180115.06220000004,
+      "estimatedUserWaitMs": 190542.46690000012,
+      "totalPipelineMs": 181292.8663,
+      "verdict": "rejected",
+      "findingCount": 3,
+      "failedStages": [
+        "skillspector"
+      ]
+    }
+  ]
+}

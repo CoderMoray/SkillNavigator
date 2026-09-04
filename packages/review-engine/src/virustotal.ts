@@ -389,9 +389,10 @@ function createAnalysisTimeoutError(timeoutMs: number): VirusTotalStepError {
 }
 
 function readAnalysisTimeoutMs(): number {
+  const unlimited = process.env.REVIEW_BENCHMARK_UNLIMITED?.trim().toLowerCase() === "true";
   return readPositiveInteger(
     process.env.VIRUSTOTAL_ANALYSIS_TIMEOUT_MS ?? process.env.VIRUSTOTAL_TIMEOUT_MS,
-    DEFAULT_TIMEOUT_MS
+    unlimited ? 3_600_000 : DEFAULT_TIMEOUT_MS
   );
 }
 
@@ -453,11 +454,13 @@ function retryDelayMs(diagnosis: VirusTotalErrorDiagnosis): number {
 }
 
 function readStepTimeoutMs(step: VirusTotalStep): number {
+  const unlimited = process.env.REVIEW_BENCHMARK_UNLIMITED?.trim().toLowerCase() === "true";
+  const fallback = unlimited ? 600_000 : STEP_TIMEOUT_DEFAULT_MS[step];
   const specific = process.env[STEP_TIMEOUT_ENV[step]];
   if (specific?.trim()) {
-    return readPositiveInteger(specific, STEP_TIMEOUT_DEFAULT_MS[step]);
+    return readPositiveInteger(specific, fallback);
   }
-  return readPositiveInteger(process.env.VIRUSTOTAL_TIMEOUT_MS, STEP_TIMEOUT_DEFAULT_MS[step]);
+  return readPositiveInteger(process.env.VIRUSTOTAL_TIMEOUT_MS, fallback);
 }
 
 function describeStepAction(step: VirusTotalStep): string {

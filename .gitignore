@@ -56,6 +56,7 @@ packages/MailManager/__pycache__/
 # CodeGraph (本地索引，不提交)
 .codegraph/
 
-# Temporary files
-tmp/
-temp/
+# Review benchmark artifacts (regenerate: npm run review:export-examples)
+examples/bench-*/
+examples/bench-*.zip
+

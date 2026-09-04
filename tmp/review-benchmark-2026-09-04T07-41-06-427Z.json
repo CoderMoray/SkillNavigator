@@ -1,0 +1,181 @@
+{
+  "generatedAt": "2026-09-04T07:41:06.427Z",
+  "unlimited": true,
+  "vtCold": true,
+  "env": {
+    "SKILLSPECTOR_TIMEOUT_MS": "3600000",
+    "HALUCATCH_TIMEOUT_MS": "600000",
+    "VIRUSTOTAL_ANALYSIS_TIMEOUT_MS": "3600000",
+    "VIRUSTOTAL_UPLOAD_ON_MISS": "true"
+  },
+  "results": [
+    {
+      "label": "1mb",
+      "targetMb": 1,
+      "fileCount": 4,
+      "uncompressedBytes": 1048573,
+      "zipBytes": 37491,
+      "stages": [
+        {
+          "stage": "zip_build",
+          "ms": 176.58180000000004,
+          "status": "ok"
+        },
+        {
+          "stage": "zip_parse",
+          "ms": 178.8311,
+          "status": "ok"
+        },
+        {
+          "stage": "spec_validation",
+          "ms": 0.2677999999999656,
+          "status": "ok"
+        },
+        {
+          "stage": "skillspector",
+          "ms": 14242.0488,
+          "status": "ok"
+        },
+        {
+          "stage": "virustotal_cold_upload",
+          "ms": 200228.7677,
+          "status": "ok"
+        },
+        {
+          "stage": "halucatch",
+          "ms": 513.2854999999981,
+          "status": "ok"
+        },
+        {
+          "stage": "full_pipeline",
+          "ms": 449302.5161,
+          "status": "ok",
+          "detail": ""
+        },
+        {
+          "stage": "persist_zip_rebuild",
+          "ms": 6.391300000017509,
+          "status": "ok"
+        }
+      ],
+      "parallelSecurityMs": 200228.7677,
+      "estimatedUserWaitMs": 200927.27560000002,
+      "totalPipelineMs": 449302.5161,
+      "verdict": "published",
+      "findingCount": 0,
+      "failedStages": []
+    },
+    {
+      "label": "10mb",
+      "targetMb": 10,
+      "fileCount": 15,
+      "uncompressedBytes": 10485746,
+      "zipBytes": 368885,
+      "stages": [
+        {
+          "stage": "zip_build",
+          "ms": 1882.2930999998935,
+          "status": "ok"
+        },
+        {
+          "stage": "zip_parse",
+          "ms": 1901.7861999999732,
+          "status": "ok"
+        },
+        {
+          "stage": "spec_validation",
+          "ms": 0.11780000000726432,
+          "status": "ok"
+        },
+        {
+          "stage": "skillspector",
+          "ms": 75555.62980000011,
+          "status": "ok"
+        },
+        {
+          "stage": "virustotal_cold_upload",
+          "ms": 483033.9848000001,
+          "status": "ok"
+        },
+        {
+          "stage": "halucatch",
+          "ms": 567.9495000001043,
+          "status": "ok"
+        },
+        {
+          "stage": "full_pipeline",
+          "ms": 420783.895,
+          "status": "ok",
+          "detail": ""
+        },
+        {
+          "stage": "persist_zip_rebuild",
+          "ms": 49.15460000000894,
+          "status": "ok"
+        }
+      ],
+      "parallelSecurityMs": 483033.9848000001,
+      "estimatedUserWaitMs": 485552.8751000002,
+      "totalPipelineMs": 420783.895,
+      "verdict": "published",
+      "findingCount": 0,
+      "failedStages": []
+    },
+    {
+      "label": "50mb",
+      "targetMb": 50,
+      "fileCount": 60,
+      "uncompressedBytes": 52428800,
+      "zipBytes": 1840770,
+      "stages": [
+        {
+          "stage": "zip_build",
+          "ms": 9456.27919999999,
+          "status": "ok"
+        },
+        {
+          "stage": "zip_parse",
+          "ms": 9642.66650000005,
+          "status": "ok"
+        },
+        {
+          "stage": "spec_validation",
+          "ms": 0.21980000007897615,
+          "status": "ok"
+        },
+        {
+          "stage": "skillspector",
+          "ms": 347011.9454000001,
+          "status": "ok"
+        },
+        {
+          "stage": "virustotal_cold_upload",
+          "ms": 82058.12469999981,
+          "status": "ok"
+        },
+        {
+          "stage": "halucatch",
+          "ms": 625.8590000001714,
+          "status": "ok"
+        },
+        {
+          "stage": "full_pipeline",
+          "ms": 349163.0512000001,
+          "status": "ok",
+          "detail": ""
+        },
+        {
+          "stage": "persist_zip_rebuild",
+          "ms": 282.0625999998301,
+          "status": "ok"
+        }
+      ],
+      "parallelSecurityMs": 347011.9454000001,
+      "estimatedUserWaitMs": 357562.53350000014,
+      "totalPipelineMs": 349163.0512000001,
+      "verdict": "published",
+      "findingCount": 0,
+      "failedStages": []
+    }
+  ]
+}

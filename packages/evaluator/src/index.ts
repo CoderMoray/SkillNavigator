@@ -342,6 +342,9 @@ function readHaluCatchTimeout(): number {
   if (!Number.isFinite(configured) || configured <= 0) {
     return 30_000;
   }
+  if (process.env.REVIEW_BENCHMARK_UNLIMITED?.trim().toLowerCase() === "true") {
+    return Math.max(1_000, Math.round(configured));
+  }
   return Math.max(1_000, Math.min(Math.round(configured), 120_000));
 }
 

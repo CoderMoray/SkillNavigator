@@ -354,6 +354,9 @@ function readSkillSpectorTimeout(): number {
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return 60_000;
   }
+  if (process.env.REVIEW_BENCHMARK_UNLIMITED?.trim().toLowerCase() === "true") {
+    return parsed;
+  }
   return Math.min(parsed, 180_000);
 }
 
