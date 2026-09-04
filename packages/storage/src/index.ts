@@ -98,6 +98,8 @@ export type {
   CreateRatingInput,
   PublishSnapshotOptions,
   CommitReviewResultsOptions,
+  PersistReviewStageResultsOptions,
+  UpsertReviewOptions,
   RecoverStaleReviewingSkillsOptions,
   MarkSkillReviewStatusOptions,
   PostgresRegistryStoreOptions,
@@ -106,6 +108,7 @@ export type {
   RegistryStore,
   RecycleBinSkill,
   SkillSlugAvailability,
+  SkillReviewStage,
   SkillReviewStatus,
 } from "./types";
 

@@ -8,6 +8,7 @@ import type {
   RegistrySkill,
   ReviewReport,
   SkillReviewStatus,
+  SkillReviewStage,
   SkillSearchResult,
   UserSearchResult
 } from "./types";
@@ -389,14 +390,17 @@ export async function publishSkillArchive(
 export async function retrySkillPublishReview(
   token: string,
   slug: string,
-  options?: { async?: boolean }
+  options?: { async?: boolean; stages?: SkillReviewStage[] }
 ): Promise<PublishSkillResponse | PublishSkillAcceptedResponse> {
   return request<PublishSkillResponse | PublishSkillAcceptedResponse>(
     apiUrl(`/skills/${encodeURIComponent(slug)}/retry-publish`),
     {
       method: "POST",
       token,
-      body: JSON.stringify({ async: options?.async ?? true })
+      body: JSON.stringify({
+        async: options?.async ?? true,
+        stages: options?.stages,
+      })
     }
   );
 }

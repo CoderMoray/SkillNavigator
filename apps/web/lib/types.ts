@@ -210,6 +210,7 @@ export interface RegistrySkill {
   uploadedAt?: string;
   reviewStartedAt?: string;
   reviewEndedAt?: string;
+  reviewCompletedStages?: SkillReviewStage[];
   hasStoredPackage?: boolean;
   versions: Record<string, RegistryVersion>;
   contributors: RegistryContributor[];

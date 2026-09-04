@@ -7,6 +7,7 @@ import { MarkdownContent } from "../../../components/MarkdownContent";
 import type { LucideIcon } from "lucide-react";
 import { compareSemver, isSkillEntryPath } from "@skill-platform/skill-spec/skill-format";
 import { canRetryStoredReview } from "../../../lib/publish-helpers";
+import { formatReviewStageProgress } from "../../../lib/review-stages";
 import {
   ArrowLeft,
   BookOpen,
@@ -364,8 +365,15 @@ export default function SkillDetailPage() {
 
     setRetryingPublishReview(true);
     try {
-      await retrySkillPublishReview(token, skill.slug, { async: true });
-      setSuccessToast("已使用已保存的包重新提交审查，请稍后在个人中心查看进度。");
+      await retrySkillPublishReview(token, skill.slug, {
+        async: true,
+        stages: skill.reviewFailure?.stages,
+      });
+      const retryLabel =
+        skill.reviewFailure?.stages?.length
+          ? `已重新提交失败环节（${skill.reviewFailure.stages.join("、")}），请稍后在个人中心查看进度。`
+          : "已使用已保存的包重新提交审查，请稍后在个人中心查看进度。";
+      setSuccessToast(retryLabel);
       router.push(`${creatorProfilePath(viewer.username)}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "重新发布失败";
@@ -407,6 +415,10 @@ export default function SkillDetailPage() {
   const isContributor = Boolean(viewer && isSkillContributor(skill, viewer));
   const canRetryStoredPackage = canRetryStoredReview(skill, skill.hasStoredPackage);
   const needsPackageReupload = skill.reviewStatus === "failed" && isContributor && !canRetryStoredPackage;
+  const retryReviewLabel =
+    skill.reviewFailure?.stages?.length && canRetryStoredPackage
+      ? "重试失败环节"
+      : "重新发布";
 
   if (!currentVersion) {
     if (!isReviewPending) {
@@ -449,6 +461,11 @@ export default function SkillDetailPage() {
                   {formatSkillReviewFailureSummary(skill.reviewFailure)}
                 </p>
               ) : null}
+              {skill.reviewStatus === "failed" || skill.reviewStatus === "reviewing" ? (
+                <p className="description" style={{ marginTop: 8 }}>
+                  审查进度：{formatReviewStageProgress(skill.reviewCompletedStages, skill.reviewFailure?.stages)}
+                </p>
+              ) : null}
               {skill.reviewStatus === "reviewing" ? (
                 <p className="description" style={{ marginTop: 12 }}>
                   审查仍在进行中。完成后此页将显示版本、文件与审查结果；请稍后刷新。
@@ -467,7 +484,7 @@ export default function SkillDetailPage() {
                       onClick={() => void handleRetryPublishReview()}
                       type="button"
                     >
-                      <RefreshCw size={16} /> {retryingPublishReview ? "提交中…" : "重新发布"}
+                      <RefreshCw size={16} /> {retryingPublishReview ? "提交中…" : retryReviewLabel}
                     </button>
                   )}
                 </div>
@@ -1117,7 +1134,7 @@ export default function SkillDetailPage() {
                     onClick={() => void handleRetryPublishReview()}
                     type="button"
                   >
-                    <RefreshCw size={16} /> {retryingPublishReview ? "提交中…" : "重新发布"}
+                    <RefreshCw size={16} /> {retryingPublishReview ? "提交中…" : retryReviewLabel}
                   </button>
                 )
               ) : null}
@@ -1125,6 +1142,11 @@ export default function SkillDetailPage() {
             {skill.reviewStatus === "failed" && skill.reviewFailure ? (
               <p className="description skill-review-failure" style={{ marginTop: 12 }}>
                 {formatSkillReviewFailureSummary(skill.reviewFailure)}
+              </p>
+            ) : null}
+            {skill.reviewStatus === "failed" || skill.reviewStatus === "reviewing" ? (
+              <p className="description" style={{ marginTop: 8 }}>
+                审查进度：{formatReviewStageProgress(skill.reviewCompletedStages, skill.reviewFailure?.stages)}
               </p>
             ) : null}
             {isOwner && isUnpublished ? (

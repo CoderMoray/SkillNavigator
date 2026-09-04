@@ -103,6 +103,7 @@ export interface RegistrySkill {
   latestVersion: string;
   reviewStatus: SkillReviewStatus;
   reviewFailure?: SkillReviewFailureInfo;
+  reviewCompletedStages?: SkillReviewStage[];
   uploadedAt?: string;
   reviewStartedAt?: string;
   reviewEndedAt?: string;
@@ -175,6 +176,15 @@ export interface PublishSnapshotOptions {
 
 export interface CommitReviewResultsOptions {
   releaseTags?: string[];
+}
+
+export interface PersistReviewStageResultsOptions {
+  completedStages: SkillReviewStage[];
+  finalize?: boolean;
+}
+
+export interface UpsertReviewOptions {
+  finalize?: boolean;
 }
 
 export interface StagePendingPublishSnapshotOptions {
@@ -259,6 +269,13 @@ export interface RegistryStore {
     evaluation?: FunctionalEvaluationReport,
     options?: CommitReviewResultsOptions
   ): Promise<void>;
+  persistReviewStageResults(
+    slug: string,
+    version: string,
+    review: ReviewReport,
+    evaluation: FunctionalEvaluationReport | undefined,
+    options: PersistReviewStageResultsOptions
+  ): Promise<void>;
   rollbackPendingPublishVersion(slug: string, version: string): Promise<void>;
   stagePendingPublishSnapshot(
     snapshot: SkillSnapshot,
@@ -272,7 +289,12 @@ export interface RegistryStore {
     evaluation?: FunctionalEvaluationReport,
     options?: PublishSnapshotOptions
   ): Promise<RegistryVersion>;
-  upsertReview(slug: string, version: string, review: ReviewReport): Promise<RegistryVersion>;
+  upsertReview(
+    slug: string,
+    version: string,
+    review: ReviewReport,
+    options?: UpsertReviewOptions
+  ): Promise<RegistryVersion>;
   upsertEvaluation(slug: string, version: string, evaluation: FunctionalEvaluationReport): Promise<RegistryVersion>;
   addContributor(slug: string, contributor: Omit<RegistryContributor, "id" | "addedAt">): Promise<RegistryContributor>;
   removeContributor(slug: string, contributorId: string): Promise<void>;

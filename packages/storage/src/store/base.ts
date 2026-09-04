@@ -15,6 +15,7 @@ import type {
   LeaderboardSort,
   PublishSnapshotOptions,
   CommitReviewResultsOptions,
+  PersistReviewStageResultsOptions,
   StagePendingPublishSnapshotOptions,
   RecoverStaleReviewingSkillsOptions,
   MarkSkillReviewStatusOptions,
@@ -370,18 +371,49 @@ export abstract class JsonRegistryStore implements RegistryStore {
     return registryVersion;
   }
 
-  async upsertReview(slug: string, version: string, review: ReviewReport): Promise<RegistryVersion> {
+  async upsertReview(
+    slug: string,
+    version: string,
+    review: ReviewReport,
+    options: { finalize?: boolean } = {}
+  ): Promise<RegistryVersion> {
     const data = await this.load();
     const registryVersion = data.skills[slug]?.versions[version];
     if (!registryVersion) throw new Error(`Version not found: ${slug}@${version}`);
     registryVersion.review = review;
     registryVersion.status = review.verdict;
     registryVersion.updatedAt = new Date().toISOString();
-    data.skills[slug]!.reviewStatus = "completed";
-    data.skills[slug]!.reviewFailure = undefined;
+    if (options.finalize !== false) {
+      data.skills[slug]!.reviewStatus = "completed";
+      data.skills[slug]!.reviewFailure = undefined;
+    }
     data.skills[slug]!.updatedAt = registryVersion.updatedAt;
     await this.save(data);
     return registryVersion;
+  }
+
+  async persistReviewStageResults(
+    slug: string,
+    version: string,
+    review: ReviewReport,
+    evaluation: FunctionalEvaluationReport | undefined,
+    options: PersistReviewStageResultsOptions
+  ): Promise<void> {
+    await this.upsertReview(slug, version, review, { finalize: options.finalize ?? false });
+    if (evaluation) {
+      await this.upsertEvaluation(slug, version, evaluation);
+    }
+    const data = await this.load();
+    const skill = data.skills[slug];
+    if (!skill) {
+      return;
+    }
+    skill.reviewCompletedStages = [...new Set(options.completedStages)];
+    if (options.finalize) {
+      skill.reviewStatus = "completed";
+      skill.reviewFailure = undefined;
+    }
+    await this.save(data);
   }
 
   async upsertEvaluation(slug: string, version: string, evaluation: FunctionalEvaluationReport): Promise<RegistryVersion> {
@@ -785,11 +817,6 @@ export abstract class JsonRegistryStore implements RegistryStore {
       }
       if (!recoverAll && new Date(skill.updatedAt).getTime() > cutoff) {
         continue;
-      }
-
-      const pendingVersion = skill.versions[skill.latestVersion];
-      if (pendingVersion?.published === false) {
-        delete skill.versions[skill.latestVersion];
       }
 
       skill.reviewStatus = "failed";

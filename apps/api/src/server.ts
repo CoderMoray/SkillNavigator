@@ -2,7 +2,15 @@ import cors from "@fastify/cors";
 import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
 import { pathToFileURL } from "node:url";
 import { evaluateSkillSnapshot } from "@skill-platform/evaluator";
-import { reviewAndEvaluateSkillSnapshot, type ReviewStageFailure } from "@skill-platform/review-engine";
+import {
+  getConfiguredReviewStages,
+  resolveReviewStagesToRun,
+  reviewAndEvaluateSkillSnapshot,
+  runReviewPipeline,
+  type ReviewPipelineState,
+  type ReviewStage,
+  type ReviewStageFailure,
+} from "@skill-platform/review-engine";
 import { freeDevListenPort } from "./free-port.js";
 import {
   applySkillAuthor,
@@ -66,7 +74,8 @@ import {
   type LeaderboardSort,
   type PublicUser,
   type RegistrySkill,
-  type RegistryStore
+  type RegistryStore,
+  type SkillReviewStage,
 } from "@skill-platform/storage";
 
 loadDotEnvIfPresent();
@@ -896,10 +905,7 @@ export function buildServer() {
       let evaluation;
       let failedStages;
       try {
-        ({ review, evaluation, failedStages } = await reviewAndEvaluateSkillSnapshot(
-          prepared.snapshot,
-          prepared.version
-        ));
+        ({ review, evaluation, failedStages } = await executeStagedPublishReview(store, prepared));
       } catch (error) {
         await markPublishReviewFailed(store, prepared.slug, error);
         throw error;
@@ -942,7 +948,7 @@ export function buildServer() {
     }
   });
 
-  app.post<{ Params: SkillParams; Body: { async?: boolean } }>("/skills/:slug/retry-publish", async (request, reply) => {
+  app.post<{ Params: SkillParams; Body: { async?: boolean; stages?: SkillReviewStage[] } }>("/skills/:slug/retry-publish", async (request, reply) => {
     const user = await getAuthenticatedUser(request.headers.authorization, authStore);
     if (!user) {
       return reply.code(401).send({ error: "Unauthorized" });
@@ -1008,9 +1014,10 @@ export function buildServer() {
       slug: skill.slug,
       releaseTags,
     };
+    const reviewOptions = buildRetryReviewOptions(skill, request.body?.stages);
 
     if (request.body?.async !== false) {
-      void runBackgroundPublishReview(store, prepared, user.id, user.username, changelog).catch((error) => {
+      void runBackgroundPublishReview(store, prepared, user.id, user.username, changelog, reviewOptions).catch((error) => {
         app.log.error(
           { err: error, slug: prepared.slug, version: prepared.version },
           "Unhandled background publish review rejection"
@@ -1029,9 +1036,10 @@ export function buildServer() {
       let evaluation;
       let failedStages;
       try {
-        ({ review, evaluation, failedStages } = await reviewAndEvaluateSkillSnapshot(
-          prepared.snapshot,
-          prepared.version
+        ({ review, evaluation, failedStages } = await executeStagedPublishReview(
+          store,
+          prepared,
+          reviewOptions
         ));
       } catch (error) {
         await markPublishReviewFailed(store, prepared.slug, error);
@@ -1646,18 +1654,96 @@ interface PreparedPublishRequest {
   releaseTags: string[];
 }
 
+interface StagedPublishReviewOptions {
+  skipStages?: ReviewStage[];
+  initialState?: Partial<ReviewPipelineState>;
+}
+
+function buildReviewPipelineInitialState(
+  skill: RegistrySkill | undefined,
+  version: string
+): Partial<ReviewPipelineState> | undefined {
+  if (!skill) {
+    return undefined;
+  }
+
+  const registryVersion = skill.versions[version];
+  if (!registryVersion) {
+    return {
+      completedStages: skill.reviewCompletedStages ?? [],
+      failedStages: [],
+    };
+  }
+
+  return {
+    findings: registryVersion.review?.findings ?? [],
+    skillSpector: registryVersion.review?.skillSpector,
+    skillSpectorAvailable: Boolean(registryVersion.review?.skillSpector),
+    virusTotal: registryVersion.review?.virusTotal,
+    evaluation: registryVersion.evaluation,
+    completedStages: skill.reviewCompletedStages ?? [],
+    failedStages: [],
+  };
+}
+
+function buildRetryReviewOptions(
+  skill: RegistrySkill,
+  requestedStages?: SkillReviewStage[]
+): StagedPublishReviewOptions {
+  const configuredStages = getConfiguredReviewStages();
+  const completedStages = skill.reviewCompletedStages ?? [];
+  const failedStages = skill.reviewFailure?.stages ?? [];
+  const stagesToRun = resolveReviewStagesToRun({
+    configuredStages,
+    completedStages,
+    failedStages,
+    requestedStages,
+  });
+  const skipStages = configuredStages.filter((stage) => !stagesToRun.includes(stage));
+
+  return {
+    skipStages,
+    initialState: buildReviewPipelineInitialState(skill, skill.latestVersion),
+  };
+}
+
+async function executeStagedPublishReview(
+  store: RegistryStore,
+  prepared: PreparedPublishRequest,
+  options: StagedPublishReviewOptions = {}
+): Promise<Awaited<ReturnType<typeof reviewAndEvaluateSkillSnapshot>>> {
+  return runReviewPipeline(prepared.snapshot, prepared.version, {
+    skipStages: options.skipStages,
+    initialState: options.initialState,
+    onStageComplete: async ({ state, review, evaluation }) => {
+      await store.persistReviewStageResults(
+        prepared.slug,
+        prepared.version,
+        review,
+        evaluation,
+        {
+          completedStages: state.completedStages,
+          finalize: false,
+        }
+      );
+    },
+  });
+}
+
 async function runBackgroundPublishReview(
   store: RegistryStore,
   prepared: PreparedPublishRequest,
   ownerUserId: string,
   ownerUsername: string,
-  changelog?: string
+  changelog?: string,
+  reviewOptions: StagedPublishReviewOptions = {}
 ): Promise<void> {
   console.info(`Background publish review started for ${prepared.slug}@${prepared.version}`);
   try {
-    const { review, evaluation, failedStages } = await reviewAndEvaluateSkillSnapshot(
-      prepared.snapshot,
-      prepared.version
+    const { review, evaluation, failedStages } = await executeStagedPublishReview(
+      store,
+      prepared,
+      reviewOptions
     );
     if (failedStages.length > 0) {
       await markPublishReviewFailed(store, prepared.slug, failedStages);

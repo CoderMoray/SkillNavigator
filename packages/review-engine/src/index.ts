@@ -20,6 +20,7 @@ import {
   type VirusTotalScanSummary
 } from "./virustotal.js";
 import { collectSkillLicenseFindings, isSkillLicenseValidationEnabled } from "./license-compliance.js";
+import { calculateReviewVerdict } from "./review-verdict.js";
 
 export {
   collectSkillLicenseFindings,
@@ -472,64 +473,23 @@ function getHaluCatchStageFailure(
   return undefined;
 }
 
-export function isSkillSpectorReviewFinding(finding: ReviewFinding): boolean {
-  return (
-    finding.id.startsWith(SKILLSPECTOR_FINDING_PREFIX) &&
-    finding.id !== SKILLSPECTOR_UNAVAILABLE_FINDING_ID
-  );
-}
+export {
+  calculateReviewVerdict,
+  isSkillSpectorReviewFinding,
+  isVirusTotalReviewFinding,
+  shouldRejectReviewInfrastructureFinding,
+  shouldRejectSkillSpectorFinding,
+  shouldRejectVirusTotalFinding,
+} from "./review-verdict.js";
 
-export function isVirusTotalReviewFinding(finding: ReviewFinding): boolean {
-  return finding.id.startsWith(VIRUSTOTAL_FINDING_PREFIX);
-}
-
-export function shouldRejectSkillSpectorFinding(finding: ReviewFinding): boolean {
-  if (finding.id === SKILLSPECTOR_UNAVAILABLE_FINDING_ID) {
-    return finding.severity === "critical" || finding.severity === "high";
-  }
-
-  if (!isSkillSpectorReviewFinding(finding)) {
-    return false;
-  }
-
-  if (finding.severity === "critical" || finding.severity === "high") {
-    return true;
-  }
-
-  if (finding.severity === "medium" && finding.confidence !== undefined) {
-    const confidencePercent = finding.confidence <= 1 ? finding.confidence * 100 : finding.confidence;
-    return confidencePercent >= MEDIUM_CONFIDENCE_REJECT_PERCENT;
-  }
-
-  return false;
-}
-
-export function shouldRejectVirusTotalFinding(finding: ReviewFinding): boolean {
-  return isVirusTotalReviewFinding(finding) && (finding.severity === "critical" || finding.severity === "high");
-}
-
-export function shouldRejectReviewInfrastructureFinding(finding: ReviewFinding): boolean {
-  return (
-    finding.id === REVIEW_HALUCATCH_UNAVAILABLE_FINDING_ID &&
-    (finding.severity === "critical" || finding.severity === "high")
-  );
-}
-
-export function calculateReviewVerdict(findings: ReviewFinding[]): ReviewVerdict {
-  if (
-    findings.some(shouldRejectSkillSpectorFinding) ||
-    findings.some(shouldRejectVirusTotalFinding) ||
-    findings.some(shouldRejectReviewInfrastructureFinding)
-  ) {
-    return "rejected";
-  }
-
-  if (findings.length > 0) {
-    return "needs-review";
-  }
-
-  return "published";
-}
+export {
+  getConfiguredReviewStages,
+  resolveReviewStagesToRun,
+  runReviewPipeline,
+  type ReviewPipelineState,
+  type ReviewStageCompleteEvent,
+  type RunReviewPipelineOptions,
+} from "./review-pipeline.js";
 
 function excerpt(content: string, index: number): string {
   const start = Math.max(0, index - 80);

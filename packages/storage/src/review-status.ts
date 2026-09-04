@@ -119,5 +119,5 @@ export function readReviewRecoverAllOnStartup(): boolean {
   return process.env.REVIEW_RECOVER_ALL_ON_STARTUP?.toLowerCase() !== "false";
 }
 
-export const REVIEW_INTERRUPTED_MESSAGE = "审查任务因服务重启中断，请重新发布。";
-export const REVIEW_STALE_MESSAGE = "审查超时未完成，请重新发布。";
+export const REVIEW_INTERRUPTED_MESSAGE = "审查任务因服务重启中断，请重试未完成或失败的审查环节。";
+export const REVIEW_STALE_MESSAGE = "审查超时未完成，请重试未完成或失败的审查环节。";
