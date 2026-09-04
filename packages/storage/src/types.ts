@@ -88,6 +88,9 @@ export interface RegistryVersion {
   changelog?: string;
   downloads: number;
   published?: boolean;
+  uploadedAt?: string;
+  reviewStartedAt?: string;
+  reviewEndedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -100,6 +103,9 @@ export interface RegistrySkill {
   latestVersion: string;
   reviewStatus: SkillReviewStatus;
   reviewFailure?: SkillReviewFailureInfo;
+  uploadedAt?: string;
+  reviewStartedAt?: string;
+  reviewEndedAt?: string;
   versions: Record<string, RegistryVersion>;
   contributors: RegistryContributor[];
   issues: RegistryIssue[];
@@ -123,6 +129,9 @@ export interface SkillSearchResult {
   latestVersion: string;
   reviewStatus: SkillReviewStatus;
   reviewFailure?: SkillReviewFailureInfo;
+  uploadedAt?: string;
+  reviewStartedAt?: string;
+  reviewEndedAt?: string;
   status: ReviewVerdict;
   scores: ReviewReport["scores"];
   categories: string[];

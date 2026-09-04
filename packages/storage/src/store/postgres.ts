@@ -112,6 +112,29 @@ function reviewFailurePatch(
   };
 }
 
+function skillReviewTimingPatch(
+  reviewStatus: SkillReviewStatus,
+  now: Date
+): {
+  reviewStartedAt?: Date | null;
+  reviewEndedAt?: Date | null;
+} {
+  if (reviewStatus === "reviewing") {
+    return { reviewStartedAt: now, reviewEndedAt: null };
+  }
+  if (reviewStatus === "completed" || reviewStatus === "failed") {
+    return { reviewEndedAt: now };
+  }
+  return {};
+}
+
+function mapOptionalTimestamp(value: Date | string | null | undefined): string | undefined {
+  if (value == null) {
+    return undefined;
+  }
+  return toIsoTimestampString(value);
+}
+
 function toFunctionalEvaluationFinding(row: EvaluationFindingRow): FunctionalEvaluationFinding {
   return {
     id: row.findingId,
@@ -926,6 +949,9 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         status: v.status as RegistryVersion["status"],
         releaseTags: v.releaseTags, changelog: v.changelog ?? undefined, downloads: Number(v.downloads),
         published: v.published,
+        uploadedAt: mapOptionalTimestamp(v.uploadedAt),
+        reviewStartedAt: mapOptionalTimestamp(v.reviewStartedAt),
+        reviewEndedAt: mapOptionalTimestamp(v.reviewEndedAt),
         createdAt: String(v.createdAt), updatedAt: String(v.updatedAt),
       };
     }
@@ -939,6 +965,9 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         row.reviewFailedStages,
         row.reviewFailedMessage
       ),
+      uploadedAt: mapOptionalTimestamp(row.uploadedAt),
+      reviewStartedAt: mapOptionalTimestamp(row.reviewStartedAt),
+      reviewEndedAt: mapOptionalTimestamp(row.reviewEndedAt),
       versions: versionMap,
       contributors: contributors.map((c) => mapContributorRow(c)),
       issues: issues.map((i) => ({
@@ -1277,11 +1306,17 @@ export class PostgresRegistryStore extends JsonRegistryStore {
   ): Promise<void> {
     await this.ensureSchema();
     const now = new Date();
+    const timingPatch = skillReviewTimingPatch(reviewStatus, now);
     const [existing] = await this.db
-      .select({ slug: schema.skills.slug })
+      .select({
+        slug: schema.skills.slug,
+        latestVersion: schema.skills.latestVersion,
+      })
       .from(schema.skills)
       .where(eq(schema.skills.slug, slug))
       .limit(1);
+
+    const targetVersion = options?.latestVersion ?? existing?.latestVersion;
 
     if (existing) {
       await this.db.update(schema.skills)
@@ -1289,6 +1324,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
           reviewStatus,
           updatedAt: now,
           ...reviewFailurePatch(reviewStatus, options?.failure),
+          ...timingPatch,
           ...(options
             ? {
                 name: options.name,
@@ -1311,10 +1347,17 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         latestVersion: options.latestVersion,
         reviewStatus,
         ...reviewFailurePatch(reviewStatus, options.failure),
+        ...timingPatch,
         published: false,
         createdAt: now,
         updatedAt: now,
       });
+    }
+
+    if (targetVersion && Object.keys(timingPatch).length > 0) {
+      await this.db.update(schema.skillVersions)
+        .set({ ...timingPatch, updatedAt: now })
+        .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, targetVersion)));
     }
 
     if (options?.ownerUserId && options.ownerUsername) {
@@ -1433,6 +1476,9 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       artifactSize: artifact?.size ?? null,
       artifactStoredAt: artifact ? new Date(artifact.storedAt) : null,
       snapshotCreatedAt: now,
+      uploadedAt: now,
+      reviewStartedAt: null,
+      reviewEndedAt: null,
       updatedAt: now,
     };
 
@@ -1473,6 +1519,10 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         );
       }
     });
+
+    await this.db.update(schema.skills)
+      .set({ uploadedAt: now, updatedAt: now })
+      .where(eq(schema.skills.slug, slug));
   }
 
   async rollbackPendingPublishVersion(slug: string, version: string): Promise<void> {
@@ -1592,6 +1642,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
             reviewStatus: "completed",
             reviewFailedStages: [],
             reviewFailedMessage: null,
+            reviewEndedAt: now,
             updatedAt: now
           })
           .where(eq(schema.skills.slug, slug));
@@ -1600,6 +1651,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
           slug, name, description, ownerUserId: options.owner?.userId ?? null,
           latestVersion: version, published: true, reviewStatus: "completed",
           reviewFailedStages: [], reviewFailedMessage: null,
+          reviewEndedAt: now,
           createdAt: now, updatedAt: now,
         });
       }
@@ -1617,7 +1669,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         }
       }
 
-      const versionWrite = {
+      const versionWriteBase = {
         status: review.verdict,
         manifestName: name,
         manifestDescription: description,
@@ -1646,13 +1698,13 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         artifactContentHash: artifact?.contentHash ?? null,
         artifactSize: artifact?.size ?? null,
         artifactStoredAt: artifact ? new Date(artifact.storedAt) : null,
-        snapshotCreatedAt: now,
+        reviewEndedAt: now,
         updatedAt: now,
       };
 
       if (finalizePendingVersion) {
         await tx.update(schema.skillVersions)
-          .set(versionWrite)
+          .set(versionWriteBase)
           .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
         await tx.delete(schema.skillVersionTags)
           .where(and(eq(schema.skillVersionTags.skillSlug, slug), eq(schema.skillVersionTags.version, version)));
@@ -1662,7 +1714,9 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         await tx.insert(schema.skillVersions).values({
           skillSlug: slug,
           version,
-          ...versionWrite,
+          ...versionWriteBase,
+          snapshotCreatedAt: now,
+          uploadedAt: now,
           createdAt: now,
         });
       }
@@ -1792,6 +1846,9 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         reviewStatus: schema.skills.reviewStatus,
         reviewFailedStages: schema.skills.reviewFailedStages,
         reviewFailedMessage: schema.skills.reviewFailedMessage,
+        uploadedAt: schema.skills.uploadedAt,
+        reviewStartedAt: schema.skills.reviewStartedAt,
+        reviewEndedAt: schema.skills.reviewEndedAt,
         published: schema.skills.published,
         averageRating: schema.skills.averageRating,
         ratingCount: schema.skills.ratingCount,
@@ -1842,6 +1899,9 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         row.reviewFailedStages,
         row.reviewFailedMessage
       ),
+      uploadedAt: mapOptionalTimestamp(row.uploadedAt),
+      reviewStartedAt: mapOptionalTimestamp(row.reviewStartedAt),
+      reviewEndedAt: mapOptionalTimestamp(row.reviewEndedAt),
       status: "needs-review",
       scores: {
         qualityScore: 0,

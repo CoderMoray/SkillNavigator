@@ -62,6 +62,12 @@ export abstract class JsonRegistryStore implements RegistryStore {
     if (existing) {
       existing.reviewStatus = reviewStatus;
       existing.updatedAt = now;
+      if (reviewStatus === "reviewing") {
+        existing.reviewStartedAt = now;
+        existing.reviewEndedAt = undefined;
+      } else if (reviewStatus === "completed" || reviewStatus === "failed") {
+        existing.reviewEndedAt = now;
+      }
       if (options?.name !== undefined) {
         existing.name = options.name;
       }
@@ -93,6 +99,17 @@ export abstract class JsonRegistryStore implements RegistryStore {
             addedAt: now,
           });
         }
+      }
+      const targetVersion = options?.latestVersion ?? existing.latestVersion;
+      const version = existing.versions[targetVersion];
+      if (version) {
+        if (reviewStatus === "reviewing") {
+          version.reviewStartedAt = now;
+          version.reviewEndedAt = undefined;
+        } else if (reviewStatus === "completed" || reviewStatus === "failed") {
+          version.reviewEndedAt = now;
+        }
+        version.updatedAt = now;
       }
       await this.save(data);
       return;
@@ -240,9 +257,13 @@ export abstract class JsonRegistryStore implements RegistryStore {
       downloads: 0,
       published: false,
       review: {} as RegistryVersion["review"],
+      uploadedAt: now,
+      reviewStartedAt: undefined,
+      reviewEndedAt: undefined,
       createdAt: now,
       updatedAt: now,
     };
+    skill.uploadedAt = now;
     skill.latestVersion = version;
     skill.updatedAt = now;
     data.skills[slug] = skill;

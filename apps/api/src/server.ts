@@ -826,17 +826,17 @@ export function buildServer() {
       });
       publishRateLimiter.recordAttempt(user.id);
 
+      await store.stagePendingPublishSnapshot(prepared.snapshot, prepared.version, {
+        releaseTags: prepared.releaseTags,
+        changelog,
+      });
+
       await store.markSkillReviewStatus(prepared.slug, "reviewing", {
         name: prepared.snapshot.manifest.name,
         description: prepared.snapshot.manifest.description ?? "",
         ownerUserId: user.id,
         ownerUsername: user.username,
         latestVersion: prepared.version,
-      });
-
-      await store.stagePendingPublishSnapshot(prepared.snapshot, prepared.version, {
-        releaseTags: prepared.releaseTags,
-        changelog,
       });
 
       if (request.body.async) {
