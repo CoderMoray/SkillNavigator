@@ -1,6 +1,0 @@
-# 品牌配置 — 平台品牌名的唯一事实来源 (Single Source of Truth)
-#
-# Web UI 展示名由 .env 的 BRAND_NAME 控制（默认 SkillNavigator），
-# 构建时注入 NEXT_PUBLIC_BRAND_NAME。改这里不会自动改 .env。
-
-brand: MonoSkillNavigator
