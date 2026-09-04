@@ -6,7 +6,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { MarkdownContent } from "../../../components/MarkdownContent";
 import type { LucideIcon } from "lucide-react";
 import { compareSemver, isSkillEntryPath } from "@skill-platform/skill-spec/skill-format";
-import { canRetryStoredReview } from "../../../lib/publish-helpers";
+import { canRetryStoredReview, resolveVersionDisplayVerdict } from "../../../lib/publish-helpers";
 import { formatReviewStageProgress } from "../../../lib/review-stages";
 import {
   ArrowLeft,
@@ -419,6 +419,9 @@ export default function SkillDetailPage() {
     skill.reviewFailure?.stages?.length && canRetryStoredPackage
       ? "重试失败环节"
       : "重新发布";
+  const currentVersionDisplayVerdict = currentVersion
+    ? resolveVersionDisplayVerdict(skill, currentVersion)
+    : null;
 
   if (!currentVersion) {
     if (!isReviewPending) {
@@ -1055,9 +1058,9 @@ export default function SkillDetailPage() {
                       : undefined
                   }
                 />
-              ) : (
-                <VerdictBadge verdict={currentVersion.status} />
-              )}
+              ) : currentVersionDisplayVerdict ? (
+                <VerdictBadge verdict={currentVersionDisplayVerdict} />
+              ) : null}
             </div>
             <h1>{skill.name}</h1>
             <p>{skill.description}</p>
@@ -1260,7 +1263,7 @@ export default function SkillDetailPage() {
                   <h2>Skill Card</h2>
                   <p className="description">汇总发布元信息、安装方式和贡献者。</p>
                 </div>
-                <VerdictBadge verdict={currentVersion.status} />
+                <VerdictBadge verdict={currentVersionDisplayVerdict ?? currentVersion.status} />
               </div>
               <div className="two-column detail-split">
                 <div className="detail-section">
@@ -1515,7 +1518,7 @@ export default function SkillDetailPage() {
                             {isLatest ? <span className="badge">Latest</span> : null}
                           </span>
                           <span className="version-release-status">
-                            <VerdictBadge verdict={version.status} />
+                            <VerdictBadge verdict={resolveVersionDisplayVerdict(skill, version)} />
                           </span>
                         </div>
                         <div className="version-col-download">
@@ -1602,7 +1605,7 @@ export default function SkillDetailPage() {
                   </p>
                 </div>
                 <div className="card-head-actions">
-                  <VerdictBadge verdict={currentVersion.status} />
+                  <VerdictBadge verdict={currentVersionDisplayVerdict ?? currentVersion.status} />
                   {currentVersion.evaluation ? <EvaluationBadge status={currentVersion.evaluation.status} /> : null}
                 </div>
               </div>

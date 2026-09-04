@@ -111,6 +111,9 @@ export abstract class JsonRegistryStore implements RegistryStore {
         } else if (reviewStatus === "completed" || reviewStatus === "failed") {
           version.reviewEndedAt = now;
         }
+        if (reviewStatus === "failed") {
+          version.status = "rejected";
+        }
         version.updatedAt = now;
       }
       await this.save(data);
@@ -381,7 +384,9 @@ export abstract class JsonRegistryStore implements RegistryStore {
     const registryVersion = data.skills[slug]?.versions[version];
     if (!registryVersion) throw new Error(`Version not found: ${slug}@${version}`);
     registryVersion.review = review;
-    registryVersion.status = review.verdict;
+    if (options.finalize !== false) {
+      registryVersion.status = review.verdict;
+    }
     registryVersion.updatedAt = new Date().toISOString();
     if (options.finalize !== false) {
       data.skills[slug]!.reviewStatus = "completed";

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Download, EyeOff, MessageSquare, Star, Users } from "lucide-react";
 import { formatDateTime, formatNumber, formatSkillReviewFailureSummary } from "../lib/format";
+import { resolveSkillDisplayVerdict } from "../lib/publish-helpers";
 import type { SkillSearchResult } from "../lib/types";
 import { SkillCategoryIcon } from "./SkillCategoryIcon";
 import { VerdictBadge, SkillReviewStatusBadge } from "./StatusBadge";
@@ -52,7 +53,7 @@ export function SkillCard({ skill, variant = "card" }: { skill: SkillSearchResul
             <Download size={13} /> {formatNumber(skill.downloads)}
           </span>
           {skill.reviewStatus === "completed" ? (
-            <VerdictBadge verdict={skill.status} />
+            <VerdictBadge verdict={resolveSkillDisplayVerdict(skill.reviewStatus, skill.status)} />
           ) : (
             <SkillReviewStatusBadge
               status={skill.reviewStatus}
@@ -81,7 +82,9 @@ export function SkillCard({ skill, variant = "card" }: { skill: SkillSearchResul
           <SkillReviewStatusBadge status={skill.reviewStatus} />
           <div className="mono">latest@{skill.latestVersion}</div>
         </div>
-        {skill.reviewStatus === "completed" ? <VerdictBadge verdict={skill.status} /> : null}
+        {skill.reviewStatus === "completed" ? (
+          <VerdictBadge verdict={resolveSkillDisplayVerdict(skill.reviewStatus, skill.status)} />
+        ) : null}
       </div>
 
       <p className="description">{skill.description}</p>

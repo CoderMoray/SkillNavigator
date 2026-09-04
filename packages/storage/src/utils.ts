@@ -1,7 +1,8 @@
+import type { ReviewVerdict } from "@skill-platform/review-engine";
 import type { ReviewReport } from "@skill-platform/review-engine";
 import type { SkillSnapshot } from "@skill-platform/skill-spec";
 import { compareSemver } from "@skill-platform/skill-spec/skill-format";
-import { isReviewPendingSkillStatus } from "./review-status";
+import { isReviewPendingSkillStatus, type SkillReviewStatus } from "./review-status";
 import {
   type RegistryContributor,
   type RegistryData,
@@ -135,6 +136,23 @@ export function sortSkillSearchResultsByRecent(skills: SkillSearchResult[]): Ski
   );
 }
 
+export function resolveSkillDisplayVerdict(
+  reviewStatus: SkillReviewStatus,
+  versionStatus: ReviewVerdict,
+  versionPublished?: boolean
+): ReviewVerdict {
+  if (reviewStatus === "failed") {
+    return "rejected";
+  }
+  if (reviewStatus === "reviewing") {
+    return versionStatus === "rejected" ? "rejected" : "needs-review";
+  }
+  if (versionStatus === "published" && versionPublished === false) {
+    return "needs-review";
+  }
+  return versionStatus;
+}
+
 export function toSearchResult(skill: RegistrySkill): SkillSearchResult {
   const latest = skill.versions[skill.latestVersion];
   if (!latest) {
@@ -150,7 +168,7 @@ export function toSearchResult(skill: RegistrySkill): SkillSearchResult {
     uploadedAt: skill.uploadedAt ?? latest.uploadedAt,
     reviewStartedAt: skill.reviewStartedAt ?? latest.reviewStartedAt,
     reviewEndedAt: skill.reviewEndedAt ?? latest.reviewEndedAt,
-    status: latest.status,
+    status: resolveSkillDisplayVerdict(skill.reviewStatus, latest.status, latest.published),
     scores: latest.review.scores,
     categories: latest.manifest.categories ?? [],
     averageRating: skill.averageRating,

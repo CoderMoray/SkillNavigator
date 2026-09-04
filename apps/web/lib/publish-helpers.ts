@@ -1,4 +1,34 @@
-import type { RegistrySkill } from "./types";
+import type { RegistrySkill, ReviewVerdict, SkillReviewStatus } from "./types";
+
+export function resolveSkillDisplayVerdict(
+  reviewStatus: SkillReviewStatus,
+  versionStatus: ReviewVerdict,
+  versionPublished?: boolean
+): ReviewVerdict {
+  if (reviewStatus === "failed") {
+    return "rejected";
+  }
+  if (reviewStatus === "reviewing") {
+    return versionStatus === "rejected" ? "rejected" : "needs-review";
+  }
+  if (versionStatus === "published" && versionPublished === false) {
+    return "needs-review";
+  }
+  return versionStatus;
+}
+
+export function resolveVersionDisplayVerdict(
+  skill: Pick<RegistrySkill, "reviewStatus" | "latestVersion">,
+  version: { version: string; status: ReviewVerdict; published?: boolean }
+): ReviewVerdict {
+  if (version.version === skill.latestVersion) {
+    return resolveSkillDisplayVerdict(skill.reviewStatus, version.status, version.published);
+  }
+  if (version.status === "published" && version.published === false) {
+    return "needs-review";
+  }
+  return version.status;
+}
 
 export function hasStoredPendingPackage(
   skill: RegistrySkill,

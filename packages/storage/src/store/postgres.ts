@@ -1266,9 +1266,11 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       );
     }
 
-    await this.db.update(schema.skillVersions)
-      .set({ status: review.verdict, updatedAt: new Date() })
-      .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
+    if (finalize) {
+      await this.db.update(schema.skillVersions)
+        .set({ status: review.verdict, updatedAt: new Date() })
+        .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
+    }
 
     if (finalize) {
       await this.db.update(schema.skills)
@@ -1310,7 +1312,6 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     await this.db.update(schema.skillVersions)
       .set({
         reviewCompletedStages: completedStages,
-        status: review.verdict,
         updatedAt: new Date(),
       })
       .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
@@ -1415,6 +1416,12 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     if (targetVersion && Object.keys(timingPatch).length > 0) {
       await this.db.update(schema.skillVersions)
         .set({ ...timingPatch, updatedAt: now })
+        .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, targetVersion)));
+    }
+
+    if (targetVersion && reviewStatus === "failed") {
+      await this.db.update(schema.skillVersions)
+        .set({ status: "rejected", updatedAt: now })
         .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, targetVersion)));
     }
 

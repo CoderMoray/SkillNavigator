@@ -1,8 +1,12 @@
 import type { EvaluationStatus, ReviewSeverity, ReviewVerdict, SkillReviewStatus } from "../lib/types";
 import { severityLabel, skillReviewStatusLabel, verdictLabel } from "../lib/format";
 
-export function VerdictBadge({ verdict }: { verdict: ReviewVerdict }) {
-  return <span className={`badge ${verdict}`}>{verdictLabel(verdict)}</span>;
+export function VerdictBadge({ verdict, title }: { verdict: ReviewVerdict; title?: string }) {
+  return (
+    <span className={`badge ${verdict}`} title={title}>
+      {verdictLabel(verdict)}
+    </span>
+  );
 }
 
 export function SkillReviewStatusBadge({
@@ -14,6 +18,10 @@ export function SkillReviewStatusBadge({
 }) {
   if (status === "completed") {
     return null;
+  }
+
+  if (status === "failed") {
+    return <VerdictBadge verdict="rejected" title={title} />;
   }
 
   return (
