@@ -24,6 +24,7 @@ import {
   Package,
   Plus,
   ShieldCheck,
+  RefreshCw,
   Star,
   Trash2,
   Upload,
@@ -54,6 +55,7 @@ import {
   getCurrentUser,
   getSkill,
   getSkills,
+  retrySkillPublishReview,
   republishSkill,
   republishSkillVersion,
   removeSkillContributor,
@@ -199,6 +201,7 @@ export default function SkillDetailPage() {
   const [ratingModalOpen, setRatingModalOpen] = useState(false);
   const [downloadingVersion, setDownloadingVersion] = useState<string | null>(null);
   const [unpublishModalOpen, setUnpublishModalOpen] = useState(false);
+  const [retryingPublishReview, setRetryingPublishReview] = useState(false);
   const [republishModalOpen, setRepublishModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [unpublishingSkill, setUnpublishingSkill] = useState(false);
@@ -341,6 +344,42 @@ export default function SkillDetailPage() {
     [skill?.contributors]
   );
 
+  async function handleRetryPublishReview() {
+    setErrorToast(null);
+
+    const token = getAuthToken();
+    if (!token) {
+      setErrorToast("请先登录后再操作。");
+      return;
+    }
+    if (!skill) {
+      setErrorToast("Skill 数据尚未加载完成。");
+      return;
+    }
+    if (!viewer || !isSkillContributor(skill, viewer)) {
+      setErrorToast("你没有权限重新发布该 Skill。");
+      return;
+    }
+
+    setRetryingPublishReview(true);
+    try {
+      await retrySkillPublishReview(token, skill.slug, { async: true });
+      setSuccessToast("已使用已保存的包重新提交审查，请稍后在个人中心查看进度。");
+      router.push(`${creatorProfilePath(viewer.username)}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "重新发布失败";
+      if (message === "pending_publish_snapshot_missing") {
+        setErrorToast("未找到已保存的 Skill 包，请通过发布页重新上传。");
+      } else if (message === "skill_review_in_progress") {
+        setErrorToast("该 Skill 正在审查中，请稍后再试。");
+      } else {
+        setErrorToast(message);
+      }
+    } finally {
+      setRetryingPublishReview(false);
+    }
+  }
+
   if (loading) {
     return (
       <AppShell title={skillSlug}>
@@ -411,11 +450,16 @@ export default function SkillDetailPage() {
                   审查仍在进行中。完成后此页将显示版本、文件与审查结果；请稍后刷新。
                 </p>
               ) : null}
-              {isContributor ? (
+              {skill.reviewStatus === "failed" && isContributor ? (
                 <div className="hero-actions" style={{ marginTop: 16 }}>
-                  <Link className="button primary" href={`/skills/publish?skill=${encodeURIComponent(skill.slug)}`}>
-                    <Upload size={16} /> 重新发布
-                  </Link>
+                  <button
+                    className="button primary"
+                    disabled={retryingPublishReview}
+                    onClick={() => void handleRetryPublishReview()}
+                    type="button"
+                  >
+                    <RefreshCw size={16} /> {retryingPublishReview ? "提交中…" : "重新发布"}
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -1051,7 +1095,22 @@ export default function SkillDetailPage() {
               <button className="button secondary" onClick={() => void handleCopyInstallPrompt()} type="button">
                 <Copy size={16} /> 复制 prompt
               </button>
+              {skill.reviewStatus === "failed" && isContributor ? (
+                <button
+                  className="button primary"
+                  disabled={retryingPublishReview}
+                  onClick={() => void handleRetryPublishReview()}
+                  type="button"
+                >
+                  <RefreshCw size={16} /> {retryingPublishReview ? "提交中…" : "重新发布"}
+                </button>
+              ) : null}
             </div>
+            {skill.reviewStatus === "failed" && skill.reviewFailure ? (
+              <p className="description skill-review-failure" style={{ marginTop: 12 }}>
+                {formatSkillReviewFailureSummary(skill.reviewFailure)}
+              </p>
+            ) : null}
             {isOwner && isUnpublished ? (
               <div className="skill-unpublished-notice" role="status">
                 <span className="skill-unpublished-notice-icon" aria-hidden="true">

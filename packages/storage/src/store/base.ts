@@ -205,6 +205,56 @@ export abstract class JsonRegistryStore implements RegistryStore {
     await this.save(data);
   }
 
+  async stagePendingPublishSnapshot(
+    snapshot: SkillSnapshot,
+    version: string,
+    options: { releaseTags?: string[]; changelog?: string } = {}
+  ): Promise<void> {
+    const data = await this.load();
+    const slug = getSkillSlug(snapshot.manifest);
+    const now = new Date().toISOString();
+    const skill = data.skills[slug] ?? {
+      slug,
+      name: snapshot.manifest.name,
+      description: snapshot.manifest.description ?? "",
+      latestVersion: version,
+      reviewStatus: "reviewing" as const,
+      versions: {},
+      contributors: [],
+      issues: [],
+      ratings: [],
+      averageRating: 0,
+      ratingCount: 0,
+      published: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+    skill.versions[version] = {
+      version,
+      manifest: snapshot.manifest,
+      snapshot,
+      contentHash: snapshot.contentHash,
+      status: "needs-review",
+      releaseTags: options.releaseTags ?? ["latest"],
+      changelog: options.changelog,
+      downloads: 0,
+      published: false,
+      review: {} as RegistryVersion["review"],
+      createdAt: now,
+      updatedAt: now,
+    };
+    skill.latestVersion = version;
+    skill.updatedAt = now;
+    data.skills[slug] = skill;
+    await this.save(data);
+  }
+
+  async loadStoredSnapshot(slug: string, version: string): Promise<SkillSnapshot | undefined> {
+    const skill = (await this.load()).skills[slug];
+    const registryVersion = skill?.versions[version];
+    return registryVersion?.snapshot;
+  }
+
   async publishSnapshot(
     snapshot: SkillSnapshot,
     review: ReviewReport,

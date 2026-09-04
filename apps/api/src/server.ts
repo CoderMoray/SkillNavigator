@@ -834,6 +834,11 @@ export function buildServer() {
         latestVersion: prepared.version,
       });
 
+      await store.stagePendingPublishSnapshot(prepared.snapshot, prepared.version, {
+        releaseTags: prepared.releaseTags,
+        changelog,
+      });
+
       if (request.body.async) {
         void runBackgroundPublishReview(store, prepared, user.id, user.username, changelog).catch((error) => {
           app.log.error(
@@ -884,6 +889,139 @@ export function buildServer() {
 
       return reply.code(201).send({
         slug: prepared.slug,
+        name: registryVersion.manifest.name,
+        version: registryVersion.version,
+        releaseTags: registryVersion.releaseTags,
+        status: registryVersion.status,
+        reviewStatus: "completed",
+        contentHash: registryVersion.contentHash,
+        review: registryVersion.review,
+        evaluation: registryVersion.evaluation,
+        changelog: registryVersion.changelog
+      });
+    } catch (error) {
+      return sendPublishError(reply, error);
+    }
+  });
+
+  app.post<{ Params: SkillParams; Body: { async?: boolean } }>("/skills/:slug/retry-publish", async (request, reply) => {
+    const user = await getAuthenticatedUser(request.headers.authorization, authStore);
+    if (!user) {
+      return reply.code(401).send({ error: "Unauthorized" });
+    }
+
+    const skill = await store.getSkill(request.params.slug);
+    if (!skill) {
+      return reply.code(404).send({ error: "skill_not_found" });
+    }
+    if (!isSkillContributor(skill, user)) {
+      return reply.code(403).send({ error: "Only skill contributors can publish new versions" });
+    }
+    if (skill.reviewStatus === "reviewing") {
+      return reply.code(409).send({ error: "skill_review_in_progress" });
+    }
+    if (skill.reviewStatus !== "failed") {
+      return reply.code(400).send({ error: "skill_not_retryable" });
+    }
+
+    const version = skill.latestVersion;
+    const pendingVersion = skill.versions[version];
+    const releaseTags = pendingVersion?.releaseTags ?? ["latest"];
+    const changelog = pendingVersion?.changelog;
+
+    try {
+      assertPublishPreflight({
+        slug: skill.slug,
+        version,
+        releaseTags,
+        existingSkill: skill,
+        user,
+        allowFailedReviewRetry: true,
+      });
+    } catch (error) {
+      return sendPublishError(reply, error);
+    }
+
+    const snapshot = await store.loadStoredSnapshot(skill.slug, version);
+    if (!snapshot) {
+      return reply.code(409).send({ error: "pending_publish_snapshot_missing" });
+    }
+
+    const rateLimit = publishRateLimiter.check(user.id);
+    if (!rateLimit.allowed) {
+      return reply
+        .code(429)
+        .header("Retry-After", String(rateLimit.retryAfterSeconds))
+        .send({
+          error: "publish_rate_limited",
+          retryAfterSeconds: rateLimit.retryAfterSeconds
+        });
+    }
+
+    publishRateLimiter.recordAttempt(user.id);
+
+    await store.markSkillReviewStatus(skill.slug, "reviewing", {
+      latestVersion: version,
+    });
+
+    const prepared: PreparedPublishRequest = {
+      snapshot,
+      version,
+      slug: skill.slug,
+      releaseTags,
+    };
+
+    if (request.body?.async !== false) {
+      void runBackgroundPublishReview(store, prepared, user.id, user.username, changelog).catch((error) => {
+        app.log.error(
+          { err: error, slug: prepared.slug, version: prepared.version },
+          "Unhandled background publish review rejection"
+        );
+      });
+      return reply.code(202).send({
+        slug: skill.slug,
+        name: skill.name,
+        version,
+        reviewStatus: "reviewing",
+      });
+    }
+
+    try {
+      let review;
+      let evaluation;
+      let failedStages;
+      try {
+        ({ review, evaluation, failedStages } = await reviewAndEvaluateSkillSnapshot(
+          prepared.snapshot,
+          prepared.version
+        ));
+      } catch (error) {
+        await markPublishReviewFailed(store, prepared.slug, error);
+        throw error;
+      }
+
+      if (failedStages.length > 0) {
+        await markPublishReviewFailed(store, prepared.slug, failedStages);
+        return reply.code(503).send({
+          error: "review_pipeline_incomplete",
+          retryable: true,
+          failedStages,
+          reviewStatus: "failed",
+          reviewFailure: buildSkillReviewFailureFromStages(failedStages),
+        });
+      }
+
+      const registryVersion = await publishReviewedSnapshot(
+        store,
+        prepared,
+        review,
+        evaluation,
+        { userId: user.id, username: user.username },
+        changelog
+      );
+
+      return reply.code(201).send({
+        slug: skill.slug,
         name: registryVersion.manifest.name,
         version: registryVersion.version,
         releaseTags: registryVersion.releaseTags,
@@ -1488,12 +1626,6 @@ async function runBackgroundPublishReview(
       `Background publish review failed for ${prepared.slug}@${prepared.version}:`,
       error
     );
-    await store.rollbackPendingPublishVersion(prepared.slug, prepared.version).catch((rollbackError) => {
-      console.error(
-        `Failed to rollback pending publish version for ${prepared.slug}@${prepared.version}:`,
-        rollbackError
-      );
-    });
     await markPublishReviewFailed(store, prepared.slug, error);
   }
 }
@@ -1518,12 +1650,7 @@ async function publishReviewedSnapshot(
       reviewAlreadyCommitted: true,
     });
   } catch (error) {
-    await store.rollbackPendingPublishVersion(prepared.slug, prepared.version).catch((rollbackError) => {
-      console.error(
-        `Failed to rollback pending publish version for ${prepared.slug}@${prepared.version}:`,
-        rollbackError
-      );
-    });
+    await markPublishReviewFailed(store, prepared.slug, error);
     throw error;
   }
 }

@@ -20,16 +20,18 @@ export interface PublishPreflightInput {
   user?: { id: string; username: string; role?: string };
   /** Internal publishSnapshot path: completing an in-flight review may persist while status is still reviewing. */
   allowReviewInProgress?: boolean;
+  /** Retry publish for a failed review using the staged pending version. */
+  allowFailedReviewRetry?: boolean;
 }
 
 export function assertPublishPreflight(input: PublishPreflightInput): void {
-  const { slug, version, releaseTags, existingSkill, user, allowReviewInProgress } = input;
+  const { slug, version, releaseTags, existingSkill, user, allowReviewInProgress, allowFailedReviewRetry } = input;
 
   if (existingSkill?.deletedAt) {
     throw new PublishPreflightError("skill_in_recycle_bin", 409);
   }
 
-  if (existingSkill?.reviewStatus === "reviewing" && !allowReviewInProgress) {
+  if (existingSkill?.reviewStatus === "reviewing" && !allowReviewInProgress && !allowFailedReviewRetry) {
     throw new PublishPreflightError("skill_review_in_progress", 409);
   }
 
@@ -37,19 +39,28 @@ export function assertPublishPreflight(input: PublishPreflightInput): void {
     throw new PublishPreflightError("Only skill contributors can publish new versions", 403);
   }
 
-  if (existingSkill?.versions[version]) {
-    const pendingVersion = existingSkill.versions[version];
-    if (!(allowReviewInProgress && pendingVersion.published === false)) {
-      throw new PublishPreflightError(`Version already exists: ${slug}@${version}`, 409);
-    }
+  const pendingVersion = existingSkill?.versions[version];
+  const allowPendingVersion =
+    pendingVersion?.published === false &&
+    (allowReviewInProgress ||
+      (allowFailedReviewRetry &&
+        existingSkill?.reviewStatus === "failed" &&
+        version === existingSkill.latestVersion));
+
+  if (existingSkill?.versions[version] && !allowPendingVersion) {
+    throw new PublishPreflightError(`Version already exists: ${slug}@${version}`, 409);
   }
 
   if (existingSkill?.versions[existingSkill.latestVersion]) {
-    const pendingVersion = existingSkill.versions[version];
     const finalizingPendingVersion =
       allowReviewInProgress && pendingVersion?.published === false && version === existingSkill.latestVersion;
+    const retryingFailedVersion =
+      allowFailedReviewRetry &&
+      existingSkill.reviewStatus === "failed" &&
+      pendingVersion?.published === false &&
+      version === existingSkill.latestVersion;
     const compared = compareSemver(version, existingSkill.latestVersion);
-    if (!finalizingPendingVersion && compared !== null && compared <= 0) {
+    if (!finalizingPendingVersion && !retryingFailedVersion && compared !== null && compared <= 0) {
       throw new PublishPreflightError(
         `Version must be greater than latest: ${slug}@${existingSkill.latestVersion}, got ${version}`,
         400

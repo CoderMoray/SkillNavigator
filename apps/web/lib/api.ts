@@ -383,6 +383,21 @@ export async function publishSkillArchive(
   });
 }
 
+export async function retrySkillPublishReview(
+  token: string,
+  slug: string,
+  options?: { async?: boolean }
+): Promise<PublishSkillResponse | PublishSkillAcceptedResponse> {
+  return request<PublishSkillResponse | PublishSkillAcceptedResponse>(
+    apiUrl(`/skills/${encodeURIComponent(slug)}/retry-publish`),
+    {
+      method: "POST",
+      token,
+      body: JSON.stringify({ async: options?.async ?? true })
+    }
+  );
+}
+
 export async function addSkillContributor(
   token: string,
   skillSlug: string,

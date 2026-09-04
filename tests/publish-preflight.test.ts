@@ -82,16 +82,22 @@ describe("assertPublishPreflight", () => {
     ).toThrow(/Version must be greater than latest/);
   });
 
-  it("allows retrying the same version after a failed review stub without a published latest version", () => {
+  it("allows retry publish preflight when failed review has a staged pending version", () => {
     expect(() =>
       assertPublishPreflight({
         slug: "demo-skill",
         version: "1.0.0",
         releaseTags: ["latest"],
+        allowFailedReviewRetry: true,
         existingSkill: skill({
           latestVersion: "1.0.0",
           reviewStatus: "failed",
-          versions: {},
+          versions: {
+            "1.0.0": {
+              ...skill().versions["1.0.0"],
+              published: false,
+            },
+          },
         }),
       })
     ).not.toThrow();

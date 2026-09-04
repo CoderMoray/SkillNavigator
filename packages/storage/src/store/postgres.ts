@@ -23,6 +23,7 @@ import type {
   CommitReviewResultsOptions,
   RecoverStaleReviewingSkillsOptions,
   PublishSnapshotOptions,
+  StagePendingPublishSnapshotOptions,
   PostgresRegistryStoreOptions,
   RegistryContributor, RegistryData, RegistryIssue, RegistryRating,
   RegistrySkill, RegistryVersion, SkillSearchResult, LeaderboardSort,
@@ -1096,21 +1097,32 @@ export class PostgresRegistryStore extends JsonRegistryStore {
 
   async downloadSnapshot(slug: string, version = "latest"): Promise<any | undefined> {
     await this.ensureSchema();
-    const skill = await this.getSkill(slug);
-    if (!skill) return undefined;
+    const resolved = await this.resolveStoredSnapshotVersion(slug, version);
+    if (!resolved) {
+      return undefined;
+    }
 
-    const resolved = resolveVersionReference(skill, version);
-    if (!resolved) return undefined;
+    await this.db.update(schema.skillVersions)
+      .set({ downloads: sql`${schema.skillVersions.downloads} + 1`, updatedAt: new Date() })
+      .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, resolved)));
+
+    return this.loadStoredSnapshot(slug, resolved);
+  }
+
+  async loadStoredSnapshot(slug: string, version: string): Promise<SkillSnapshot | undefined> {
+    await this.ensureSchema();
+    const resolved = await this.resolveStoredSnapshotVersion(slug, version);
+    if (!resolved) {
+      return undefined;
+    }
 
     const [v] = await this.db.select()
       .from(schema.skillVersions)
       .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, resolved)))
       .limit(1);
-    if (!v) return undefined;
-
-    await this.db.update(schema.skillVersions)
-      .set({ downloads: sql`${schema.skillVersions.downloads} + 1`, updatedAt: new Date() })
-      .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, resolved)));
+    if (!v) {
+      return undefined;
+    }
 
     const artifact = artifactDescriptorFromRow(v, slug, resolved);
     if (artifact && artifact.contentHash !== v.contentHash) {
@@ -1130,17 +1142,44 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       .where(and(eq(schema.skillVersionFiles.skillSlug, slug), eq(schema.skillVersionFiles.version, resolved)))
       .orderBy(schema.skillVersionFiles.path);
 
+    if (files.length === 0) {
+      return undefined;
+    }
+
     const tags = await this.db.select({ tag: schema.skillVersionTags.tag })
       .from(schema.skillVersionTags)
       .where(and(eq(schema.skillVersionTags.skillSlug, slug), eq(schema.skillVersionTags.version, resolved)))
       .orderBy(schema.skillVersionTags.position);
 
     return {
-      manifest: { slug, name: v.manifestName, description: v.manifestDescription, tags: tags.map((t) => t.tag), categories: v.categories, topics: v.topics },
-      readme: v.readme,
+      manifest: {
+        slug,
+        name: v.manifestName,
+        description: v.manifestDescription ?? undefined,
+        version: v.manifestVersion ?? resolved,
+        author: v.manifestAuthor ?? undefined,
+        license: v.manifestLicense ?? undefined,
+        tags: tags.map((t) => t.tag),
+        categories: v.categories ?? [],
+        topics: v.topics ?? [],
+        supportedAgents: v.supportedAgents ?? undefined,
+        "allowed-tools": v.allowedToolsDefined ? (v.allowedToolsIsScalar ? v.allowedTools[0] : v.allowedTools) : undefined,
+        "disallowed-tools": v.disallowedToolsDefined ? (v.disallowedToolsIsScalar ? v.disallowedTools[0] : v.disallowedTools) : undefined,
+        "release-tags": v.releaseTags ?? undefined,
+      },
+      readme: v.readme ?? undefined,
       files: databaseFilesToSnapshotFiles(files, slug, resolved),
-      contentHash: v.contentHash, createdAt: String(v.snapshotCreatedAt),
+      contentHash: v.contentHash,
+      createdAt: String(v.snapshotCreatedAt),
     };
+  }
+
+  private async resolveStoredSnapshotVersion(slug: string, version: string): Promise<string | undefined> {
+    const skill = await this.getSkill(slug);
+    if (!skill) {
+      return undefined;
+    }
+    return resolveVersionReference(skill, version) ?? undefined;
   }
 
   async upsertReview(slug: string, version: string, review: any): Promise<RegistryVersion> {
@@ -1337,6 +1376,103 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     if (evaluation) {
       await this.upsertEvaluation(slug, version, evaluation);
     }
+  }
+
+  async stagePendingPublishSnapshot(
+    snapshot: SkillSnapshot,
+    version: string,
+    options: StagePendingPublishSnapshotOptions = {}
+  ): Promise<void> {
+    await this.ensureSchema();
+    const slug = getSkillSlug(snapshot.manifest);
+    const now = new Date();
+    const releaseTags = options.releaseTags ?? snapshot.manifest["release-tags"]?.map(String) ?? ["latest"];
+    const name = snapshot.manifest.name;
+    const description = snapshot.manifest.description ?? "";
+    const supportedAgents = toStringList(snapshot.manifest.supportedAgents);
+    const allowedTools = snapshot.manifest["allowed-tools"];
+    const disallowedTools = snapshot.manifest["disallowed-tools"];
+
+    const existingSkill = await this.getSkill(slug);
+    const existingVersion = existingSkill?.versions[version];
+    if (existingVersion?.published !== false) {
+      if (existingVersion) {
+        throw new Error(`Version already exists: ${slug}@${version}`);
+      }
+    }
+
+    const artifact = await this.artifactStore?.putSnapshot(slug, version, snapshot);
+
+    const versionWrite = {
+      status: "needs-review" as RegistryVersion["status"],
+      manifestName: name,
+      manifestDescription: description,
+      manifestVersion: snapshot.manifest.version ?? null,
+      manifestAuthor: snapshot.manifest.author ?? null,
+      manifestLicense: snapshot.manifest.license ?? null,
+      tagsDefined: !!snapshot.manifest.tags?.length,
+      supportedAgents,
+      supportedAgentsDefined: snapshot.manifest.supportedAgents !== undefined,
+      allowedTools: toStringList(allowedTools),
+      allowedToolsDefined: allowedTools !== undefined,
+      allowedToolsIsScalar: typeof allowedTools === "string",
+      disallowedTools: toStringList(disallowedTools),
+      disallowedToolsDefined: disallowedTools !== undefined,
+      disallowedToolsIsScalar: typeof disallowedTools === "string",
+      categories: snapshot.manifest.categories ?? [],
+      topics: snapshot.manifest.topics ?? [],
+      releaseTags,
+      changelog: options.changelog?.trim() || null,
+      contentHash: snapshot.contentHash,
+      readme: snapshot.readme ?? "",
+      published: false,
+      artifactProvider: artifact?.provider ?? null,
+      artifactBucket: artifact?.bucket ?? null,
+      artifactObjectKey: artifact?.objectKey ?? null,
+      artifactContentHash: artifact?.contentHash ?? null,
+      artifactSize: artifact?.size ?? null,
+      artifactStoredAt: artifact ? new Date(artifact.storedAt) : null,
+      snapshotCreatedAt: now,
+      updatedAt: now,
+    };
+
+    await this.db.transaction(async (tx) => {
+      if (existingVersion) {
+        await tx.update(schema.skillVersions)
+          .set(versionWrite)
+          .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
+        await tx.delete(schema.skillVersionTags)
+          .where(and(eq(schema.skillVersionTags.skillSlug, slug), eq(schema.skillVersionTags.version, version)));
+        await tx.delete(schema.skillVersionFiles)
+          .where(and(eq(schema.skillVersionFiles.skillSlug, slug), eq(schema.skillVersionFiles.version, version)));
+      } else {
+        await tx.insert(schema.skillVersions).values({
+          skillSlug: slug,
+          version,
+          ...versionWrite,
+          createdAt: now,
+        });
+      }
+
+      if (snapshot.manifest.tags?.length) {
+        await tx.insert(schema.skillVersionTags).values(
+          snapshot.manifest.tags.map((tag: string, i: number) => ({ skillSlug: slug, version, position: i, tag }))
+        );
+      }
+
+      if (snapshot.files?.length) {
+        await tx.insert(schema.skillVersionFiles).values(
+          snapshot.files.map((f) => ({
+            skillSlug: slug,
+            version,
+            path: f.path,
+            content: artifact ? null : f.content,
+            size: f.size,
+            sha256: f.sha256,
+          }))
+        );
+      }
+    });
   }
 
   async rollbackPendingPublishVersion(slug: string, version: string): Promise<void> {

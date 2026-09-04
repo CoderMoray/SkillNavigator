@@ -168,6 +168,11 @@ export interface CommitReviewResultsOptions {
   releaseTags?: string[];
 }
 
+export interface StagePendingPublishSnapshotOptions {
+  releaseTags?: string[];
+  changelog?: string;
+}
+
 export interface RecoverStaleReviewingSkillsOptions {
   /** Fail every reviewing skill. Use on API startup when in-process jobs cannot survive restarts. */
   recoverAll?: boolean;
@@ -241,6 +246,12 @@ export interface RegistryStore {
     options?: CommitReviewResultsOptions
   ): Promise<void>;
   rollbackPendingPublishVersion(slug: string, version: string): Promise<void>;
+  stagePendingPublishSnapshot(
+    snapshot: SkillSnapshot,
+    version: string,
+    options?: StagePendingPublishSnapshotOptions
+  ): Promise<void>;
+  loadStoredSnapshot(slug: string, version: string): Promise<SkillSnapshot | undefined>;
   publishSnapshot(
     snapshot: SkillSnapshot,
     review: ReviewReport,
