@@ -6,9 +6,20 @@ export {
 } from "./brand-name.js";
 
 export {
+  buildSkillReviewFailureFromError,
+  buildSkillReviewFailureFromStages,
   DEFAULT_SKILL_REVIEW_STATUS,
+  formatSkillReviewFailureSummary,
+  isSkillReviewStage,
   isSkillReviewStatus,
+  parseSkillReviewStages,
+  skillReviewStageLabel,
   skillReviewStatusLabel,
+  readReviewStaleMs,
+  readReviewRecoverAllOnStartup,
+  REVIEW_INTERRUPTED_MESSAGE,
+  REVIEW_STALE_MESSAGE,
+  SKILL_REVIEW_STAGES,
   SKILL_REVIEW_STATUSES,
 } from "./review-status.js";
 
@@ -85,6 +96,8 @@ export type {
   CreateIssueInput,
   CreateRatingInput,
   PublishSnapshotOptions,
+  CommitReviewResultsOptions,
+  RecoverStaleReviewingSkillsOptions,
   MarkSkillReviewStatusOptions,
   PostgresRegistryStoreOptions,
   FileRegistryStoreOptions,

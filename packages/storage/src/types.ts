@@ -1,13 +1,20 @@
 import type { ReviewReport, ReviewVerdict } from "@skill-platform/review-engine";
 import type { FunctionalEvaluationReport } from "@skill-platform/evaluator";
 import type { SkillManifest, SkillSnapshot } from "@skill-platform/skill-spec";
-import type { SkillReviewStatus } from "./review-status.js";
+import type { SkillReviewFailureInfo, SkillReviewStage, SkillReviewStatus } from "./review-status.js";
 
-export type { SkillReviewStatus } from "./review-status.js";
+export type { SkillReviewFailureInfo, SkillReviewStage, SkillReviewStatus } from "./review-status.js";
 export {
+  buildSkillReviewFailureFromError,
+  buildSkillReviewFailureFromStages,
   DEFAULT_SKILL_REVIEW_STATUS,
+  formatSkillReviewFailureSummary,
+  isSkillReviewStage,
   isSkillReviewStatus,
+  parseSkillReviewStages,
+  skillReviewStageLabel,
   skillReviewStatusLabel,
+  SKILL_REVIEW_STAGES,
   SKILL_REVIEW_STATUSES,
 } from "./review-status.js";
 
@@ -92,6 +99,7 @@ export interface RegistrySkill {
   ownerUserId?: string;
   latestVersion: string;
   reviewStatus: SkillReviewStatus;
+  reviewFailure?: SkillReviewFailureInfo;
   versions: Record<string, RegistryVersion>;
   contributors: RegistryContributor[];
   issues: RegistryIssue[];
@@ -114,6 +122,7 @@ export interface SkillSearchResult {
   description: string;
   latestVersion: string;
   reviewStatus: SkillReviewStatus;
+  reviewFailure?: SkillReviewFailureInfo;
   status: ReviewVerdict;
   scores: ReviewReport["scores"];
   categories: string[];
@@ -151,14 +160,28 @@ export interface PublishSnapshotOptions {
   };
   releaseTags?: string[];
   changelog?: string;
+  /** Review/evaluation rows were already persisted via commitReviewResultsBeforePublish. */
+  reviewAlreadyCommitted?: boolean;
+}
+
+export interface CommitReviewResultsOptions {
+  releaseTags?: string[];
+}
+
+export interface RecoverStaleReviewingSkillsOptions {
+  /** Fail every reviewing skill. Use on API startup when in-process jobs cannot survive restarts. */
+  recoverAll?: boolean;
+  /** Fail reviewing skills whose updatedAt is older than this threshold. */
+  olderThanMs?: number;
 }
 
 export interface MarkSkillReviewStatusOptions {
-  name: string;
-  description: string;
+  name?: string;
+  description?: string;
   ownerUserId?: string;
   ownerUsername?: string;
-  latestVersion: string;
+  latestVersion?: string;
+  failure?: SkillReviewFailureInfo;
 }
 
 export interface PostgresRegistryStoreOptions {
@@ -211,6 +234,13 @@ export interface RegistryStore {
     reviewStatus: SkillReviewStatus,
     options?: MarkSkillReviewStatusOptions
   ): Promise<void>;
+  commitReviewResultsBeforePublish(
+    snapshot: SkillSnapshot,
+    review: ReviewReport,
+    evaluation?: FunctionalEvaluationReport,
+    options?: CommitReviewResultsOptions
+  ): Promise<void>;
+  rollbackPendingPublishVersion(slug: string, version: string): Promise<void>;
   publishSnapshot(
     snapshot: SkillSnapshot,
     review: ReviewReport,
@@ -247,6 +277,7 @@ export interface RegistryStore {
   listBookmarkedSkills(userId: string): Promise<SkillSearchResult[]>;
   isSkillBookmarked(userId: string, slug: string): Promise<boolean>;
   purgeExpiredRecycleBinSkills(): Promise<number>;
+  recoverStaleReviewingSkills(options?: RecoverStaleReviewingSkillsOptions): Promise<number>;
   purgeAccountData(userId: string): Promise<void>;
   reviewAll(
     pipelineFn: (

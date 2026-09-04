@@ -7,6 +7,8 @@ export const skills = pgTable("skills", {
   ownerUserId: text("owner_user_id"),
   latestVersion: text("latest_version").notNull(),
   reviewStatus: text("review_status").notNull().default("completed"),
+  reviewFailedStages: text("review_failed_stages").array().notNull().default([]),
+  reviewFailedMessage: text("review_failed_message"),
   averageRating: numeric("average_rating", { precision: 3, scale: 1 }).notNull().default("0"),
   ratingCount: integer("rating_count").notNull().default(0),
   published: boolean("published").notNull().default(true),

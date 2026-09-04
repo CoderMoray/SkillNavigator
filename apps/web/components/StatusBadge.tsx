@@ -5,12 +5,22 @@ export function VerdictBadge({ verdict }: { verdict: ReviewVerdict }) {
   return <span className={`badge ${verdict}`}>{verdictLabel(verdict)}</span>;
 }
 
-export function SkillReviewStatusBadge({ status }: { status: SkillReviewStatus }) {
+export function SkillReviewStatusBadge({
+  status,
+  title
+}: {
+  status: SkillReviewStatus;
+  title?: string;
+}) {
   if (status === "completed") {
     return null;
   }
 
-  return <span className={`badge review-${status}`}>{skillReviewStatusLabel(status)}</span>;
+  return (
+    <span className={`badge review-${status}`} title={title}>
+      {skillReviewStatusLabel(status)}
+    </span>
+  );
 }
 
 export function EvaluationBadge({ status }: { status: EvaluationStatus }) {

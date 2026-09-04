@@ -112,6 +112,43 @@ describe("assertPublishPreflight", () => {
     ).toThrow(/skill_review_in_progress/);
   });
 
+  it("allows publishSnapshot to persist while completing an in-flight review", () => {
+    expect(() =>
+      assertPublishPreflight({
+        slug: "demo-skill",
+        version: "1.0.0",
+        releaseTags: ["latest"],
+        allowReviewInProgress: true,
+        existingSkill: skill({
+          latestVersion: "1.0.0",
+          reviewStatus: "reviewing",
+          versions: {},
+        }),
+      })
+    ).not.toThrow();
+  });
+
+  it("allows finalizing an unpublished pending version during in-flight review", () => {
+    expect(() =>
+      assertPublishPreflight({
+        slug: "demo-skill",
+        version: "1.0.0",
+        releaseTags: ["latest"],
+        allowReviewInProgress: true,
+        existingSkill: skill({
+          latestVersion: "1.0.0",
+          reviewStatus: "completed",
+          versions: {
+            "1.0.0": {
+              ...skill().versions["1.0.0"],
+              published: false,
+            },
+          },
+        }),
+      })
+    ).not.toThrow();
+  });
+
   it("rejects skill in recycle bin", () => {
     expect(() =>
       assertPublishPreflight({

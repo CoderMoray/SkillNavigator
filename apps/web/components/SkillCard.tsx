@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Download, EyeOff, MessageSquare, Star, Users } from "lucide-react";
-import { formatDateTime, formatNumber } from "../lib/format";
+import { formatDateTime, formatNumber, formatSkillReviewFailureSummary } from "../lib/format";
 import type { SkillSearchResult } from "../lib/types";
 import { SkillCategoryIcon } from "./SkillCategoryIcon";
 import { VerdictBadge, SkillReviewStatusBadge } from "./StatusBadge";
@@ -37,6 +37,11 @@ export function SkillCard({ skill, variant = "card" }: { skill: SkillSearchResul
               ) : null}
             </div>
             <p>{skill.description}</p>
+            {skill.reviewStatus === "failed" && skill.reviewFailure ? (
+              <p className="skill-review-failure" title={skill.reviewFailure.message}>
+                {formatSkillReviewFailureSummary(skill.reviewFailure)}
+              </p>
+            ) : null}
           </div>
         </div>
         <div className="skill-row-metrics">
@@ -49,7 +54,14 @@ export function SkillCard({ skill, variant = "card" }: { skill: SkillSearchResul
           {skill.reviewStatus === "completed" ? (
             <VerdictBadge verdict={skill.status} />
           ) : (
-            <SkillReviewStatusBadge status={skill.reviewStatus} />
+            <SkillReviewStatusBadge
+              status={skill.reviewStatus}
+              title={
+                skill.reviewStatus === "failed" && skill.reviewFailure
+                  ? formatSkillReviewFailureSummary(skill.reviewFailure)
+                  : undefined
+              }
+            />
           )}
         </div>
       </Link>

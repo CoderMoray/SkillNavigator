@@ -1253,6 +1253,16 @@ button {
   line-height: 1.55;
 }
 
+.skill-row .skill-review-failure {
+  display: block;
+  margin-top: 6px;
+  overflow: hidden;
+  color: #b42318;
+  font-size: 12px;
+  line-height: 1.45;
+  -webkit-line-clamp: 2;
+}
+
 .skill-row-metrics {
   display: flex;
   flex-wrap: wrap;

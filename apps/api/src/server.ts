@@ -2,7 +2,7 @@ import cors from "@fastify/cors";
 import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
 import { pathToFileURL } from "node:url";
 import { evaluateSkillSnapshot } from "@skill-platform/evaluator";
-import { reviewAndEvaluateSkillSnapshot } from "@skill-platform/review-engine";
+import { reviewAndEvaluateSkillSnapshot, type ReviewStageFailure } from "@skill-platform/review-engine";
 import { freeDevListenPort } from "./free-port.js";
 import {
   applySkillAuthor,
@@ -40,6 +40,10 @@ import {
   normalizeHandle,
   PublishPreflightError,
   PublishRateLimiter,
+  buildSkillReviewFailureFromError,
+  buildSkillReviewFailureFromStages,
+  readReviewRecoverAllOnStartup,
+  readReviewStaleMs,
   VerificationEmailRateLimiter,
   VerificationTokenError,
   getPasswordResetExpiresMs,
@@ -236,6 +240,32 @@ export function buildServer() {
   runRecycleBinPurge();
   const recycleBinPurgeTimer = setInterval(runRecycleBinPurge, 6 * 60 * 60 * 1000);
   recycleBinPurgeTimer.unref?.();
+
+  const runReviewRecovery = (recoverAll: boolean) => {
+    void store
+      .recoverStaleReviewingSkills({
+        recoverAll,
+        olderThanMs: readReviewStaleMs(),
+      })
+      .then((count) => {
+        if (count > 0) {
+          app.log.warn(
+            { count, recoverAll },
+            recoverAll
+              ? "Marked orphaned reviewing skills as failed after API startup"
+              : "Marked stale reviewing skills as failed after review timeout"
+          );
+        }
+      })
+      .catch((error) => {
+        app.log.error({ err: error }, "Review recovery failed");
+      });
+  };
+  if (readReviewRecoverAllOnStartup()) {
+    runReviewRecovery(true);
+  }
+  const reviewRecoveryTimer = setInterval(() => runReviewRecovery(false), 5 * 60 * 1000);
+  reviewRecoveryTimer.unref?.();
 
   const runUnverifiedUserPurge = () => {
     if (!isRegistrationEmailVerificationRequired()) {
@@ -801,7 +831,12 @@ export function buildServer() {
       });
 
       if (request.body.async) {
-        void runBackgroundPublishReview(store, prepared, user.id, user.username, changelog);
+        void runBackgroundPublishReview(store, prepared, user.id, user.username, changelog).catch((error) => {
+          app.log.error(
+            { err: error, slug: prepared.slug, version: prepared.version },
+            "Unhandled background publish review rejection"
+          );
+        });
         return reply.code(202).send({
           slug: prepared.slug,
           name: prepared.snapshot.manifest.name,
@@ -819,28 +854,29 @@ export function buildServer() {
           prepared.version
         ));
       } catch (error) {
-        await store.markSkillReviewStatus(prepared.slug, "failed");
+        await markPublishReviewFailed(store, prepared.slug, error);
         throw error;
       }
 
       if (failedStages.length > 0) {
-        await store.markSkillReviewStatus(prepared.slug, "failed");
+        await markPublishReviewFailed(store, prepared.slug, failedStages);
         return reply.code(503).send({
           error: "review_pipeline_incomplete",
           retryable: true,
           failedStages,
           reviewStatus: "failed",
+          reviewFailure: buildSkillReviewFailureFromStages(failedStages),
         });
       }
 
-      const registryVersion = await store.publishSnapshot(prepared.snapshot, review, evaluation, {
-        owner: {
-          userId: user.id,
-          username: user.username
-        },
-        releaseTags: prepared.releaseTags,
+      const registryVersion = await publishReviewedSnapshot(
+        store,
+        prepared,
+        review,
+        evaluation,
+        { userId: user.id, username: user.username },
         changelog
-      });
+      );
 
       return reply.code(201).send({
         slug: prepared.slug,
@@ -1444,34 +1480,84 @@ async function runBackgroundPublishReview(
   ownerUsername: string,
   changelog?: string
 ): Promise<void> {
+  console.info(`Background publish review started for ${prepared.slug}@${prepared.version}`);
   try {
     const { review, evaluation, failedStages } = await reviewAndEvaluateSkillSnapshot(
       prepared.snapshot,
       prepared.version
     );
     if (failedStages.length > 0) {
-      await store.markSkillReviewStatus(prepared.slug, "failed");
+      await markPublishReviewFailed(store, prepared.slug, failedStages);
       return;
     }
 
-    await store.publishSnapshot(prepared.snapshot, review, evaluation, {
-      owner: {
-        userId: ownerUserId,
-        username: ownerUsername,
-      },
-      releaseTags: prepared.releaseTags,
-      changelog,
-    });
+    await publishReviewedSnapshot(
+      store,
+      prepared,
+      review,
+      evaluation,
+      { userId: ownerUserId, username: ownerUsername },
+      changelog
+    );
+    console.info(`Background publish review completed for ${prepared.slug}@${prepared.version}`);
   } catch (error) {
     console.error(
       `Background publish review failed for ${prepared.slug}@${prepared.version}:`,
       error
     );
-    try {
-      await store.markSkillReviewStatus(prepared.slug, "failed");
-    } catch (markError) {
-      console.error(`Failed to mark review status failed for ${prepared.slug}:`, markError);
-    }
+    await store.rollbackPendingPublishVersion(prepared.slug, prepared.version).catch((rollbackError) => {
+      console.error(
+        `Failed to rollback pending publish version for ${prepared.slug}@${prepared.version}:`,
+        rollbackError
+      );
+    });
+    await markPublishReviewFailed(store, prepared.slug, error);
+  }
+}
+
+async function publishReviewedSnapshot(
+  store: RegistryStore,
+  prepared: PreparedPublishRequest,
+  review: Awaited<ReturnType<typeof reviewAndEvaluateSkillSnapshot>>["review"],
+  evaluation: Awaited<ReturnType<typeof reviewAndEvaluateSkillSnapshot>>["evaluation"],
+  owner: { userId: string; username: string },
+  changelog?: string
+) {
+  await store.commitReviewResultsBeforePublish(prepared.snapshot, review, evaluation, {
+    releaseTags: prepared.releaseTags,
+  });
+
+  try {
+    return await store.publishSnapshot(prepared.snapshot, review, evaluation, {
+      owner,
+      releaseTags: prepared.releaseTags,
+      changelog,
+      reviewAlreadyCommitted: true,
+    });
+  } catch (error) {
+    await store.rollbackPendingPublishVersion(prepared.slug, prepared.version).catch((rollbackError) => {
+      console.error(
+        `Failed to rollback pending publish version for ${prepared.slug}@${prepared.version}:`,
+        rollbackError
+      );
+    });
+    throw error;
+  }
+}
+
+async function markPublishReviewFailed(
+  store: RegistryStore,
+  slug: string,
+  failedStagesOrError: ReviewStageFailure[] | unknown
+): Promise<void> {
+  const failure = Array.isArray(failedStagesOrError)
+    ? buildSkillReviewFailureFromStages(failedStagesOrError)
+    : buildSkillReviewFailureFromError(failedStagesOrError);
+
+  try {
+    await store.markSkillReviewStatus(slug, "failed", { failure });
+  } catch (markError) {
+    console.error(`Failed to mark review status failed for ${slug}:`, markError);
   }
 }
 

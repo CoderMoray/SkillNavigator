@@ -20,14 +20,25 @@ import type {
   ArtifactDescriptor, ArtifactProvider, ArtifactStore,
   ContributorRole, IssueSeverity, IssueStatus, IssueType,
   MarkSkillReviewStatusOptions,
+  CommitReviewResultsOptions,
+  RecoverStaleReviewingSkillsOptions,
+  PublishSnapshotOptions,
   PostgresRegistryStoreOptions,
   RegistryContributor, RegistryData, RegistryIssue, RegistryRating,
   RegistrySkill, RegistryVersion, SkillSearchResult, LeaderboardSort,
   RecycleBinSkill,
+  SkillReviewFailureInfo,
   SkillReviewStatus,
   SkillSlugAvailability,
 } from "../types";
-import { DEFAULT_SKILL_REVIEW_STATUS, isSkillReviewStatus } from "../review-status.js";
+import {
+  DEFAULT_SKILL_REVIEW_STATUS,
+  isSkillReviewStatus,
+  parseSkillReviewStages,
+  REVIEW_INTERRUPTED_MESSAGE,
+  REVIEW_STALE_MESSAGE,
+  readReviewStaleMs,
+} from "../review-status.js";
 import { skillRecyclePurgeAt, skillRecycleRetentionMs } from "../recycle-bin";
 import { parseSkillSpectorReviewRow, skillSpectorReviewColumns } from "../skillspector-review";
 import { parseVirusTotalReviewRow, virusTotalReviewColumns } from "../virustotal-review";
@@ -51,6 +62,53 @@ type EvaluationFindingRow = {
 
 function parseSkillReviewStatus(value: string | null | undefined): SkillReviewStatus {
   return value && isSkillReviewStatus(value) ? value : DEFAULT_SKILL_REVIEW_STATUS;
+}
+
+function mapReviewFailureFromRow(
+  reviewStatus: SkillReviewStatus,
+  stages: string[] | null | undefined,
+  message: string | null | undefined
+): SkillReviewFailureInfo | undefined {
+  if (reviewStatus !== "failed") {
+    return undefined;
+  }
+
+  const parsedStages = parseSkillReviewStages(stages);
+  if (!parsedStages.length && !message) {
+    return undefined;
+  }
+
+  return {
+    stages: parsedStages,
+    message: message ?? "审查流程未完成",
+  };
+}
+
+function reviewFailurePatch(
+  reviewStatus: SkillReviewStatus,
+  failure?: SkillReviewFailureInfo
+): {
+  reviewFailedStages: string[];
+  reviewFailedMessage: string | null;
+} {
+  if (reviewStatus === "failed" && failure) {
+    return {
+      reviewFailedStages: failure.stages,
+      reviewFailedMessage: failure.message,
+    };
+  }
+
+  if (reviewStatus !== "failed") {
+    return {
+      reviewFailedStages: [],
+      reviewFailedMessage: null,
+    };
+  }
+
+  return {
+    reviewFailedStages: [],
+    reviewFailedMessage: "审查流程未完成",
+  };
 }
 
 function toFunctionalEvaluationFinding(row: EvaluationFindingRow): FunctionalEvaluationFinding {
@@ -875,6 +933,11 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       slug: row.slug, name: row.name, description: row.description,
       ownerUserId: row.ownerUserId ?? undefined, latestVersion: row.latestVersion,
       reviewStatus: parseSkillReviewStatus(row.reviewStatus),
+      reviewFailure: mapReviewFailureFromRow(
+        parseSkillReviewStatus(row.reviewStatus),
+        row.reviewFailedStages,
+        row.reviewFailedMessage
+      ),
       versions: versionMap,
       contributors: contributors.map((c) => mapContributorRow(c)),
       issues: issues.map((i) => ({
@@ -1132,7 +1195,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
 
     await this.db.update(schema.skills)
-      .set({ reviewStatus: "completed", updatedAt: new Date() })
+      .set({ reviewStatus: "completed", reviewFailedStages: [], reviewFailedMessage: null, updatedAt: new Date() })
       .where(eq(schema.skills.slug, slug));
 
     return (await this.getSkill(slug))?.versions[version]!;
@@ -1186,6 +1249,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         .set({
           reviewStatus,
           updatedAt: now,
+          ...reviewFailurePatch(reviewStatus, options?.failure),
           ...(options
             ? {
                 name: options.name,
@@ -1196,7 +1260,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         })
         .where(eq(schema.skills.slug, slug));
     } else {
-      if (!options) {
+      if (!options?.name || options.description === undefined || !options.latestVersion) {
         throw new Error(`Skill not found: ${slug}`);
       }
 
@@ -1207,6 +1271,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         ownerUserId: options.ownerUserId ?? null,
         latestVersion: options.latestVersion,
         reviewStatus,
+        ...reviewFailurePatch(reviewStatus, options.failure),
         published: false,
         createdAt: now,
         updatedAt: now,
@@ -1244,7 +1309,115 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     });
   }
 
-  async publishSnapshot(snapshot: any, review: any, evaluation?: any, options: any = {}): Promise<RegistryVersion> {
+  async commitReviewResultsBeforePublish(
+    snapshot: SkillSnapshot,
+    review: ReviewReport,
+    evaluation?: FunctionalEvaluationReport,
+    options: CommitReviewResultsOptions = {}
+  ): Promise<void> {
+    await this.ensureSchema();
+    const slug = getSkillSlug(snapshot.manifest);
+    const version = review.version;
+    const releaseTags = options.releaseTags ?? snapshot.manifest["release-tags"]?.map(String) ?? ["latest"];
+    const existingSkill = await this.getSkill(slug);
+
+    assertPublishPreflight({
+      slug,
+      version,
+      releaseTags,
+      existingSkill,
+      allowReviewInProgress: true,
+    });
+
+    if (!existingSkill?.versions[version]) {
+      await this.insertPendingPublishVersionStub(snapshot, review, releaseTags);
+    }
+
+    await this.upsertReview(slug, version, review);
+    if (evaluation) {
+      await this.upsertEvaluation(slug, version, evaluation);
+    }
+  }
+
+  async rollbackPendingPublishVersion(slug: string, version: string): Promise<void> {
+    await this.ensureSchema();
+    const skill = await this.getSkill(slug);
+    const pendingVersion = skill?.versions[version];
+    if (!pendingVersion || pendingVersion.published !== false) {
+      return;
+    }
+
+    await this.db.transaction(async (tx) => {
+      await tx.delete(schema.skillReviewFindings)
+        .where(and(eq(schema.skillReviewFindings.skillSlug, slug), eq(schema.skillReviewFindings.version, version)));
+      await tx.delete(schema.skillReviews)
+        .where(and(eq(schema.skillReviews.skillSlug, slug), eq(schema.skillReviews.version, version)));
+      await tx.delete(schema.skillEvaluationReportFindings)
+        .where(and(eq(schema.skillEvaluationReportFindings.skillSlug, slug), eq(schema.skillEvaluationReportFindings.version, version)));
+      await tx.delete(schema.skillEvaluationTaskFindings)
+        .where(and(eq(schema.skillEvaluationTaskFindings.skillSlug, slug), eq(schema.skillEvaluationTaskFindings.version, version)));
+      await tx.delete(schema.skillEvaluationTasks)
+        .where(and(eq(schema.skillEvaluationTasks.skillSlug, slug), eq(schema.skillEvaluationTasks.version, version)));
+      await tx.delete(schema.skillEvaluations)
+        .where(and(eq(schema.skillEvaluations.skillSlug, slug), eq(schema.skillEvaluations.version, version)));
+      await tx.delete(schema.skillVersionFiles)
+        .where(and(eq(schema.skillVersionFiles.skillSlug, slug), eq(schema.skillVersionFiles.version, version)));
+      await tx.delete(schema.skillVersionTags)
+        .where(and(eq(schema.skillVersionTags.skillSlug, slug), eq(schema.skillVersionTags.version, version)));
+      await tx.delete(schema.skillVersions)
+        .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
+    });
+  }
+
+  private async insertPendingPublishVersionStub(
+    snapshot: SkillSnapshot,
+    review: ReviewReport,
+    releaseTags: string[]
+  ): Promise<void> {
+    const slug = getSkillSlug(snapshot.manifest);
+    const version = review.version;
+    const now = new Date();
+    const name = snapshot.manifest.name;
+    const description = snapshot.manifest.description ?? "";
+
+    await this.db.insert(schema.skillVersions).values({
+      skillSlug: slug,
+      version,
+      status: review.verdict,
+      manifestName: name,
+      manifestDescription: description,
+      manifestVersion: snapshot.manifest.version ?? null,
+      manifestAuthor: snapshot.manifest.author ?? null,
+      manifestLicense: snapshot.manifest.license ?? null,
+      tagsDefined: !!snapshot.manifest.tags?.length,
+      supportedAgents: toStringList(snapshot.manifest.supportedAgents),
+      supportedAgentsDefined: snapshot.manifest.supportedAgents !== undefined,
+      allowedTools: toStringList(snapshot.manifest["allowed-tools"]),
+      allowedToolsDefined: snapshot.manifest["allowed-tools"] !== undefined,
+      allowedToolsIsScalar: typeof snapshot.manifest["allowed-tools"] === "string",
+      disallowedTools: toStringList(snapshot.manifest["disallowed-tools"]),
+      disallowedToolsDefined: snapshot.manifest["disallowed-tools"] !== undefined,
+      disallowedToolsIsScalar: typeof snapshot.manifest["disallowed-tools"] === "string",
+      categories: snapshot.manifest.categories ?? [],
+      topics: snapshot.manifest.topics ?? [],
+      releaseTags,
+      changelog: null,
+      contentHash: snapshot.contentHash,
+      readme: snapshot.readme ?? "",
+      published: false,
+      artifactProvider: null,
+      artifactBucket: null,
+      artifactObjectKey: null,
+      artifactContentHash: null,
+      artifactSize: null,
+      artifactStoredAt: null,
+      snapshotCreatedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  async publishSnapshot(snapshot: any, review: any, evaluation?: any, options: PublishSnapshotOptions = {}): Promise<RegistryVersion> {
     await this.ensureSchema();
     const slug = (snapshot.manifest as any).slug || getSkillSlug(snapshot.manifest);
     const version = review.version;
@@ -1262,7 +1435,11 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       version,
       releaseTags,
       existingSkill,
+      allowReviewInProgress: options.reviewAlreadyCommitted ?? false,
     });
+
+    const pendingVersion = existingSkill?.versions[version];
+    const finalizePendingVersion = Boolean(options.reviewAlreadyCommitted && pendingVersion?.published === false);
 
     // Store the complete snapshot in MinIO first. Its descriptor is committed Its descriptor is committed
     // with the version, while skill_version_files retains only file metadata.
@@ -1277,13 +1454,17 @@ export class PostgresRegistryStore extends JsonRegistryStore {
             latestVersion: releaseTags.includes("latest") ? version : existingSkill.latestVersion,
             published: true,
             reviewStatus: "completed",
+            reviewFailedStages: [],
+            reviewFailedMessage: null,
             updatedAt: now
           })
           .where(eq(schema.skills.slug, slug));
       } else {
         await tx.insert(schema.skills).values({
           slug, name, description, ownerUserId: options.owner?.userId ?? null,
-          latestVersion: version, published: true, reviewStatus: "completed", createdAt: now, updatedAt: now,
+          latestVersion: version, published: true, reviewStatus: "completed",
+          reviewFailedStages: [], reviewFailedMessage: null,
+          createdAt: now, updatedAt: now,
         });
       }
 
@@ -1300,9 +1481,10 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         }
       }
 
-      await tx.insert(schema.skillVersions).values({
-        skillSlug: slug, version, status: review.verdict,
-        manifestName: name, manifestDescription: description,
+      const versionWrite = {
+        status: review.verdict,
+        manifestName: name,
+        manifestDescription: description,
         manifestVersion: snapshot.manifest.version ?? null,
         manifestAuthor: snapshot.manifest.author ?? null,
         manifestLicense: snapshot.manifest.license ?? null,
@@ -1315,9 +1497,12 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         disallowedTools: toStringList(disallowedTools),
         disallowedToolsDefined: disallowedTools !== undefined,
         disallowedToolsIsScalar: typeof disallowedTools === "string",
-        categories: snapshot.manifest.categories ?? [], topics: snapshot.manifest.topics ?? [],
-        releaseTags, changelog: options.changelog?.trim() || null,
-        contentHash: snapshot.contentHash, readme: snapshot.readme ?? "",
+        categories: snapshot.manifest.categories ?? [],
+        topics: snapshot.manifest.topics ?? [],
+        releaseTags,
+        changelog: options.changelog?.trim() || null,
+        contentHash: snapshot.contentHash,
+        readme: snapshot.readme ?? "",
         published: true,
         artifactProvider: artifact?.provider ?? null,
         artifactBucket: artifact?.bucket ?? null,
@@ -1325,8 +1510,26 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         artifactContentHash: artifact?.contentHash ?? null,
         artifactSize: artifact?.size ?? null,
         artifactStoredAt: artifact ? new Date(artifact.storedAt) : null,
-        snapshotCreatedAt: now, createdAt: now, updatedAt: now,
-      });
+        snapshotCreatedAt: now,
+        updatedAt: now,
+      };
+
+      if (finalizePendingVersion) {
+        await tx.update(schema.skillVersions)
+          .set(versionWrite)
+          .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
+        await tx.delete(schema.skillVersionTags)
+          .where(and(eq(schema.skillVersionTags.skillSlug, slug), eq(schema.skillVersionTags.version, version)));
+        await tx.delete(schema.skillVersionFiles)
+          .where(and(eq(schema.skillVersionFiles.skillSlug, slug), eq(schema.skillVersionFiles.version, version)));
+      } else {
+        await tx.insert(schema.skillVersions).values({
+          skillSlug: slug,
+          version,
+          ...versionWrite,
+          createdAt: now,
+        });
+      }
 
       if (snapshot.manifest.tags?.length) {
         await tx.insert(schema.skillVersionTags).values(
@@ -1347,39 +1550,41 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         );
       }
 
-      await tx.insert(schema.skillReviews).values({
-        skillSlug: slug, version, reviewId: review.id ?? `review_${Date.now()}`,
-        reportVersion: review.version ?? "1.0", contentHash: review.contentHash ?? "",
-        verdict: review.verdict,
-        qualityScore: review.scores.qualityScore,
-        securityScore: review.scores.securityScore,
-        reliabilityScore: review.scores.reliabilityScore,
-        ...skillSpectorReviewColumns(review.skillSpector),
-        ...virusTotalReviewColumns(review.virusTotal),
-        createdAt: now,
-      });
-
-      if (review.findings?.length) {
-        await tx.insert(schema.skillReviewFindings).values(
-          review.findings.map((f: any, i: number) => ({
-            skillSlug: slug, version, position: i, findingId: f.id ?? `finding_${i}`,
-            category: f.category, severity: f.severity, title: f.title, message: f.message,
-            path: f.path ?? null, evidence: f.evidence ?? null, recommendation: f.recommendation,
-            confidence: typeof f.confidence === "number" && Number.isFinite(f.confidence) ? f.confidence : null,
-          }))
-        );
-      }
-
-      if (evaluation) {
-        await tx.insert(schema.skillEvaluations).values({
-          skillSlug: slug, version, evaluationId: evaluation.id,
-          provider: evaluation.provider, status: evaluation.status,
-          score: evaluation.score, tasksTotal: evaluation.tasksTotal ?? 0,
-          tasksPassed: evaluation.tasksPassed ?? 0,
-          haluCatchReport: serializeHaluCatchReport(evaluation.haluCatchReport),
+      if (!options.reviewAlreadyCommitted) {
+        await tx.insert(schema.skillReviews).values({
+          skillSlug: slug, version, reviewId: review.id ?? `review_${Date.now()}`,
+          reportVersion: review.version ?? "1.0", contentHash: review.contentHash ?? "",
+          verdict: review.verdict,
+          qualityScore: review.scores.qualityScore,
+          securityScore: review.scores.securityScore,
+          reliabilityScore: review.scores.reliabilityScore,
+          ...skillSpectorReviewColumns(review.skillSpector),
+          ...virusTotalReviewColumns(review.virusTotal),
           createdAt: now,
         });
-        await replaceEvaluationDetails(tx, slug, version, evaluation);
+
+        if (review.findings?.length) {
+          await tx.insert(schema.skillReviewFindings).values(
+            review.findings.map((f: any, i: number) => ({
+              skillSlug: slug, version, position: i, findingId: f.id ?? `finding_${i}`,
+              category: f.category, severity: f.severity, title: f.title, message: f.message,
+              path: f.path ?? null, evidence: f.evidence ?? null, recommendation: f.recommendation,
+              confidence: typeof f.confidence === "number" && Number.isFinite(f.confidence) ? f.confidence : null,
+            }))
+          );
+        }
+
+        if (evaluation) {
+          await tx.insert(schema.skillEvaluations).values({
+            skillSlug: slug, version, evaluationId: evaluation.id,
+            provider: evaluation.provider, status: evaluation.status,
+            score: evaluation.score, tasksTotal: evaluation.tasksTotal ?? 0,
+            tasksPassed: evaluation.tasksPassed ?? 0,
+            haluCatchReport: serializeHaluCatchReport(evaluation.haluCatchReport),
+            createdAt: now,
+          });
+          await replaceEvaluationDetails(tx, slug, version, evaluation);
+        }
       }
 
       const ownerName = options.owner?.username ?? snapshot.manifest.author ?? "unknown";
@@ -1450,6 +1655,8 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         description: schema.skills.description,
         latestVersion: schema.skills.latestVersion,
         reviewStatus: schema.skills.reviewStatus,
+        reviewFailedStages: schema.skills.reviewFailedStages,
+        reviewFailedMessage: schema.skills.reviewFailedMessage,
         published: schema.skills.published,
         averageRating: schema.skills.averageRating,
         ratingCount: schema.skills.ratingCount,
@@ -1487,12 +1694,19 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       contributorsMap.set(contributor.skillSlug, list);
     }
 
-    return rows.map((row) => ({
+    return rows.map((row) => {
+      const reviewStatus = parseSkillReviewStatus(row.reviewStatus);
+      return {
       slug: row.slug,
       name: row.name,
       description: row.description,
       latestVersion: row.latestVersion,
-      reviewStatus: parseSkillReviewStatus(row.reviewStatus),
+      reviewStatus,
+      reviewFailure: mapReviewFailureFromRow(
+        reviewStatus,
+        row.reviewFailedStages,
+        row.reviewFailedMessage
+      ),
       status: "needs-review",
       scores: {
         qualityScore: 0,
@@ -1507,7 +1721,8 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       downloads: 0,
       updatedAt: toIsoTimestampString(row.updatedAt),
       published: row.published !== false,
-    }));
+    };
+    });
   }
 
   async listIssues(slug: string, status?: string): Promise<any[]> {
@@ -1902,6 +2117,39 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     for (const row of rows) {
       await this.permanentlyDeleteSkill(row.slug);
     }
+    return rows.length;
+  }
+
+  async recoverStaleReviewingSkills(options: RecoverStaleReviewingSkillsOptions = {}): Promise<number> {
+    await this.ensureSchema();
+    const recoverAll = options.recoverAll ?? false;
+    const olderThanMs = options.olderThanMs ?? readReviewStaleMs();
+    const staleBefore = new Date(Date.now() - olderThanMs);
+
+    const rows = await this.db
+      .select({
+        slug: schema.skills.slug,
+        latestVersion: schema.skills.latestVersion,
+      })
+      .from(schema.skills)
+      .where(
+        and(
+          isNull(schema.skills.deletedAt),
+          eq(schema.skills.reviewStatus, "reviewing"),
+          ...(recoverAll ? [] : [lte(schema.skills.updatedAt, staleBefore)])
+        )
+      );
+
+    for (const row of rows) {
+      await this.rollbackPendingPublishVersion(row.slug, row.latestVersion).catch(() => undefined);
+      await this.markSkillReviewStatus(row.slug, "failed", {
+        failure: {
+          stages: [],
+          message: recoverAll ? REVIEW_INTERRUPTED_MESSAGE : REVIEW_STALE_MESSAGE,
+        },
+      });
+    }
+
     return rows.length;
   }
 

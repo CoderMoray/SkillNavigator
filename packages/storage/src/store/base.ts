@@ -2,6 +2,11 @@ import type { FunctionalEvaluationReport } from "@skill-platform/evaluator";
 import type { ReviewReport } from "@skill-platform/review-engine";
 import { getSkillSlug, type SkillSnapshot } from "@skill-platform/skill-spec";
 import { assertPublishPreflight } from "../publish-preflight.js";
+import {
+  REVIEW_INTERRUPTED_MESSAGE,
+  REVIEW_STALE_MESSAGE,
+  readReviewStaleMs,
+} from "../review-status.js";
 import type {
   ArtifactStore,
   CreateIssueInput,
@@ -9,6 +14,8 @@ import type {
   IssueStatus,
   LeaderboardSort,
   PublishSnapshotOptions,
+  CommitReviewResultsOptions,
+  RecoverStaleReviewingSkillsOptions,
   MarkSkillReviewStatusOptions,
   RegistryContributor,
   RegistryData,
@@ -55,10 +62,24 @@ export abstract class JsonRegistryStore implements RegistryStore {
     if (existing) {
       existing.reviewStatus = reviewStatus;
       existing.updatedAt = now;
-      if (options) {
+      if (options?.name !== undefined) {
         existing.name = options.name;
+      }
+      if (options?.description !== undefined) {
         existing.description = options.description;
+      }
+      if (options?.latestVersion !== undefined) {
         existing.latestVersion = options.latestVersion;
+      }
+      if (reviewStatus === "failed" && options?.failure) {
+        existing.reviewFailure = options.failure;
+      } else if (reviewStatus !== "failed") {
+        existing.reviewFailure = undefined;
+      } else if (reviewStatus === "failed") {
+        existing.reviewFailure = options?.failure ?? {
+          stages: [],
+          message: "审查流程未完成",
+        };
       }
       if (options?.ownerUserId && options.ownerUsername) {
         const hasOwner = existing.contributors.some((item) => item.role === "owner");
@@ -77,7 +98,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
       return;
     }
 
-    if (!options) {
+    if (!options?.name || !options.description || !options.latestVersion) {
       throw new Error(`Skill not found: ${slug}`);
     }
 
@@ -88,6 +109,10 @@ export abstract class JsonRegistryStore implements RegistryStore {
       ownerUserId: options.ownerUserId,
       latestVersion: options.latestVersion,
       reviewStatus,
+      reviewFailure:
+        reviewStatus === "failed"
+          ? (options.failure ?? { stages: [], message: "审查流程未完成" })
+          : undefined,
       versions: {},
       contributors:
         options.ownerUserId && options.ownerUsername
@@ -113,6 +138,73 @@ export abstract class JsonRegistryStore implements RegistryStore {
     await this.save(data);
   }
 
+  async commitReviewResultsBeforePublish(
+    snapshot: SkillSnapshot,
+    review: ReviewReport,
+    evaluation?: FunctionalEvaluationReport,
+    options: CommitReviewResultsOptions = {}
+  ): Promise<void> {
+    const data = await this.load();
+    const slug = getSkillSlug(snapshot.manifest);
+    const version = review.version;
+    const releaseTags = normalizeReleaseTags(
+      options.releaseTags ?? snapshot.manifest["release-tags"] ?? ["latest"]
+    );
+    const existingSkill = data.skills[slug];
+    assertPublishPreflight({
+      slug,
+      version,
+      releaseTags,
+      existingSkill,
+      allowReviewInProgress: true,
+    });
+
+    if (!existingSkill?.versions[version]) {
+      const now = new Date().toISOString();
+      if (!data.skills[slug]) {
+        throw new Error(`Skill not found: ${slug}`);
+      }
+      data.skills[slug]!.versions[version] = {
+        version,
+        manifest: snapshot.manifest,
+        contentHash: snapshot.contentHash,
+        snapshot,
+        review,
+        evaluation,
+        status: review.verdict,
+        releaseTags,
+        downloads: 0,
+        published: false,
+        createdAt: now,
+        updatedAt: now,
+      };
+    } else {
+      data.skills[slug]!.versions[version]!.review = review;
+      data.skills[slug]!.versions[version]!.evaluation = evaluation;
+      data.skills[slug]!.versions[version]!.status = review.verdict;
+      data.skills[slug]!.versions[version]!.updatedAt = new Date().toISOString();
+    }
+
+    data.skills[slug]!.reviewStatus = "completed";
+    data.skills[slug]!.reviewFailure = undefined;
+    data.skills[slug]!.updatedAt = new Date().toISOString();
+    await this.save(data);
+  }
+
+  async rollbackPendingPublishVersion(slug: string, version: string): Promise<void> {
+    const data = await this.load();
+    const skill = data.skills[slug];
+    if (!skill?.versions[version]) {
+      return;
+    }
+    if (skill.versions[version]!.published !== false) {
+      return;
+    }
+    delete skill.versions[version];
+    skill.updatedAt = new Date().toISOString();
+    await this.save(data);
+  }
+
   async publishSnapshot(
     snapshot: SkillSnapshot,
     review: ReviewReport,
@@ -134,6 +226,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
       version,
       releaseTags,
       existingSkill,
+      allowReviewInProgress: options.reviewAlreadyCommitted ?? false,
     });
 
     const artifact = await this.artifactStore?.putSnapshot(slug, version, snapshot);
@@ -175,6 +268,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
       ownerUserId: existingSkill?.ownerUserId ?? options.owner?.userId,
       latestVersion: releaseTags.includes("latest") ? version : (existingSkill?.latestVersion ?? version),
       reviewStatus: "completed",
+      reviewFailure: undefined,
       versions: { ...versions, [version]: registryVersion },
       contributors,
       issues: existingSkill?.issues ?? [],
@@ -198,6 +292,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
     registryVersion.status = review.verdict;
     registryVersion.updatedAt = new Date().toISOString();
     data.skills[slug]!.reviewStatus = "completed";
+    data.skills[slug]!.reviewFailure = undefined;
     data.skills[slug]!.updatedAt = registryVersion.updatedAt;
     await this.save(data);
     return registryVersion;
@@ -589,6 +684,41 @@ export abstract class JsonRegistryStore implements RegistryStore {
     }
 
     return purged;
+  }
+
+  async recoverStaleReviewingSkills(options: RecoverStaleReviewingSkillsOptions = {}): Promise<number> {
+    const data = await this.load();
+    const recoverAll = options.recoverAll ?? false;
+    const olderThanMs = options.olderThanMs ?? readReviewStaleMs();
+    const cutoff = Date.now() - olderThanMs;
+    let recovered = 0;
+
+    for (const skill of Object.values(data.skills)) {
+      if (skill.deletedAt || skill.reviewStatus !== "reviewing") {
+        continue;
+      }
+      if (!recoverAll && new Date(skill.updatedAt).getTime() > cutoff) {
+        continue;
+      }
+
+      const pendingVersion = skill.versions[skill.latestVersion];
+      if (pendingVersion?.published === false) {
+        delete skill.versions[skill.latestVersion];
+      }
+
+      skill.reviewStatus = "failed";
+      skill.reviewFailure = {
+        stages: [],
+        message: recoverAll ? REVIEW_INTERRUPTED_MESSAGE : REVIEW_STALE_MESSAGE,
+      };
+      skill.updatedAt = new Date().toISOString();
+      recovered += 1;
+    }
+
+    if (recovered > 0) {
+      await this.save(data);
+    }
+    return recovered;
   }
 
   async purgeAccountData(userId: string): Promise<void> {

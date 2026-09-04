@@ -1,4 +1,4 @@
-import type { ReviewSeverity, ReviewVerdict, SkillReviewStatus } from "./types";
+import type { ReviewSeverity, ReviewVerdict, SkillReviewFailureInfo, SkillReviewStage, SkillReviewStatus } from "./types";
 
 export function formatDateTime(input: string | undefined): string {
   if (!input) {
@@ -53,6 +53,22 @@ export function skillReviewStatusLabel(status: SkillReviewStatus): string {
     failed: "审查失败"
   };
   return labels[status];
+}
+
+export function skillReviewStageLabel(stage: SkillReviewStage): string {
+  const labels: Record<SkillReviewStage, string> = {
+    skillspector: "SkillSpector",
+    virustotal: "VirusTotal",
+    halucatch: "HaluCatch"
+  };
+  return labels[stage];
+}
+
+export function formatSkillReviewFailureSummary(failure: SkillReviewFailureInfo): string {
+  if (failure.stages.length === 0) {
+    return failure.message;
+  }
+  return `${failure.stages.map(skillReviewStageLabel).join("、")}：${failure.message}`;
 }
 
 export function severityLabel(severity: ReviewSeverity): string {
