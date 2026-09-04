@@ -268,6 +268,10 @@ export async function runReviewPipeline(
     state.findings.push(...specValidationFindings(snapshot));
   }
 
+  if (!shouldSkipStage("halucatch", skipStages)) {
+    await runHaluCatchStage(snapshot, version, state, options.onStageComplete);
+  }
+
   const parallelStages: Promise<void>[] = [];
 
   if (!shouldSkipStage("skillspector", skipStages)) {
@@ -280,22 +284,6 @@ export async function runReviewPipeline(
 
   if (parallelStages.length > 0) {
     await Promise.all(parallelStages);
-  }
-
-  const haluCatchConfigured = isHaluCatchEnabled();
-  const parallelConfigured =
-    (isSkillSpectorEnabled() && !shouldSkipStage("skillspector", skipStages)) ||
-    (isVirusTotalEnabled() && !shouldSkipStage("virustotal", skipStages));
-  const parallelOperationalFailure = state.failedStages.some((failure) =>
-    ["skillspector", "virustotal"].includes(failure.stage)
-  );
-
-  if (
-    haluCatchConfigured &&
-    !shouldSkipStage("halucatch", skipStages) &&
-    (!parallelConfigured || !parallelOperationalFailure)
-  ) {
-    await runHaluCatchStage(snapshot, version, state, options.onStageComplete);
   }
 
   const review = buildReviewFromState(snapshot, version, state);
@@ -347,14 +335,14 @@ export function resolveReviewStagesToRun(input: {
 
 export function getConfiguredReviewStages(): ReviewStage[] {
   const stages: ReviewStage[] = [];
+  if (isHaluCatchEnabled()) {
+    stages.push("halucatch");
+  }
   if (isSkillSpectorEnabled()) {
     stages.push("skillspector");
   }
   if (isVirusTotalEnabled()) {
     stages.push("virustotal");
-  }
-  if (isHaluCatchEnabled()) {
-    stages.push("halucatch");
   }
   return stages;
 }

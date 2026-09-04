@@ -1,6 +1,6 @@
 import type { SkillReviewStage } from "./types";
 
-export const REVIEW_STAGE_ORDER: SkillReviewStage[] = ["skillspector", "virustotal", "halucatch"];
+export const REVIEW_STAGE_ORDER: SkillReviewStage[] = ["halucatch", "skillspector", "virustotal"];
 
 export function skillReviewStageLabel(stage: SkillReviewStage): string {
   switch (stage) {

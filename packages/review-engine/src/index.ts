@@ -209,6 +209,16 @@ export async function reviewAndEvaluateSkillSnapshot(
   let skillSpector: SkillSpectorScanSummary | undefined;
   let skillSpectorAvailable = false;
   let virusTotal: VirusTotalScanSummary | undefined;
+  const failedStages: ReviewStageFailure[] = [];
+
+  const evaluation = evaluationOverride ?? (await evaluateSkillSnapshot(snapshot));
+  const haluCatchFailure = getHaluCatchStageFailure(evaluation);
+  const haluCatchAvailable = evaluation.provider === "halucatch-adapter" && !haluCatchFailure;
+
+  if (haluCatchFailure) {
+    findings.push(createHaluCatchUnavailableReviewFinding(haluCatchFailure.message));
+    failedStages.push(haluCatchFailure);
+  }
 
   const [skillSpectorResult, virusTotalResult] = await Promise.all([
     runSkillSpectorReviewStep(snapshot),
@@ -219,23 +229,15 @@ export async function reviewAndEvaluateSkillSnapshot(
   skillSpectorAvailable = skillSpectorResult.skillSpectorAvailable;
   virusTotal = virusTotalResult.virusTotal;
   findings.push(...skillSpectorResult.findings, ...virusTotalResult.findings);
-  const failedStages = [
-    skillSpectorResult.failure,
-    virusTotalResult.failure
-  ].filter((failure): failure is ReviewStageFailure => Boolean(failure));
-
-  const evaluation = evaluationOverride ?? (await evaluateSkillSnapshot(snapshot));
-  const haluCatchFailure = getHaluCatchStageFailure(evaluation);
-  const haluCatchAvailable = evaluation.provider === "halucatch-adapter" && !haluCatchFailure;
+  for (const failure of [skillSpectorResult.failure, virusTotalResult.failure]) {
+    if (failure) {
+      failedStages.push(failure);
+    }
+  }
 
   const shouldRunPlatformRules = !haluCatchAvailable || !skillSpectorAvailable;
   if (shouldRunPlatformRules) {
     runPlatformRulesReview(snapshot, findings, { includeContentRules: !skillSpectorAvailable });
-  }
-
-  if (haluCatchFailure) {
-    findings.push(createHaluCatchUnavailableReviewFinding(haluCatchFailure.message));
-    failedStages.push(haluCatchFailure);
   }
 
   const scores = calculateScores(findings, evaluation, skillSpector);
@@ -419,7 +421,7 @@ function calculateScores(
   _evaluation: FunctionalEvaluationReport,
   _skillSpector?: SkillSpectorScanSummary
 ): ReviewScores {
-  // Format validation, SkillSpector, and VirusTotal run before HaluCatch; platform rules follow evaluation.
+  // HaluCatch runs first; SkillSpector and VirusTotal run in parallel afterward.
   return {
     qualityScore: 100,
     securityScore: 100,

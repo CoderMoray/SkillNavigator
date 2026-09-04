@@ -2,7 +2,7 @@ export const SKILL_REVIEW_STATUSES = ["reviewing", "completed", "failed"] as con
 
 export type SkillReviewStatus = (typeof SKILL_REVIEW_STATUSES)[number];
 
-export const SKILL_REVIEW_STAGES = ["skillspector", "virustotal", "halucatch"] as const;
+export const SKILL_REVIEW_STAGES = ["halucatch", "skillspector", "virustotal"] as const;
 
 export type SkillReviewStage = (typeof SKILL_REVIEW_STAGES)[number];
 
