@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { Download, EyeOff, MessageSquare, Star, Users } from "lucide-react";
 import { formatDateTime, formatNumber, formatSkillReviewFailureSummary } from "../lib/format";
-import { resolveSkillDisplayVerdict } from "../lib/publish-helpers";
+import {
+  isSkillSearchResultUnlisted,
+  resolveSkillDisplayVerdict,
+} from "../lib/publish-helpers";
 import type { SkillSearchResult } from "../lib/types";
 import { SkillCategoryIcon } from "./SkillCategoryIcon";
 import { VerdictBadge, SkillReviewStatusBadge } from "./StatusBadge";
@@ -31,7 +34,7 @@ export function SkillCard({ skill, variant = "card" }: { skill: SkillSearchResul
             <div className="skill-row-title">
               <strong>{skill.name}</strong>
               <span>@{owner?.username ?? owner?.name ?? "unknown"}</span>
-              {skill.published === false ? (
+              {isSkillSearchResultUnlisted(skill) ? (
                 <span className="badge badge-unpublished">
                   <EyeOff size={12} /> 已下架
                 </span>
@@ -74,7 +77,7 @@ export function SkillCard({ skill, variant = "card" }: { skill: SkillSearchResul
       <div className="card-head">
         <div>
           <h3 className="skill-title">{skill.name}</h3>
-          {skill.published === false ? (
+          {isSkillSearchResultUnlisted(skill) ? (
             <span className="badge badge-unpublished">
               <EyeOff size={12} /> 已下架
             </span>

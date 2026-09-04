@@ -132,6 +132,10 @@ export {
   resolveVersionReference,
   canRepublishFailedVersion,
   hasStoredPendingPackage,
+  assertSkillRepublishAllowed,
+  assertSkillVersionRepublishAllowed,
+  getSkillRepublishBlockReason,
+  isSkillUnlisted,
 } from "./utils";
 
 export {

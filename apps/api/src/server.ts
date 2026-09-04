@@ -242,7 +242,11 @@ function versionManageErrorStatus(message: string): number {
   if (message === "cannot_unpublish_latest_version") {
     return 400;
   }
-  if (message === "version_already_unpublished" || message === "version_already_published") {
+  if (
+    message === "version_already_unpublished" ||
+    message === "version_already_published" ||
+    message.startsWith("skill_republish_blocked_")
+  ) {
     return 409;
   }
   if (message.includes("Version not found") || message.includes("Skill not found")) {
@@ -1409,8 +1413,9 @@ export function buildServer() {
     try {
       const updated = await store.republishSkill(request.params.slug);
       return { skill: updated };
-    } catch {
-      return reply.code(404).send({ error: "skill_not_found" });
+    } catch (error) {
+      const message = errorMessage(error);
+      return reply.code(versionManageErrorStatus(message)).send({ error: message });
     }
   });
 

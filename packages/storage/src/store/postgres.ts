@@ -46,6 +46,8 @@ import { parseSkillSpectorReviewRow, skillSpectorReviewColumns } from "../skills
 import { parseVirusTotalReviewRow, virusTotalReviewColumns } from "../virustotal-review";
 import { normalizeContributorRole, assertAssignableContributorRole } from "../contributors";
 import {
+  assertSkillRepublishAllowed,
+  assertSkillVersionRepublishAllowed,
   normalizeCategoryFilters,
   toIsoTimestampString,
   resolveVersionReference,
@@ -712,7 +714,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       downloads: r.totalDownloads,
       updatedAt: toIsoTimestampString(r.updatedAt),
       latestVersionCreatedAt: toIsoTimestampString(r.latestVersionCreatedAt),
-      published: r.published,
+      published: r.published !== false && r.status !== "rejected",
     }));
   }
 
@@ -1382,6 +1384,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         .set({
           reviewStatus,
           updatedAt: now,
+          ...(reviewStatus === "failed" ? { published: false } : {}),
           ...reviewFailurePatch(reviewStatus, options?.failure),
           ...timingPatch,
           ...(options
@@ -1726,6 +1729,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
 
     const pendingVersion = existingSkill?.versions[version];
     const finalizePendingVersion = Boolean(options.reviewAlreadyCommitted && pendingVersion?.published === false);
+    const publiclyListed = review.verdict !== "rejected";
 
     // Store the complete snapshot in MinIO first. Its descriptor is committed Its descriptor is committed
     // with the version, while skill_version_files retains only file metadata.
@@ -1738,7 +1742,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
             name,
             description,
             latestVersion: releaseTags.includes("latest") ? version : existingSkill.latestVersion,
-            published: true,
+            published: publiclyListed,
             reviewStatus: "completed",
             reviewFailedStages: [],
             reviewFailedMessage: null,
@@ -1749,7 +1753,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       } else {
         await tx.insert(schema.skills).values({
           slug, name, description, ownerUserId: options.owner?.userId ?? null,
-          latestVersion: version, published: true, reviewStatus: "completed",
+          latestVersion: version, published: publiclyListed, reviewStatus: "completed",
           reviewFailedStages: [], reviewFailedMessage: null,
           reviewEndedAt: now,
           createdAt: now, updatedAt: now,
@@ -1791,7 +1795,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         changelog: options.changelog?.trim() || null,
         contentHash: snapshot.contentHash,
         readme: snapshot.readme ?? "",
-        published: true,
+        published: publiclyListed,
         artifactProvider: artifact?.provider ?? null,
         artifactBucket: artifact?.bucket ?? null,
         artifactObjectKey: artifact?.objectKey ?? null,
@@ -2015,7 +2019,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       contributors: contributorsMap.get(row.slug) ?? [],
       downloads: 0,
       updatedAt: toIsoTimestampString(row.updatedAt),
-      published: row.published !== false,
+      published: false,
     };
     });
   }
@@ -2064,6 +2068,12 @@ export class PostgresRegistryStore extends JsonRegistryStore {
 
   async republishSkill(slug: string): Promise<RegistrySkill> {
     await this.ensureSchema();
+    const skill = await this.getSkill(slug);
+    if (!skill) {
+      throw new Error(`Skill not found: ${slug}`);
+    }
+    assertSkillRepublishAllowed(skill);
+
     const now = new Date();
     const updated = await this.db.update(schema.skills)
       .set({ published: true, updatedAt: now })
@@ -2074,11 +2084,11 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       throw new Error(`Skill not found: ${slug}`);
     }
 
-    const skill = await this.getSkill(slug);
-    if (!skill) {
+    const updatedSkill = await this.getSkill(slug);
+    if (!updatedSkill) {
       throw new Error(`Skill not found: ${slug}`);
     }
-    return skill;
+    return updatedSkill;
   }
 
   async unpublishVersion(slug: string, version: string): Promise<RegistrySkill> {
@@ -2125,6 +2135,12 @@ export class PostgresRegistryStore extends JsonRegistryStore {
 
   async republishVersion(slug: string, version: string): Promise<RegistrySkill> {
     await this.ensureSchema();
+    const skill = await this.getSkill(slug);
+    if (!skill) {
+      throw new Error(`Skill not found: ${slug}`);
+    }
+    assertSkillVersionRepublishAllowed(skill, version);
+
     const [versionRow] = await this.db
       .select({ published: schema.skillVersions.published })
       .from(schema.skillVersions)
@@ -2145,11 +2161,11 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
     await this.db.update(schema.skills).set({ updatedAt: now }).where(eq(schema.skills.slug, slug));
 
-    const skill = await this.getSkill(slug);
-    if (!skill) {
+    const updatedSkill = await this.getSkill(slug);
+    if (!updatedSkill) {
       throw new Error(`Skill not found: ${slug}`);
     }
-    return skill;
+    return updatedSkill;
   }
 
   async deleteSkill(slug: string): Promise<void> {

@@ -40,6 +40,8 @@ import {
   isSkillOwner,
   matchesContributorUser,
   normalizeCategoryFilters,
+  assertSkillRepublishAllowed,
+  assertSkillVersionRepublishAllowed,
   normalizeReleaseTags,
   resolveVersionReference,
   skillMatchesCategoryFilters,
@@ -81,6 +83,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
       }
       if (reviewStatus === "failed" && options?.failure) {
         existing.reviewFailure = options.failure;
+        existing.published = false;
       } else if (reviewStatus !== "failed") {
         existing.reviewFailure = undefined;
       } else if (reviewStatus === "failed") {
@@ -320,6 +323,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
     });
 
     const artifact = await this.artifactStore?.putSnapshot(slug, version, snapshot);
+    const publiclyListed = review.verdict !== "rejected";
     const registryVersion: RegistryVersion = {
       version,
       manifest: snapshot.manifest,
@@ -332,7 +336,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
       releaseTags,
       changelog: options.changelog,
       downloads: 0,
-      published: true,
+      published: publiclyListed,
       createdAt: now,
       updatedAt: now,
     };
@@ -365,7 +369,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
       ratings: existingSkill?.ratings ?? [],
       averageRating: existingSkill?.averageRating ?? 0,
       ratingCount: existingSkill?.ratingCount ?? 0,
-      published: true,
+      published: publiclyListed,
       createdAt: existingSkill?.createdAt ?? now,
       updatedAt: now,
     };
@@ -655,6 +659,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
     if (!skill) {
       throw new Error(`Skill not found: ${slug}`);
     }
+    assertSkillRepublishAllowed(skill);
 
     const now = new Date().toISOString();
     skill.published = true;
@@ -695,6 +700,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
     if (!skill) {
       throw new Error(`Skill not found: ${slug}`);
     }
+    assertSkillVersionRepublishAllowed(skill, version);
 
     const registryVersion = skill.versions[version];
     if (!registryVersion) {

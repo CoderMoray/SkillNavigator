@@ -137,7 +137,9 @@ export function mergeOwnerRejectedSkills(
   rejected: SkillSearchResult[]
 ): CreatorSummary {
   const existingSlugs = new Set(creator.skills.map((skill) => skill.slug));
-  const extra = rejected.filter((skill) => !existingSlugs.has(skill.slug));
+  const extra = rejected
+    .filter((skill) => !existingSlugs.has(skill.slug))
+    .map((skill) => ({ ...skill, published: false }));
   if (extra.length === 0) {
     return creator;
   }
@@ -152,7 +154,9 @@ export function mergeOwnerReviewPendingSkills(
   pending: SkillSearchResult[]
 ): CreatorSummary {
   const existingSlugs = new Set(creator.skills.map((skill) => skill.slug));
-  const extra = pending.filter((skill) => !existingSlugs.has(skill.slug));
+  const extra = pending
+    .filter((skill) => !existingSlugs.has(skill.slug))
+    .map((skill) => ({ ...skill, published: false }));
   if (extra.length === 0) {
     return creator;
   }

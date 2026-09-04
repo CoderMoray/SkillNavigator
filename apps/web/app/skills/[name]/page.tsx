@@ -6,7 +6,15 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { MarkdownContent } from "../../../components/MarkdownContent";
 import type { LucideIcon } from "lucide-react";
 import { compareSemver, isSkillEntryPath } from "@skill-platform/skill-spec/skill-format";
-import { canRetryStoredReview, resolveVersionDisplayVerdict } from "../../../lib/publish-helpers";
+import {
+  canRetryStoredReview,
+  getSkillRepublishBlockReason,
+  getVersionRepublishBlockReason,
+  isSkillUnlisted,
+  resolveVersionDisplayVerdict,
+  skillRepublishBlockedMessage,
+  skillUnlistedNotice,
+} from "../../../lib/publish-helpers";
 import { formatReviewStageProgress } from "../../../lib/review-stages";
 import {
   ArrowLeft,
@@ -161,6 +169,15 @@ function formatVersionManageError(message: string): string {
   }
   if (message === "version_unpublished") {
     return "该版本已下架，无法下载。";
+  }
+  if (message === "skill_republish_blocked_review_rejected") {
+    return "该版本在审查后被拒绝发布，无法直接上架。请修改内容后发布新版本。";
+  }
+  if (message === "skill_republish_blocked_review_failed") {
+    return "该 Skill 审查流程未完成或失败，无法直接上架。请完成审查后再尝试。";
+  }
+  if (message === "skill_republish_blocked_review_in_progress") {
+    return "该 Skill 仍在审查中，请等待审查完成后再尝试上架。";
   }
   return message;
 }
@@ -458,6 +475,11 @@ export default function SkillDetailPage() {
               <div className="tag-row">
                 <span className="badge mono">{skill.slug}</span>
                 {skill.latestVersion ? <span className="badge">v{skill.latestVersion}</span> : null}
+                {isSkillUnlisted(skill) ? (
+                  <span className="badge badge-unpublished">
+                    <EyeOff size={13} /> 已下架
+                  </span>
+                ) : null}
               </div>
               {skill.reviewStatus === "failed" && skill.reviewFailure ? (
                 <p className="description skill-review-failure" style={{ marginTop: 12 }}>
@@ -596,8 +618,29 @@ export default function SkillDetailPage() {
       meta: `${openIssues.length} 个开放 Issue`
     }
   ];
-  const isUnpublished = skill.published === false;
+  const isUnlisted = isSkillUnlisted(skill);
+  const unlistedNotice = skillUnlistedNotice(skill);
+  const republishBlockReason = getSkillRepublishBlockReason(skill);
   const installCommand = skillnavInstallExample(skill.slug);
+
+  function handleRepublishClick() {
+    setErrorToast(null);
+    if (republishBlockReason) {
+      setErrorToast(skillRepublishBlockedMessage(republishBlockReason));
+      return;
+    }
+    setRepublishModalOpen(true);
+  }
+
+  function handleVersionRepublishClick(version: string) {
+    setErrorToast(null);
+    const blockReason = getVersionRepublishBlockReason(skill, version);
+    if (blockReason) {
+      setErrorToast(skillRepublishBlockedMessage(blockReason));
+      return;
+    }
+    setVersionManageModal({ action: "republish", version });
+  }
 
   function openIssueModal() {
     setErrorToast(null);
@@ -960,7 +1003,7 @@ export default function SkillDetailPage() {
       setRepublishModalOpen(false);
       setSuccessToast("Skill 已重新上架，将出现在 Skill 广场与排行榜。");
     } catch (err) {
-      setErrorToast(err instanceof Error ? err.message : "上架失败");
+      setErrorToast(formatVersionManageError(err instanceof Error ? err.message : "上架失败"));
     } finally {
       setRepublishingSkill(false);
     }
@@ -1065,7 +1108,7 @@ export default function SkillDetailPage() {
             <h1>{skill.name}</h1>
             <p>{skill.description}</p>
             <div className="tag-row">
-              {isUnpublished ? (
+              {isUnlisted ? (
                 <span className="badge badge-unpublished">
                   <EyeOff size={13} /> 已下架
                 </span>
@@ -1152,14 +1195,14 @@ export default function SkillDetailPage() {
                 审查进度：{formatReviewStageProgress(skill.reviewCompletedStages, skill.reviewFailure?.stages)}
               </p>
             ) : null}
-            {isOwner && isUnpublished ? (
+            {isOwner && isUnlisted ? (
               <div className="skill-unpublished-notice" role="status">
                 <span className="skill-unpublished-notice-icon" aria-hidden="true">
                   <EyeOff size={18} />
                 </span>
                 <div className="skill-unpublished-notice-body">
-                  <strong>此 Skill 已下架</strong>
-                  <p>仅你可见，不会出现在 Skill 广场与搜索页。可直接上架恢复公开，或发布新版本后再上架。</p>
+                  <strong>{unlistedNotice.title}</strong>
+                  <p>{unlistedNotice.description}</p>
                 </div>
               </div>
             ) : null}
@@ -1192,12 +1235,12 @@ export default function SkillDetailPage() {
                 <Link className="button primary" href={`/skills/publish?skill=${encodeURIComponent(skill.slug)}`}>
                   <Plus size={16} /> 发布新版本
                 </Link>
-                {!isUnpublished ? (
+                {!isUnlisted ? (
                   <button className="button secondary" onClick={() => setUnpublishModalOpen(true)} type="button">
                     <EyeOff size={16} /> 下架
                   </button>
                 ) : (
-                  <button className="button secondary" onClick={() => setRepublishModalOpen(true)} type="button">
+                  <button className="button secondary" onClick={handleRepublishClick} type="button">
                     <Upload size={16} /> 上架
                   </button>
                 )}
@@ -1478,7 +1521,7 @@ export default function SkillDetailPage() {
                 {versions.map((version) => {
                   const isExpanded = expandedVersionNames.has(version.version);
                   const isLatest = version.version === skill.latestVersion;
-                  const isVersionUnpublished = version.published === false;
+                  const isVersionUnpublished = version.published === false || version.status === "rejected";
 
                   function handleVersionRowClick() {
                     setSelectedVersionName(version.version);
@@ -1530,7 +1573,7 @@ export default function SkillDetailPage() {
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     setErrorToast(null);
-                                    setVersionManageModal({ action: "republish", version: version.version });
+                                    handleVersionRepublishClick(version.version);
                                   }}
                                   type="button"
                                 >

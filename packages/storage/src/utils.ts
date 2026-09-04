@@ -153,6 +153,67 @@ export function resolveSkillDisplayVerdict(
   return versionStatus;
 }
 
+export type SkillRepublishBlockReason =
+  | "review_in_progress"
+  | "review_failed"
+  | "review_rejected";
+
+export function getSkillRepublishBlockReason(
+  skill: Pick<RegistrySkill, "reviewStatus" | "latestVersion" | "versions">
+): SkillRepublishBlockReason | null {
+  if (skill.reviewStatus === "reviewing") {
+    return "review_in_progress";
+  }
+  if (skill.reviewStatus === "failed") {
+    return "review_failed";
+  }
+  const latest = skill.versions[skill.latestVersion];
+  if (latest?.status === "rejected") {
+    return "review_rejected";
+  }
+  return null;
+}
+
+export function isSkillUnlisted(
+  skill: Pick<RegistrySkill, "published" | "reviewStatus" | "latestVersion" | "versions">
+): boolean {
+  if (skill.published === false) {
+    return true;
+  }
+  return getSkillRepublishBlockReason(skill) !== null;
+}
+
+export function assertSkillRepublishAllowed(
+  skill: Pick<RegistrySkill, "reviewStatus" | "latestVersion" | "versions">
+): void {
+  const reason = getSkillRepublishBlockReason(skill);
+  if (reason === "review_in_progress") {
+    throw new Error("skill_republish_blocked_review_in_progress");
+  }
+  if (reason === "review_failed") {
+    throw new Error("skill_republish_blocked_review_failed");
+  }
+  if (reason === "review_rejected") {
+    throw new Error("skill_republish_blocked_review_rejected");
+  }
+}
+
+export function assertSkillVersionRepublishAllowed(
+  skill: Pick<RegistrySkill, "reviewStatus" | "latestVersion" | "versions">,
+  version: string
+): void {
+  const registryVersion = skill.versions[version];
+  if (!registryVersion) {
+    throw new Error(`Version not found: ${version}`);
+  }
+  if (registryVersion.status === "rejected") {
+    throw new Error("skill_republish_blocked_review_rejected");
+  }
+  if (version === skill.latestVersion) {
+    assertSkillRepublishAllowed(skill);
+  }
+}
+
 export function toSearchResult(skill: RegistrySkill): SkillSearchResult {
   const latest = skill.versions[skill.latestVersion];
   if (!latest) {
@@ -178,7 +239,7 @@ export function toSearchResult(skill: RegistrySkill): SkillSearchResult {
     downloads: Object.values(skill.versions).reduce((t, v) => t + v.downloads, 0),
     updatedAt: skill.updatedAt,
     latestVersionCreatedAt: latest.createdAt,
-    published: skill.published !== false,
+    published: isSkillUnlisted(skill) ? false : skill.published !== false,
   };
 }
 
