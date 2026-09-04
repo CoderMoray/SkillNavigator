@@ -27,7 +27,8 @@ ON_DEV="${ON_DEV:-true}"
 
 echo "=== Skill Platform Setup (ON_DEV=$ON_DEV) ==="
 
-# 0. SkillSpector (PyPI or GitHub fallback)
+# 0. SkillSpector (PyPI or GitHub fallback) — used by the HTTP review
+#    pipeline; harmless when absent (built-in rules still apply).
 echo "[0] Installing SkillSpector..."
 if bash "$(dirname "$0")/install-skillspector.sh"; then
   echo "  ✅ SkillSpector install step finished"
@@ -35,22 +36,22 @@ else
   echo "  ⚠️  SkillSpector install failed — security scans may fall back to built-in rules"
 fi
 
-# 1. Check API is running
-echo "[1] Checking API..."
-if ! curl -sf "$API/health" > /dev/null; then
-  echo "  ❌ API not running at $API — start it first: npm run dev:api"
-  exit 1
-fi
-echo "  ✅ API running"
-
 if [ "$ON_DEV" = "true" ]; then
   # ------------------------------------------------------------------ #
   # Development: publish the demo Skill as the seeded alice account.   #
+  # Requires the API to be running (registration + publish go over HTTP).#
   # ------------------------------------------------------------------ #
   USERNAME="alice"
   EMAIL="alice@example.com"
   PASSWORD="password123"
   SKILL_PATH="examples/demo-skill"
+
+  echo "[1/6] Checking API..."
+  if ! curl -sf "$API/health" > /dev/null; then
+    echo "  ❌ API not running at $API — start it first: npm run dev:api"
+    exit 1
+  fi
+  echo "  ✅ API running"
 
   echo "[2/6] Registering user '$USERNAME'..."
   # Note: no -f here — on 4xx (e.g. duplicate user) curl would drop the JSON
@@ -75,8 +76,8 @@ if [ "$ON_DEV" = "true" ]; then
 
   echo "[3/6] Publishing demo skill..."
   export SKILL_AUTH_TOKEN="$TOKEN"
-  npm run skill -- publish "$SKILL_PATH" 2>&1 | grep -E "Published|Verdict|Scores" || echo "  ❌ Publish failed"
-  echo "  ✅ Published"
+  npm run skill -- publish "$SKILL_PATH" 2>&1 | grep -E "Published|Verdict|Scores" || echo "  ⚠️  Publish reported no summary (skill may already exist)"
+  echo "  ✅ Published (or already present)"
 
   echo "[4/6] Verifying search..."
   RESULT=$(curl -sf "$API/skills?query=demo" | cat)
@@ -95,8 +96,10 @@ if [ "$ON_DEV" = "true" ]; then
 fi
 
 # ------------------------------------------------------------------ #
-# Production (ON_DEV=false): bootstrap an administrator and seed the  #
-# official skillnav-skill only when ADMIN_* is fully configured.      #
+# Production (ON_DEV=false): ensure the configured administrator owns  #
+# the official skillnav-skill. Talks to PostgreSQL directly through the#
+# bootstrap helper — no API / CLI / login required, and it never       #
+# rebuilds an existing account or clears data.                         #
 # ------------------------------------------------------------------ #
 ADMIN_USERNAME="${ADMIN_USERNAME:-}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-}"
@@ -107,7 +110,7 @@ has_admin_config() {
 }
 
 if ! has_admin_config; then
-  echo "[2] Production: no ADMIN_DISPLAY_NAME / ADMIN_USERNAME / ADMIN_EMAIL configured."
+  echo "[1] Production: no ADMIN_DISPLAY_NAME / ADMIN_USERNAME / ADMIN_EMAIL configured."
   echo "    Skipping administrator bootstrap — the skill registry stays empty (no seed Skill)."
   echo "    To initialize, set the three ADMIN_* vars in .env and run npm run setup again."
   exit 0
@@ -122,15 +125,12 @@ if [ "${#MISSING_FIELDS[@]}" -gt 0 ]; then
   echo "⚠️  WARNING: ADMIN_* configuration is incomplete."
   echo "    Missing field(s): ${MISSING_FIELDS[*]}"
   echo "    Provide every field in .env or remove all ADMIN_* entries to skip initialization."
-  echo "    No administrator was created and no seed Skill was published."
+  echo "    Nothing was created and no Skill was published."
   exit 0
 fi
 
-echo "[2] Production: ADMIN_* configured — bootstrapping administrator '${ADMIN_USERNAME}'..."
-
-# Generate a strong random password (alphanumeric only to stay mail-safe).
-ADMIN_PASSWORD="$(openssl rand -base64 30 | tr -dc 'A-Za-z0-9' | head -c 24)"
-export ADMIN_USERNAME ADMIN_EMAIL ADMIN_DISPLAY_NAME ADMIN_PASSWORD
+echo "[1] Production: ADMIN_* configured — ensuring administrator '$ADMIN_USERNAME' owns skillnav-skill..."
+export ADMIN_USERNAME ADMIN_EMAIL ADMIN_DISPLAY_NAME
 
 BOOTSTRAP_OUT="$REPO_ROOT/.setup-bootstrap.json"
 if ! node_modules/.bin/tsx "$REPO_ROOT/scripts/bootstrap-admin.mjs" > "$BOOTSTRAP_OUT" 2>/tmp/bootstrap-admin.err; then
@@ -141,66 +141,60 @@ if ! node_modules/.bin/tsx "$REPO_ROOT/scripts/bootstrap-admin.mjs" > "$BOOTSTRA
 fi
 rm -f /tmp/bootstrap-admin.err
 
-ACTION=$(node -e "const d=require('$BOOTSTRAP_OUT'); process.stdout.write(d.action)")
-if [ -z "$ACTION" ] || [ "$ACTION" = "error" ]; then
-  MESSAGE=$(node -e "const d=require('$BOOTSTRAP_OUT'); process.stdout.write(d.message||'unknown error')")
-  echo "  ❌ Admin bootstrap error: $MESSAGE"
-  rm -f "$BOOTSTRAP_OUT"
-  exit 1
-fi
+ACTION=$(node -e "const d=require('$BOOTSTRAP_OUT'); process.stdout.write(d.action||'')")
+MESSAGE=$(node -e "const d=require('$BOOTSTRAP_OUT'); process.stdout.write(d.message||'')")
+echo "  bootstrap action: ${ACTION:-unknown}"
 
-echo "  ✅ bootstrap action: $ACTION"
+case "$ACTION" in
+  created-linked)
+    echo "  ✅ Administrator '$ADMIN_USERNAME' created (first user => admin) and skillnav-skill linked."
+    ;;
+  linked)
+    echo "  ✅ Administrator '$ADMIN_USERNAME' already existed (reused as-is) and skillnav-skill linked."
+    ;;
+  already-linked)
+    echo "  ✅ Administrator '$ADMIN_USERNAME' already exists and owns skillnav-skill — nothing to do."
+    rm -f "$BOOTSTRAP_OUT"
+    exit 0
+    ;;
+  owner-conflict)
+    echo "⚠️  WARNING: skillnav-skill exists in the registry but is owned by a different account."
+    echo "    It was left untouched. Release it or delete it first, then re-run npm run setup."
+    rm -f "$BOOTSTRAP_OUT"
+    exit 0
+    ;;
+  error)
+    echo "  ❌ $MESSAGE"
+    rm -f "$BOOTSTRAP_OUT"
+    exit 1
+    ;;
+  *)
+    echo "  ❌ Unexpected bootstrap result: $MESSAGE"
+    rm -f "$BOOTSTRAP_OUT"
+    exit 1
+    ;;
+esac
 
-if [ "$ACTION" = "admin-exists" ] || [ "$ACTION" = "exists-no-password" ]; then
-  MESSAGE=$(node -e "const d=require('$BOOTSTRAP_OUT'); process.stdout.write(d.message||'')")
-  echo "  ⚠️  $MESSAGE"
-  rm -f "$BOOTSTRAP_OUT"
-  exit 0
-fi
-
-TOKEN=$(node -e "const d=require('$BOOTSTRAP_OUT'); process.stdout.write(d.token||'')")
-if [ -z "$TOKEN" ]; then
-  echo "  ❌ Could not obtain a session token from bootstrap helper."
-  rm -f "$BOOTSTRAP_OUT"
-  exit 1
-fi
-
-# Publish the official CLI Skill under the administrator account.
-echo "[3] Publishing official Skill examples/skillnav-skill..."
-export SKILL_AUTH_TOKEN="$TOKEN"
-if npm run skill -- publish "examples/skillnav-skill"; then
-  echo "  ✅ skillnav-skill published"
-else
-  echo "  ⚠️  Publishing skillnav-skill reported a problem — see the log above; fix and re-run npm run setup."
-fi
-
-# Notify the administrator with the initial password (degrade to log when SMTP is off).
-echo "[4] Sending administrator credentials email..."
-MAIL_OK=1
-if [ -n "${REPORT_MAIL_USERNAME:-}" ] && [ -n "${REPORT_MAIL_PASSWORD:-}" ] && [ -n "${REPORT_MAIL_SMTP_SERVER:-}" ]; then
-  if [ "$ACTION" = "created" ]; then
-    PAYLOAD=$(printf '{"to":"%s","username":"%s","password":"%s"}' "$ADMIN_EMAIL" "$ADMIN_USERNAME" "$ADMIN_PASSWORD")
+# created-linked: email the generated initial password (degrade to log when
+# SMTP is off). linked: no new credentials were issued, nothing to email.
+if [ "$ACTION" = "created-linked" ]; then
+  echo "[2] Sending administrator credentials email..."
+  PASSWORD=$(node -e "const d=require('$BOOTSTRAP_OUT'); process.stdout.write(d.password||'')")
+  if [ -n "${REPORT_MAIL_USERNAME:-}" ] && [ -n "${REPORT_MAIL_PASSWORD:-}" ] && [ -n "${REPORT_MAIL_SMTP_SERVER:-}" ]; then
+    PAYLOAD=$(printf '{"to":"%s","username":"%s","password":"%s"}' "$ADMIN_EMAIL" "$ADMIN_USERNAME" "$PASSWORD")
     if printf '%s' "$PAYLOAD" | python3 "$REPO_ROOT/scripts/send-admin-credentials-email.py"; then
       echo "  ✅ Credentials email queued to $ADMIN_EMAIL"
-      MAIL_OK=0
     else
       echo "  ⚠️  Credentials email failed (SMTP error) — see above."
     fi
   else
-    echo "  ℹ️  Administrator already existed — no new credentials to email."
-    MAIL_OK=0
-  fi
-fi
-
-if [ "$MAIL_OK" -ne 0 ]; then
-  echo "  ⚠️  WARNING: REPORT_MAIL_* is not configured — credentials could not be emailed."
-  if [ "$ACTION" = "created" ]; then
-    echo "     Initial password (visible only in this run): $ADMIN_PASSWORD"
+    echo "  ⚠️  WARNING: REPORT_MAIL_* is not configured — the initial password could not be emailed."
+    echo "     Initial password (visible only in this run): $PASSWORD"
     echo "     Change it after first login in Account Settings."
   fi
 fi
 
-echo "[5] Setup complete!"
+echo "[3] Setup complete!"
 echo "    Administrator: $ADMIN_USERNAME <$ADMIN_EMAIL>"
 echo "    Seeded Skill: skillnav-skill (slug) — install with: skillnav install skillnav-skill --dir <skills dir>"
 rm -f "$BOOTSTRAP_OUT"
