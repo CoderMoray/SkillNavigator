@@ -145,21 +145,19 @@ ACTION=$(node -e "const d=require('$BOOTSTRAP_OUT'); process.stdout.write(d.acti
 MESSAGE=$(node -e "const d=require('$BOOTSTRAP_OUT'); process.stdout.write(d.message||'')")
 echo "  bootstrap action: ${ACTION:-unknown}"
 
+if [ -n "$MESSAGE" ]; then
+  echo "  ℹ️  $MESSAGE"
+fi
+
 case "$ACTION" in
   created-linked)
     echo "  ✅ Administrator '$ADMIN_USERNAME' created (first user => admin) and skillnav-skill linked."
     ;;
   linked)
-    echo "  ✅ Administrator '$ADMIN_USERNAME' already existed (reused as-is) and skillnav-skill linked."
+    echo "  ✅ skillnav-skill is now linked to administrator '$ADMIN_USERNAME'."
     ;;
   already-linked)
     echo "  ✅ Administrator '$ADMIN_USERNAME' already exists and owns skillnav-skill — nothing to do."
-    rm -f "$BOOTSTRAP_OUT"
-    exit 0
-    ;;
-  owner-conflict)
-    echo "⚠️  WARNING: skillnav-skill exists in the registry but is owned by a different account."
-    echo "    It was left untouched. Release it or delete it first, then re-run npm run setup."
     rm -f "$BOOTSTRAP_OUT"
     exit 0
     ;;

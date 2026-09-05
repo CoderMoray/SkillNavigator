@@ -16,16 +16,18 @@
  *          returned in "password" so setup.sh can email it.
  *        - missing & admin exists   -> error (point ADMIN_* at the existing admin
  *          or remove ADMIN_* to skip).
- *   2. Link skillnav-skill to that account:
- *        - already owned by it      -> done, nothing to do
- *        - exists but owned by other-> conflict warning, left untouched
- *        - missing                  -> internal review + publish with owner set
- *          directly (no HTTP login needed).
+ *   2. Normalize the registry for production:
+ *        - remove the dev-seed demo-skill (seeded by ON_DEV=true under alice;
+ *          it must not survive production bootstrap)
+ *        - skillnav-skill: already owned by this admin -> nothing; owned by a
+ *          different account or in the recycle bin -> deleted (full cascade
+ *          purge) and re-published under this admin; absent -> published.
  *
  * stdout is one JSON line consumed by scripts/setup.sh:
  *   {"action":"created-linked", password, username, email}
  *   {"action":"linked", ...} | {"action":"already-linked", ...}
- *   {"action":"owner-conflict", ...} | {"action":"error", code, message}
+ *   {"action":"error", code, message}
+ * Linked results include "cleanedDemo"/"message" when residues were handled.
  *
  * The core logic is exported (runBootstrap) so it can be unit-tested with
  * injected store implementations.
@@ -45,6 +47,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const OFFICIAL_SKILL_DIR = path.join(repoRoot, "examples", "skillnav-skill");
 export const OFFICIAL_SLUG = "skillnav-skill";
+/** Dev-mode seed Skill (setup.sh ON_DEV=true) that must not survive production bootstrap. */
+export const DEMO_SLUG = "demo-skill";
 
 export function generatePassword() {
   const bytes = randomBytes(24);
@@ -123,49 +127,37 @@ export async function runBootstrap(
     target = created;
   }
 
-  const linkResult = await linkOfficialSkill(
-    { registryStore, slug: OFFICIAL_SLUG, skillDir, readPackage, reviewSnapshot },
-    target
-  );
-  const base = {
-    username: target.username,
-    email: target.email ?? email,
-    displayName,
-  };
+  // Production bootstrap: the dev-seed demo-skill must not survive in the
+  // registry (it was seeded by setup.sh ON_DEV=true with the alice account).
+  const demoRemoved = await removeSkillPermanently(registryStore, DEMO_SLUG);
 
-  switch (linkResult.status) {
-    case "already-linked":
-      return {
-        action: "already-linked",
-        ...base,
-        message: "Administrator account exists and already owns skillnav-skill; nothing to do.",
-      };
-    case "owner-conflict":
-      return { action: "owner-conflict", ...base, message: linkResult.message };
-    default:
-      return createdPassword
-        ? {
-            action: "created-linked",
-            ...base,
-            password: createdPassword,
-            version: linkResult.version,
-          }
-        : { action: "linked", ...base, version: linkResult.version };
-  }
-}
-
-async function linkOfficialSkill({ registryStore, slug, skillDir, readPackage, reviewSnapshot }, target) {
-  const skill = await registryStore.getSkill(slug);
-  if (skill) {
+  const official = await registryStore.getSkill(OFFICIAL_SLUG);
+  if (official && official.ownerUserId === target.id) {
     // publishSnapshot always records options.owner.userId as ownerUserId, so a
     // top-level match is the authoritative "owned by this account" signal.
-    if (skill.ownerUserId === target.id) {
-      return { status: "already-linked" };
+    const details = [];
+    if (demoRemoved) {
+      details.push(`dev-seed ${DEMO_SLUG} residue was removed`);
     }
     return {
-      status: "owner-conflict",
-      message: `${slug} already exists in the registry but is owned by a different account; it was left untouched.`,
+      action: "already-linked",
+      username: target.username,
+      email: target.email ?? email,
+      displayName,
+      cleanedDemo: demoRemoved,
+      message:
+        details.length > 0
+          ? `Administrator already owns ${OFFICIAL_SLUG}; ${details.join(" and ")}.`
+          : `Administrator account exists and already owns ${OFFICIAL_SLUG}; nothing to do.`,
     };
+  }
+
+  // The official Skill is absent, sitting in the recycle bin, or owned by a
+  // different account — normalize: remove it (if present) and publish it under
+  // the configured admin, so exactly one slug belongs to exactly one admin.
+  const reassigned = official !== undefined;
+  if (reassigned) {
+    await removeSkillPermanently(registryStore, OFFICIAL_SLUG);
   }
 
   const snapshot = await readPackage(skillDir);
@@ -173,7 +165,48 @@ async function linkOfficialSkill({ registryStore, slug, skillDir, readPackage, r
   const version = await registryStore.publishSnapshot(snapshot, review, undefined, {
     owner: { userId: target.id, username: target.username },
   });
-  return { status: "linked", version: version.version };
+
+  const details = [];
+  if (reassigned) {
+    details.push(`${OFFICIAL_SLUG} was owned by another account and has been re-assigned to this admin`);
+  }
+  if (demoRemoved) {
+    details.push(`dev-seed ${DEMO_SLUG} residue was removed`);
+  }
+
+  const base = {
+    username: target.username,
+    email: target.email ?? email,
+    displayName,
+    version: version.version,
+    cleanedDemo: demoRemoved,
+    message: details.length > 0 ? `${details.join("; ")}.` : undefined,
+  };
+  return createdPassword
+    ? { action: "created-linked", ...base, password: createdPassword }
+    : { action: "linked", ...base };
+}
+
+/**
+ * Permanently remove a Skill: soft-delete to the recycle bin, then purge. The
+ * purge deletes every associated row (reviews/findings/evaluations/files/tags/
+ * versions) in one transaction and cleans MinIO artifacts; contributors,
+ * issues, ratings and bookmarks cascade via foreign keys. Idempotent — returns
+ * true only when something was actually removed.
+ */
+async function removeSkillPermanently(registryStore, slug) {
+  try {
+    await registryStore.deleteSkill(slug); // no-op when already soft-deleted
+  } catch {
+    // Not present as an active Skill — fall through so recycle-bin residue is
+    // still purged.
+  }
+  try {
+    await registryStore.purgeRecycleBinSkill(slug);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function main() {

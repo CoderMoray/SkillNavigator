@@ -6,26 +6,48 @@ import { FileAuthStore } from "@skill-platform/storage";
 import { generatePassword, parseAdminConfig, runBootstrap } from "../scripts/bootstrap-admin.mjs";
 
 /**
- * A minimal RegistryStore fake: keeps one skill, records publishes and the
- * owner each publish was attributed to.
+ * A minimal RegistryStore fake backed by a slug -> skill map. It models the
+ * soft-delete (recycle bin) + purge semantics of the real Postgres store:
+ * deleteSkill throws when the slug is absent, purgeRecycleBinSkill throws
+ * unless the slug sits in the recycle bin.
  */
 class FakeRegistryStore {
-  constructor(skill) {
-    this.skill = skill ?? undefined;
+  constructor(entries = {}) {
+    this.skills = new Map(Object.entries(entries)); // slug -> { slug, ownerUserId }
+    this.recycle = new Set();
     this.publishes = [];
+    this.deletions = []; // slugs that were permanently purged
   }
 
-  async getSkill(_slug) {
-    return this.skill;
+  async getSkill(slug) {
+    return this.skills.get(slug);
+  }
+
+  async deleteSkill(slug) {
+    if (this.skills.has(slug)) {
+      this.skills.delete(slug);
+      this.recycle.add(slug);
+      return;
+    }
+    if (this.recycle.has(slug)) {
+      return; // already soft-deleted
+    }
+    throw new Error(`Skill not found: ${slug}`);
+  }
+
+  async purgeRecycleBinSkill(slug) {
+    if (this.recycle.has(slug)) {
+      this.recycle.delete(slug);
+      this.deletions.push(slug);
+      return;
+    }
+    throw new Error(`Skill not in recycle bin: ${slug}`);
   }
 
   async publishSnapshot(snapshot, review, _evaluation, options) {
+    const slug = snapshot.manifest.slug;
     this.publishes.push({ owner: options.owner, version: review.version });
-    this.skill = {
-      slug: snapshot.manifest.slug,
-      ownerUserId: options.owner.userId,
-      latestVersion: review.version,
-    };
+    this.skills.set(slug, { slug, ownerUserId: options.owner.userId, latestVersion: review.version });
     return { version: review.version };
   }
 }
@@ -85,6 +107,8 @@ describe("runBootstrap (auth store = FileAuthStore)", () => {
     reviewSnapshot: async () => fakeReview(),
   });
 
+  const aliceConfig = { username: "alice", email: "alice@example.com", displayName: "Alice Admin" };
+
   test("missing input -> error missing-input", async () => {
     const registry = new FakeRegistryStore();
     const result = await runBootstrap(deps(registry), { username: "", email: "", displayName: "" });
@@ -92,23 +116,19 @@ describe("runBootstrap (auth store = FileAuthStore)", () => {
     expect(result.code).toBe("missing-input");
   });
 
-  test("existing account without the Skill -> linked (publish under that account, account untouched)", async () => {
+  test("existing account without any Skill -> linked (publish under that account, account untouched)", async () => {
     const alice = await auth.register("alice", "password123", "alice@example.com", {
       autoVerifyEmail: true,
     });
     const registry = new FakeRegistryStore();
     const before = (await auth.listUsers()).length;
 
-    const result = await runBootstrap(
-      deps(registry),
-      { username: "alice", email: "alice@example.com", displayName: "Alice Admin" }
-    );
+    const result = await runBootstrap(deps(registry), aliceConfig);
 
     expect(result.action).toBe("linked");
     expect(result.username).toBe("alice");
     expect(registry.publishes).toHaveLength(1);
     expect(registry.publishes[0].owner).toEqual({ userId: alice.id, username: "alice" });
-    // The existing account must not have been rebuilt.
     expect((await auth.listUsers()).length).toBe(before);
   });
 
@@ -116,37 +136,68 @@ describe("runBootstrap (auth store = FileAuthStore)", () => {
     const alice = await auth.register("alice", "password123", "alice@example.com", {
       autoVerifyEmail: true,
     });
-    const registry = new FakeRegistryStore({ slug: "skillnav-skill", ownerUserId: alice.id });
+    const registry = new FakeRegistryStore({
+      "skillnav-skill": { slug: "skillnav-skill", ownerUserId: alice.id },
+    });
 
-    const result = await runBootstrap(
-      deps(registry),
-      { username: "alice", email: "alice@example.com", displayName: "Alice Admin" }
-    );
+    const result = await runBootstrap(deps(registry), aliceConfig);
 
     expect(result.action).toBe("already-linked");
     expect(registry.publishes).toHaveLength(0);
+    expect(registry.deletions).toEqual([]);
   });
 
-  test("Skill owned by someone else -> owner-conflict, nothing touched", async () => {
-    await auth.register("alice", "password123", "alice@example.com", {
+  test("official Skill owned by someone else -> deleted and re-published under this admin", async () => {
+    const alice = await auth.register("alice", "password123", "alice@example.com", {
       autoVerifyEmail: true,
     });
-    await auth.register("stranger", "password123", "stranger@example.com", {
+    const registry = new FakeRegistryStore({
+      "skillnav-skill": { slug: "skillnav-skill", ownerUserId: "legacy-owner" },
+    });
+
+    const result = await runBootstrap(deps(registry), aliceConfig);
+
+    expect(result.action).toBe("linked");
+    expect(registry.deletions).toContain("skillnav-skill");
+    expect(registry.publishes).toHaveLength(1);
+    expect(registry.publishes[0].owner.userId).toBe(alice.id);
+    expect(registry.skills.get("skillnav-skill").ownerUserId).toBe(alice.id);
+    expect(result.message).toContain("re-assigned");
+  });
+
+  test("dev-seed demo-skill residue is removed while official Skill links", async () => {
+    const alice = await auth.register("alice", "password123", "alice@example.com", {
       autoVerifyEmail: true,
     });
-    const registry = new FakeRegistryStore({ slug: "skillnav-skill", ownerUserId: "other-user" });
+    const registry = new FakeRegistryStore({
+      "demo-skill": { slug: "demo-skill", ownerUserId: alice.id },
+    });
 
-    const result = await runBootstrap(
-      deps(registry),
-      { username: "alice", email: "alice@example.com", displayName: "Alice Admin" }
-    );
+    const result = await runBootstrap(deps(registry), aliceConfig);
 
-    expect(result.action).toBe("owner-conflict");
+    expect(result.action).toBe("linked");
+    expect(result.cleanedDemo).toBe(true);
+    expect(registry.deletions).toContain("demo-skill");
+    expect(registry.skills.has("demo-skill")).toBe(false);
+    expect(registry.publishes).toHaveLength(1);
+    expect(result.message).toContain("demo-skill residue was removed");
+  });
+
+  test("demo residue removed even when official Skill is already linked", async () => {
+    const alice = await auth.register("alice", "password123", "alice@example.com", {
+      autoVerifyEmail: true,
+    });
+    const registry = new FakeRegistryStore({
+      "demo-skill": { slug: "demo-skill", ownerUserId: alice.id },
+      "skillnav-skill": { slug: "skillnav-skill", ownerUserId: alice.id },
+    });
+
+    const result = await runBootstrap(deps(registry), aliceConfig);
+
+    expect(result.action).toBe("already-linked");
+    expect(result.cleanedDemo).toBe(true);
+    expect(registry.deletions).toEqual(["demo-skill"]);
     expect(registry.publishes).toHaveLength(0);
-    // Neither the target account nor unrelated accounts were touched.
-    const users = await auth.listUsers();
-    expect(users).toHaveLength(2);
-    expect(users.some((user) => user.username === "stranger")).toBe(true);
   });
 
   test("no account, no admin -> created-linked (first user admin, verified, display name applied)", async () => {
