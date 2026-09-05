@@ -9,13 +9,12 @@
  *   ADMIN_DISPLAY_NAME  — display name (required, applied only on creation)
  *
  * Behaviour (never rebuilds or resets an existing account, never clears data):
- *   1. Resolve the account:
- *        - username already exists  -> reused as-is (password untouched)
- *        - missing & no admin yet   -> created (first user => admin, auto-verified,
- *          display name applied). A fresh strong password is generated here and
- *          returned in "password" so setup.sh can email it.
- *        - missing & admin exists   -> error (point ADMIN_* at the existing admin
- *          or remove ADMIN_* to skip).
+ *   1. Resolve the account (ADMIN_* username is the only anchor):
+ *        - username already exists  -> reused as-is (any role, password untouched)
+ *        - missing                  -> created unconditionally and promoted to
+ *          admin (works even when other admins exist, e.g. admin handover);
+ *          auto-verified, display name applied. A fresh strong password is
+ *          generated and returned in "password" so setup.sh can email it.
  *   2. Normalize the registry for production:
  *        - remove the dev-seed demo-skill (seeded by ON_DEV=true under alice;
  *          it must not survive production bootstrap)
@@ -101,27 +100,23 @@ export async function runBootstrap(
     };
   }
 
+  // The ADMIN_* username is the sole anchor for ownership — role of other
+  // accounts is irrelevant. Existing user (any role) is reused as-is; a
+  // missing user is created unconditionally and promoted to admin, even when
+  // other admins already exist (e.g. admin handover to a new owner). Other
+  // admins are never demoted or deleted here.
   const existing = await authStore.getUserByUsername(username);
   let target = existing;
   let createdPassword;
 
   if (!existing) {
-    const users = await authStore.listUsers();
-    const admins = users.filter((user) => user.role === "admin");
-    if (admins.length > 0) {
-      const names = admins.map((user) => user.username).join(", ");
-      return {
-        action: "error",
-        code: "admin-exists",
-        message: `An administrator already exists (${names}) but ADMIN_USERNAME "${username}" does not. Point ADMIN_* at the existing admin, or remove ADMIN_* to skip initialization.`,
-      };
-    }
-    // Fresh registry: first user becomes admin. Auto-verify so the account can
-    // log in even when verification is required in production.
     createdPassword = generatePassword();
     const created = await authStore.register(username, createdPassword, email, {
-      autoVerifyEmail: true,
+      autoVerifyEmail: true, // allow login even when verification is required
     });
+    if (created.role !== "admin") {
+      await authStore.promoteToAdmin(created.id);
+    }
     const session = await authStore.login(username, createdPassword);
     await authStore.updateProfile(session.token, { displayName });
     target = created;

@@ -227,18 +227,49 @@ describe("runBootstrap (auth store = FileAuthStore)", () => {
     expect(session.user.username).toBe("root");
   });
 
-  test("no account but another admin exists -> error admin-exists", async () => {
+  test("missing username while another admin exists -> creates & promotes a new admin (handover)", async () => {
     await auth.register("root", "password123", "root@example.com", { autoVerifyEmail: true });
     const registry = new FakeRegistryStore();
     const result = await runBootstrap(
       deps(registry),
-      { username: "newbie", email: "newbie@example.com", displayName: "Newbie" }
+      { username: "successor", email: "successor@example.com", displayName: "Successor Admin" }
     );
 
-    expect(result.action).toBe("error");
-    expect(result.code).toBe("admin-exists");
-    expect(registry.publishes).toHaveLength(0);
-    expect((await auth.listUsers()).some((user) => user.username === "newbie")).toBe(false);
+    expect(result.action).toBe("created-linked");
+    expect(result.password).toHaveLength(24);
+
+    const users = await auth.listUsers();
+    // The new account was created, promoted to admin and owns the Skill;
+    // the pre-existing admin is left untouched.
+    expect(users).toHaveLength(2);
+    const successor = users.find((user) => user.username === "successor");
+    expect(successor?.role).toBe("admin");
+    expect(successor?.emailVerified).toBe(true);
+    expect(users.find((user) => user.username === "root")?.role).toBe("admin");
+
+    expect(registry.publishes).toHaveLength(1);
+    expect(registry.publishes[0].owner.userId).toBe(successor.id);
+  });
+
+  test("existing non-admin user is reused as the Skill owner (no forced promotion)", async () => {
+    await auth.register("root", "password123", "root@example.com", { autoVerifyEmail: true });
+    const someone = await auth.register("someone", "password123", "someone@example.com", {
+      autoVerifyEmail: true,
+    });
+    const registry = new FakeRegistryStore();
+
+    const result = await runBootstrap(
+      deps(registry),
+      { username: "someone", email: "someone@example.com", displayName: "Someone" }
+    );
+
+    expect(result.action).toBe("linked");
+    const users = await auth.listUsers();
+    expect(users).toHaveLength(2);
+    // Existing account keeps its role; the Skill simply belongs to it.
+    expect(users.find((user) => user.username === "someone")?.role).toBe("user");
+    expect(registry.publishes).toHaveLength(1);
+    expect(registry.publishes[0].owner.userId).toBe(someone.id);
   });
 
   test("idempotent: running again after a successful link reports already-linked", async () => {
