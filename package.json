@@ -22,7 +22,7 @@
     "infra:down": "docker compose down",
     "skill": "npm --workspace @skill-platform/cli run dev --",
     "typecheck": "tsc -p tsconfig.json --noEmit && npm --workspace @skill-platform/web run typecheck",
-    "lint": "tsc -p tsconfig.json --noEmit && npm --workspace @skill-platform/web run typecheck && eslint .",
+    "lint": "tsc -p tsconfig.json --noEmit && npm --workspace @skill-platform/web run typecheck && eslint . --max-warnings=0",
     "review:demo": "npm --workspace @skill-platform/cli run dev -- review examples/demo-skill",
     "test": "vitest run",
     "test:e2e": "playwright test",

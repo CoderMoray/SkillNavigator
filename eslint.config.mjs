@@ -64,14 +64,11 @@ export default defineConfig([
   ...scopeToWeb(nextVitals),
   ...scopeToWeb(nextTs),
 
-  // ---- 技术债降级（专项清理前保持可见、不阻断）----
-  // - no-explicit-any：postgres.ts 的 DB 动态 row 类型待专项建模。
-  // - react-hooks/set-state-in-effect：初始化期在 effect 内 setState 的反模式，
-  //   待专项逐个重构为 derive/reset 模式。
+  // 项目惯例：`_` 前缀表示"有意未用"（占位/解构/预留），允许保留。
+  // （no-explicit-any / react-hooks/set-state-in-effect 的债务已清理，
+  //  恢复各 preset 的默认严格级别；lint 链另以 --max-warnings=0 阻断一切新告警。）
   {
     rules: {
-      "@typescript-eslint/no-explicit-any": "warn",
-      // 项目惯例：`_` 前缀表示"有意未用"（占位/解构/预留），允许保留。
       "@typescript-eslint/no-unused-vars": [
         "error",
         {
@@ -80,12 +77,6 @@ export default defineConfig([
           caughtErrorsIgnorePattern: "^_"
         }
       ]
-    }
-  },
-  {
-    files: webFiles,
-    rules: {
-      "react-hooks/set-state-in-effect": "warn"
     }
   }
 ]);
