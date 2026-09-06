@@ -36,6 +36,21 @@ else
   echo "  ⚠️  SkillSpector install failed — security scans may fall back to built-in rules"
 fi
 
+# Review provider preflight (SkillSpector / HaluCatch python+imports, VT key).
+# Production (ON_DEV=false) fails fast; dev warns unless REVIEW_DEPS_STRICT=true.
+echo "[1] Verifying review providers..."
+if node "$REPO_ROOT/scripts/verify-review-deps.mjs"; then
+  echo "  ✅ Review providers ready"
+else
+  if [ "$ON_DEV" = "true" ] && [ "${REVIEW_DEPS_STRICT:-false}" != "true" ]; then
+    echo "  ⚠️  Review providers are not fully ready — dev mode continues."
+    echo "      Fix or disable providers before publishing (npm run verify:review-deps)."
+  else
+    echo "  ❌ Review providers are required here (ON_DEV=false or REVIEW_DEPS_STRICT=true). Aborting."
+    exit 1
+  fi
+fi
+
 if [ "$ON_DEV" = "true" ]; then
   # ------------------------------------------------------------------ #
   # Development: publish the demo Skill as the seeded alice account.   #
