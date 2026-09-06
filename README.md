@@ -109,6 +109,7 @@ npm run test:e2e       # Playwright 浏览器端到端测试（e2e/site.e2e.ts�
 ## 目录
 
 - `docs/architecture.md`：架构设计。
+- `docs/DEV.md`：**开发规则**（验证门槛、ESLint 零告警约定、提交纪律），协作前必读。
 - `docs/progress-summary.md`：当前进度与限制。
 - `docs/platform-integration.md`：独立部署与子路径嵌入。
 - `docs/cli-design.md`：skillnav CLI 设计。
@@ -163,7 +164,7 @@ git config core.fileMode false
 
 提交规范：一个 commit 做一件事，message 清晰即可。
 
-改代码后建议验证：`npm run typecheck` → `npm run test` → `npm run skillnav:test`（改 CLI 时）→ `npm run test:e2e`（改 Web 路由/UI 时）。
+开发规则与验证门槛见 **[docs/DEV.md](docs/DEV.md)**（必读）。简要版：提交前 `npm run lint` 全绿（含 `--max-warnings=0`，零告警容忍）；改 Web 页面另跑 `npm run build:web`；改核心逻辑加 `npm run test`；改 CLI 加 ruff/mypy/pytest。
 
 Maintainers: [@chrismoray](https://github.com/chrismoray) [@JShiu0915](https://github.com/JShiu0915)
 
