@@ -60,3 +60,7 @@ packages/MailManager/__pycache__/
 examples/bench-*/
 examples/bench-*.zip
 
+# Python bytecode cache (was accidentally committed before)
+__pycache__/
+*.pyc
+
