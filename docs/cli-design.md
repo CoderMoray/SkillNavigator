@@ -5,7 +5,7 @@
 
 ## 1. 背景与定位
 
-Skill 管理平台（MonoSkillNavigator）对外提供 Web UI 与 HTTP API。`skillnav` 是平台的**官方命令行客户端**，面向开发者与 Agent：
+Skill 管理平台（SkillNavigator）对外提供 Web UI 与 HTTP API。`skillnav` 是平台的**官方命令行客户端**，面向开发者与 Agent：
 
 - **纯 API 客户端**：所有审查（SkillSpector 安全扫描）、评估（HaluCatch 质量评估）均在服务端同步执行，CLI 不包含任何本地审查逻辑。
 - **职责边界**：鉴权、上传发布、查询状态、获取安全/质量报告、搜索、下载、社区交互（评分/Issue/贡献者）。
@@ -16,7 +16,7 @@ Skill 管理平台（MonoSkillNavigator）对外提供 Web UI 与 HTTP API。`sk
 | 项 | 值 |
 |---|---|
 | 包名 / 命令名 | `skillnav`（PyPI 未占用，2026-08-19 确认；npm 亦可用） |
-| 技术栈 | Python ≥ 3.9，CLI 框架：typer（正式版）/ argparse（占位壳） |
+| 技术栈 | Python ≥ 3.9，CLI 框架：typer |
 | 安装 | `pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/` |
 | 环境变量前缀 | `SKILLNAV_` |
 
@@ -54,7 +54,7 @@ Skill 管理平台（MonoSkillNavigator）对外提供 Web UI 与 HTTP API。`sk
       "identity": { "username": "alice", "userId": 1 }
     },
     "corp": {
-      "registry": "https://aaa.bbb.com/MonoSkillNavigator/api"
+      "registry": "https://aaa.bbb.com/SkillNavigator/api"
     }
   }
 }
@@ -188,10 +188,10 @@ skillnav
 
 ## 9. 版本与里程碑
 
-- `0.0.1`（已发布）：PyPI 占位壳，可安装、`skillnav --version`、`--help`。
-- `0.1.0`：平台配置（config add/use/list/test）+ 登录与身份（login/logout/whoami）+ 检索（search/top/info/status）。
-- `0.2.0`：发布流（publish/--dry-run）+ report 完整展示。
-- `0.3.0`：分发（download/install）+ 社区（rate/issue/issues/add-contributor）。
+- `0.0.1` ✅：PyPI 占位壳，可安装、`skillnav --version`、`--help`。
+- `0.1.0` ✅：平台配置（config add/use/list/test）+ 登录与身份（login/logout/whoami）+ 检索（search/top/info/status）。
+- `0.2.0` ✅：发布流（publish/--dry-run）+ report 完整展示。
+- `0.3.0` ✅：分发（download/install）+ 社区（rate/issue/issues/add-contributor）；当前版本 `0.3.1`（已发布）。
 - `1.0.0`：冻结命令集；错误处理与帮助文档 polish；`apps/cli` TS 版下线。（`--json` 已覆盖全部 22 个子命令。）
 
 ## 10. 待定事项

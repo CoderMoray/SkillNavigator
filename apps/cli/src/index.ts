@@ -14,7 +14,7 @@ import {
 
 const defaultRegistry = process.env.SKILL_REGISTRY_URL ?? "http://127.0.0.1:3000";
 
-/** Build a registry URL preserving any base path prefix (e.g. "/MonoSkillNavigator/api"). */
+/** Build a registry URL preserving any base path prefix (e.g. "/SkillNavigator/api"). */
 function registryUrl(registry: string, path: string): URL {
   return new URL(path.replace(/^\/+/, ""), `${registry.replace(/\/+$/, "")}/`);
 }

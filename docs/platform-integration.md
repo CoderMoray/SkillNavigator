@@ -10,14 +10,14 @@
 | 独立部署 | `https://skillnav.example.com/` | `https://api.skillnav.example.com` | 平台自身独立运营 |
 | 嵌入部署 | `https://<host>/{brand}/` | `https://<host>/{brand}/api` | 作为某个已有平台的子页面 |
 
-`{brand}` 由仓库根 `brand.yaml` 的 `brand` 字段定义，当前为 `MonoSkillNavigator`。
+`{brand}` 前缀由构建时的 `NEXT_PUBLIC_BASE_PATH` 环境变量决定（如 `/SkillNavigator`）；页面显示名由 `BRAND_NAME` 环境变量注入（默认 `SkillNavigator`，见 `apps/web/lib/brand-name.ts`）。两者独立配置：URL 前缀只影响嵌入路径，显示名只影响界面文案。
 
 ## 2. 嵌入部署架构
 
 ```
 用户浏览器
-  ├─ https://aaa.bbb.com/MonoSkillNavigator/        → Next.js Web（basePath="/MonoSkillNavigator"）
-  └─ https://aaa.bbb.com/MonoSkillNavigator/api/*   → Nginx → 127.0.0.1:3000/*（剥前缀后转发 Fastify）
+  ├─ https://aaa.bbb.com/SkillNavigator/        → Next.js Web（basePath="/SkillNavigator"）
+  └─ https://aaa.bbb.com/SkillNavigator/api/*   → Nginx → 127.0.0.1:3000/*（剥前缀后转发 Fastify）
 ```
 
 ### 2.1 Web：环境变量驱动的 basePath
@@ -44,7 +44,7 @@ export default nextConfig;
 npm run build:web
 
 # 嵌入部署：指定子路径前缀
-NEXT_PUBLIC_BASE_PATH=/MonoSkillNavigator npm run build:web
+NEXT_PUBLIC_BASE_PATH=/SkillNavigator npm run build:web
 ```
 
 - 组件内 `<Link href="/skills">`、`next/image`、`next/link` 会自动带上 basePath，**业务代码无需改动**。
@@ -55,8 +55,8 @@ NEXT_PUBLIC_BASE_PATH=/MonoSkillNavigator npm run build:web
 Fastify 所有路由注册在**根路径**（`/auth/*`、`/skills/*`、`/reviews/*`、`/leaderboard`、`/users/*`、`/health`）。嵌入部署时外部请求带前缀，由反向代理剥掉：
 
 ```nginx
-location /MonoSkillNavigator/api/ {
-    proxy_pass http://127.0.0.1:3000/;   # 末尾 / 表示把 /MonoSkillNavigator/api/xxx → /xxx
+location /SkillNavigator/api/ {
+    proxy_pass http://127.0.0.1:3000/;   # 末尾 / 表示把 /SkillNavigator/api/xxx → /xxx
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     client_max_body_size 50m;             # 发布上传 zip 用，按需调整
@@ -79,7 +79,7 @@ location /MonoSkillNavigator/api/ {
 
 ```bash
 # 1. 构建 Web（嵌入模式：注入 basePath；独立部署：不设该变量）
-NEXT_PUBLIC_BASE_PATH=/MonoSkillNavigator npm run build:web
+NEXT_PUBLIC_BASE_PATH=/SkillNavigator npm run build:web
 
 # 2. 启动 Web（产物为构建时注入的 basePath 对应的模式）
 npm run start:web        # 即 next start --port 3001
@@ -191,7 +191,7 @@ CLI 永远只连 **API base URL（registry）**，不感知模式，差异仅是
 skillnav config add prod --registry https://api.skillnav.example.com
 
 # 嵌入平台
-skillnav config add corp --registry https://aaa.bbb.com/MonoSkillNavigator/api
+skillnav config add corp --registry https://aaa.bbb.com/SkillNavigator/api
 
 skillnav config use prod   # 切换默认平台
 skillnav publish ./demo    # 发布到当前默认平台
@@ -199,10 +199,11 @@ skillnav publish ./demo    # 发布到当前默认平台
 
 > **重要**：CLI 内部 URL 拼接必须使用**字符串拼接**（`f"{registry}/skills/publish"`），不要用 `urljoin`/`new URL()`——后者会丢弃路径前缀，导致带前缀的嵌入 API 请求 404。
 
-## 5. 品牌联动
+## 6. 品牌与路径联动
 
-- `{brand}` 同时驱动：页面 URL 前缀（Web basePath，构建时由 `NEXT_PUBLIC_BASE_PATH` 注入）、API 前缀（代理 location）、CLI 文档示例、邮件署名。
-- **品牌变更流程**：改 `brand.yaml` → 重新构建 Web（设 `NEXT_PUBLIC_BASE_PATH=/{brand}`）并同步改 Nginx location → 通知所有已配置 profile 的 CLI 用户更新 registry。
+- 页面 URL 前缀：Web basePath，构建时由 `NEXT_PUBLIC_BASE_PATH` 注入（嵌入部署时与 Nginx location 保持一致）。
+- 界面显示名：`BRAND_NAME` / `NEXT_PUBLIC_BRAND_NAME` 环境变量注入，默认 `SkillNavigator`；用户可见文案统一经 `{{brand_name}}` 占位符替换，**不要硬编码品牌串**。
+- **变更流程**：改显示名 → 设 `BRAND_NAME` 重新构建 Web；改 URL 前缀 → 设 `NEXT_PUBLIC_BASE_PATH=/{brand}` 重新构建 Web 并同步改 Nginx location → 通知所有已配置 profile 的 CLI 用户更新 registry。
 
 ## 7. 相关文档
 

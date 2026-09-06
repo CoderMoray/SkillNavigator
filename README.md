@@ -1,6 +1,6 @@
 # Skill 管理平台
 
-可信 Skill 注册、审查、评分和分发平台。已交付 API、Web UI、Python CLI（skillnav）、Worker、静态审查引擎与站内文档；详细进度见 [docs/progress-summary.md](./docs/progress-summary.md)。
+可信 Skill 注册、审查、评分和分发平台。已交付 API、Web UI、Python CLI（skillnav）、Worker、静态审查引擎与站内文档；详细进度与路线见 [docs/roadmap.md](./docs/roadmap.md)。
 
 ## 当前能力
 
@@ -110,7 +110,7 @@ npm run test:e2e       # Playwright 浏览器端到端测试（e2e/site.e2e.ts�
 
 - `docs/architecture.md`：架构设计。
 - `docs/DEV.md`：**开发规则**（验证门槛、ESLint 零告警约定、提交纪律），协作前必读。
-- `docs/progress-summary.md`：当前进度与限制。
+- `docs/roadmap.md`：路线图、进度与待办（唯一事实源）。
 - `docs/platform-integration.md`：独立部署与子路径嵌入。
 - `docs/cli-design.md`：skillnav CLI 设计。
 - `docs/rules/skill-spec.md`：Skill 包规范。
@@ -172,6 +172,6 @@ Maintainers: [@chrismoray](https://github.com/chrismoray) [@JShiu0915](https://g
 
 - 将 Worker 替换为 Redis/BullMQ 队列消费者。
 - 默认下载指向「最新通过审查」版本，而非 latest 上传版本。
-- skillnav 1.0.0 稳定化；`brand.yaml` 自动同步到 Web/邮件/CLI。
+- skillnav 1.0.0 稳定化；品牌名（BRAND_NAME）同步覆盖邮件与 CLI 文案。
 - 在隔离队列 Worker 中加入需要实际执行 Agent 的动态评估。
 - 增加 Web 管理台、MCP Server、CI/CD 插件和多源同步。

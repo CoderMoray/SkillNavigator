@@ -14,7 +14,7 @@
 ```text
 apps/
   api/       Fastify HTTP API
-  cli/       Commander CLI
+  cli/       内部 Commander CLI（逐步由 skillnav 取代）
   worker/    批量重审/评估 Worker
   web/       Next.js Web UI（端口 3001）
 packages/
@@ -22,6 +22,10 @@ packages/
   review-engine/  静态风险审查与评分
   evaluator/      tests/*.json 功能性评估
   storage/        PostgreSQL 注册表 + MinIO artifact
+cli-py/      对外 Python CLI skillnav（PyPI 分发）
+tests/       vitest 单元/集成测试 + skillnav pytest
+scripts/     开发/运维脚本（setup、smoke 编排等）
+e2e/         Playwright 端到端测试
 docs/
   rules/          Skill 规范与审查规则
 examples/
@@ -46,9 +50,12 @@ npm install             # 安装依赖
 npm run dev             # 同时启动前后端（热重载）
 npm run setup           # 安装 SkillSpector（PyPI 或 GitHub）并写入种子数据
 npm run setup:skillspector  # 仅安装 SkillSpector Python 依赖
-npm run test            # 8 个 API 烟雾测试
-npm run typecheck       # TypeScript 编译检查
+npm run lint            # root tsc + web tsc + eslint（--max-warnings=0，零告警门槛）
+npm run test            # vitest 单元/集成测试（smoke 需 API 在跑；编排版用 test:smoke）
+npm run test:smoke      # 自动拉起 dev API 跑 tests/smoke.test.ts
 npm run build:web       # 构建 Web；嵌入子路径时：NEXT_PUBLIC_BASE_PATH=/xxx npm run build:web
+npm run skillnav:test   # skillnav CLI pytest（tests/skillnav/）
+npm run skillnav:lint   # skillnav ruff + mypy
 npm run infra:up        # Docker 备选（PostgreSQL + MinIO）
 
 # 改表结构
@@ -69,8 +76,9 @@ npx drizzle-kit migrate    # 执行迁移
 - 新发布的 Skill 必须提供显式 `slug`。
 - 改表结构必须走 Drizzle 迁移流程：改 `schema/*.ts` → `generate` → `migrate`。
 - 修改 API 路由、响应或标识语义后，更新 CLI、Web 路由和 README。
-- 改代码后验证：
- 1. `npm run typecheck` — TypeScript 编译检查，零报错
- 2. `npm run test` — API 烟雾 + 单元测试
- 3. `npm run skillnav:test` — skillnav CLI pytest（`tests/skillnav/`，集成测试需本地 API）
+- 改代码后验证（各改动范围的完整门槛见 [docs/DEV.md](docs/DEV.md)）：
+ 1. `npm run lint` — tsc（root + web）+ eslint，零告警（`--max-warnings=0`）
+ 2. `npm run test` — vitest 单元/集成测试（改核心逻辑时）
+ 3. 改 `apps/web/app/**` 页面：加跑 `npm run build:web`（web 侧最终门槛）
+ 4. 改 `cli-py/**`：`npm run skillnav:lint` + `npm run skillnav:test`
 - 不要提交 `.env`、凭证、token、数据库备份或 MinIO 导出文件。

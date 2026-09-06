@@ -15,7 +15,7 @@
 ```text
 apps/
   api/       Fastify HTTP API（端口 3000）
-  cli/       Commander CLI
+  cli/       内部 Commander CLI（逐步由 skillnav 取代）
   worker/    批量重审/评估 Worker
   web/       Next.js Web UI（端口 3001）
 packages/
@@ -23,6 +23,10 @@ packages/
   review-engine/  静态风险审查与评分
   evaluator/      tests/*.json 功能性评估 + HaluCatch 适配
   storage/        PostgreSQL 注册表 + MinIO artifact
+cli-py/      对外 Python CLI skillnav（PyPI 分发）
+tests/       vitest 单元/集成测试 + skillnav pytest
+scripts/     开发/运维脚本（setup、smoke 编排等）
+e2e/         Playwright 端到端测试
 docs/
   rules/          Skill 规范与审查规则
 examples/
@@ -235,7 +239,7 @@ Review 扩展列（近期）：
 
 | 路由                                          | 功能              |
 | ------------------------------------------- | --------------- |
-| `/auth/*`                                   | 注册、登录、登出、当前用户   |
+| `/auth/*`                                   | 注册、登录、登出、当前用户、改密、忘记/重置密码、邮箱验证、API Keys |
 | `/skills`                                   | 列表、搜索、发布        |
 | `/skills/:slug`                             | 详情、更新、删除（移入回收站） |
 | `/skills/:slug/download`                    | 下载 ZIP          |
@@ -243,8 +247,10 @@ Review 扩展列（近期）：
 | `/skills/:slug/versions/:version/unpublish` | 版本级下架           |
 | `/skills/:slug/purge`                       | 永久删除（回收站内）      |
 | `/skills/:slug/bookmark`                    | 书签              |
+| `/skills/:slug/contributors`、`/issues`、`/ratings` | 社区协作 |
+| `/leaderboard`、`/creators`                  | 榜单、创作者主页        |
 | `/users/me/recycle-bin`                     | 回收站列表           |
-| `/reviews/rerun`                            | Worker 重审       |
+| `/reviews/run`、`/reviews/rebuild`           | Worker 重审 / 重建审查 |
 
 
 
@@ -267,7 +273,7 @@ Review 扩展列（近期）：
 | 输入       | ZIP/文件夹静态读取，不执行 Skill 脚本                          |
 | 审查       | 平台规则 + SkillSpector + VirusTotal + HaluCatch，全为静态 |
 | 第三方      | VT/SkillSpector/HaluCatch 为外部依赖；API key 仅存服务端     |
-| 认证       | Session/cookie；发布、删除、书签等需登录                       |
+| 认证       | Bearer token（Web 存 localStorage）；API Key（`sk_`，供 CLI 等外部客户端）；发布、删除、书签等需登录 |
 | 回收站      | 软删除 + 定时 purge（默认 30 天）                           |
 | Artifact | MinIO 预签名或 API 代理下载                               |
 
@@ -290,7 +296,12 @@ Review 扩展列（近期）：
 
 ## 9. 验证
 
+分层验证门槛与各改动范围应执行的命令，见 [DEV.md](./DEV.md)。速查：
+
 ```bash
-npm run typecheck   # TypeScript 零报错
-npm run test        # API 烟雾测试 + 单元测试（skill-spec、VT、HaluCatch 等）
+npm run lint        # root tsc + web tsc + eslint（--max-warnings=0，零告警）
+npm run test        # vitest 单元/集成（smoke 需 API 在跑；编排版用 test:smoke）
+npm run test:smoke  # 自动拉起 dev API 跑 tests/smoke.test.ts
+npm run build:web   # next build：web 侧最终类型与编译门槛
+npm run test:e2e    # Playwright，自动拉起 API + Web
 ```

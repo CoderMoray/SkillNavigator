@@ -18,7 +18,7 @@ import { buildSkillDownloadFileName, parseSkillDownloadVersion } from "@skill-pl
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:3000";
 
 /**
- * Build an API URL that preserves the base path prefix (e.g. "/MonoSkillNavigator/api").
+ * Build an API URL that preserves the base path prefix (e.g. "/SkillNavigator/api").
  * Using new URL(path, base) with an absolute path would override the base path entirely;
  * appending "/" makes the reference relative so the prefix survives.
  */
