@@ -38,12 +38,15 @@ export default function SkillsPage() {
     [selectedCategories]
   );
 
-  useEffect(() => {
-    const url = new URL(window.location.href);
+  // 首次渲染时从 URL 的 query/category 初始化搜索与分类筛选。
+  // 用渲染期一次性重置（guard 在 urlSeeded 标记上）替代挂载后 effect。
+  const [urlSeeded, setUrlSeeded] = useState(false);
+  if (!urlSeeded) {
+    const url = new URL(typeof window === "undefined" ? "http://localhost/" : window.location.href);
     setQuery(url.searchParams.get("query") ?? "");
-    const urlCategories = url.searchParams.getAll("category");
-    setSelectedCategories(normalizeSkillCategoryFilters(urlCategories));
-  }, []);
+    setSelectedCategories(normalizeSkillCategoryFilters(url.searchParams.getAll("category")));
+    setUrlSeeded(true);
+  }
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {

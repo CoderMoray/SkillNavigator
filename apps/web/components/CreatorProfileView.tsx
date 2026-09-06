@@ -51,6 +51,15 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
   const [skillQuery, setSkillQuery] = useState("");
   const [skillSort, setSkillSort] = useState<ProfileSkillSort>("recent");
   const isOwner = Boolean(viewer && normalizeHandle(viewer.username) === creator.handle);
+  // 首次以 owner 身份渲染时，从 URL ?tab= 初始化激活页签。
+  // 用渲染期状态重置（guard 在 urlTabApplied 标记上）替代挂载后 effect。
+  const [urlTabAppliedFor, setUrlTabAppliedFor] = useState<boolean | null>(null);
+  if (urlTabAppliedFor !== isOwner && isOwner) {
+    const params = new URLSearchParams(typeof window === "undefined" ? "" : window.location.search);
+    const urlTab = params.get("tab");
+    setActiveTab(urlTab === "recycle" || urlTab === "bookmarks" ? urlTab : "skills");
+    setUrlTabAppliedFor(isOwner);
+  }
   const visibleSkills = useMemo(
     () => listProfileSkills(creator.skills, skillQuery, skillSort),
     [creator.skills, skillQuery, skillSort]
@@ -70,45 +79,34 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
     if (!isOwner) {
       return;
     }
-    const params = new URLSearchParams(window.location.search);
-    const tab = params.get("tab");
-    if (tab === "recycle") {
-      setActiveTab("recycle");
-    } else if (tab === "bookmarks") {
-      setActiveTab("bookmarks");
-    }
-  }, [isOwner]);
-
-  useEffect(() => {
-    if (!isOwner) {
-      setBookmarkItems([]);
-      return;
-    }
 
     let cancelled = false;
     const token = getAuthToken();
     if (!token) {
       return;
     }
+    const authToken: string = token;
 
-    setBookmarkLoading(true);
-    void getBookmarkedSkills(token)
-      .then((items) => {
+    // 状态写入放在 effect 调用的异步函数内，避免在 effect 主体同步 setState。
+    async function loadBookmarks() {
+      setBookmarkLoading(true);
+      try {
+        const items = await getBookmarkedSkills(authToken);
         if (!cancelled) {
           setBookmarkItems(items);
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         if (!cancelled) {
           setErrorToast(err instanceof Error ? err.message : "加载收藏失败");
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) {
           setBookmarkLoading(false);
         }
-      });
+      }
+    }
 
+    void loadBookmarks();
     return () => {
       cancelled = true;
     };
@@ -116,7 +114,6 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
 
   useEffect(() => {
     if (!isOwner) {
-      setRecycleItems([]);
       return;
     }
 
@@ -125,25 +122,28 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
     if (!token) {
       return;
     }
+    const authToken: string = token;
 
-    setRecycleLoading(true);
-    void getRecycleBin(token)
-      .then((items) => {
+    // 状态写入放在 effect 调用的异步函数内，避免在 effect 主体同步 setState。
+    async function loadRecycleBin() {
+      setRecycleLoading(true);
+      try {
+        const items = await getRecycleBin(authToken);
         if (!cancelled) {
           setRecycleItems(items);
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         if (!cancelled) {
           setErrorToast(err instanceof Error ? err.message : "加载回收站失败");
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) {
           setRecycleLoading(false);
         }
-      });
+      }
+    }
 
+    void loadRecycleBin();
     return () => {
       cancelled = true;
     };
