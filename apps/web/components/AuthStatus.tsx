@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ChevronDown, LogIn, LogOut, Monitor, Moon, PackagePlus, Settings, Sun, UserCircle } from "lucide-react";
 import { getCurrentUser, logoutUser } from "../lib/api";
 import { AUTH_TOKEN_CHANGED_EVENT, clearAuthToken, getAuthToken } from "../lib/auth-token";
@@ -12,11 +12,26 @@ type ThemeMode = "system" | "light" | "dark";
 
 const THEME_STORAGE_KEY = "skill-platform-theme";
 
+function readStoredTheme(): ThemeMode {
+  if (typeof window === "undefined") {
+    return "system";
+  }
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY) as ThemeMode | null;
+  return isThemeMode(stored) ? stored : "system";
+}
+
+function subscribeStoredTheme(onStoreChange: () => void): () => void {
+  window.addEventListener("storage", onStoreChange);
+  return () => window.removeEventListener("storage", onStoreChange);
+}
+
 export function AuthStatus() {
   const [user, setUser] = useState<PublicUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [theme, setTheme] = useState<ThemeMode>("system");
+  // 主题来源为 localStorage（SSR/hydration 前按“system”快照，挂载后订阅真实值），
+  // 用 useSyncExternalStore 取代“挂载后 effect 里 setTheme”的写法。
+  const theme = useSyncExternalStore(subscribeStoredTheme, readStoredTheme, () => "system" as ThemeMode);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,22 +70,19 @@ export function AuthStatus() {
   }, []);
 
   useEffect(() => {
-    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY) as ThemeMode | null;
-    const initialTheme = isThemeMode(storedTheme) ? storedTheme : "system";
-    setTheme(initialTheme);
-    applyTheme(initialTheme);
+    applyTheme(theme);
 
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     function handleSystemThemeChange() {
-      const currentTheme = window.localStorage.getItem(THEME_STORAGE_KEY) as ThemeMode | null;
-      if (!currentTheme || currentTheme === "system") {
+      // 未显式选择具体主题（仍跟随系统）时，跟随系统偏好重算实际主题。
+      if (theme === "system") {
         applyTheme("system");
       }
     }
 
     media.addEventListener("change", handleSystemThemeChange);
     return () => media.removeEventListener("change", handleSystemThemeChange);
-  }, []);
+  }, [theme]);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -109,8 +121,9 @@ export function AuthStatus() {
   }
 
   function handleThemeChange(nextTheme: ThemeMode) {
-    setTheme(nextTheme);
     window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+    // 通知同源订阅者（useSyncExternalStore）刷新主题。
+    window.dispatchEvent(new Event("storage"));
     applyTheme(nextTheme);
   }
 

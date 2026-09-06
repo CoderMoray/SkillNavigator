@@ -54,23 +54,22 @@ export function UsernameSuggestInput({
 
   useEffect(() => {
     const query = value.trim();
+    // 关闭或空查询时不需要清理状态：菜单是否展示由 open && value 派生，
+    // 陈旧 suggestions 在关闭状态下不可见，重新打开时会重新发起查询。
     if (!open || query.length === 0) {
-      setSuggestions([]);
-      setLoading(false);
-      setActiveIndex(-1);
       return;
     }
 
     const token = getAuthToken();
     if (!token) {
-      setSuggestions([]);
       return;
     }
 
     let cancelled = false;
-    setLoading(true);
 
+    // setState 只在异步回调（防抖定时器内）发生，避免在 effect 主体同步触发级联渲染。
     const timer = window.setTimeout(() => {
+      setLoading(true);
       void searchUsers(token, query)
         .then((items) => {
           if (cancelled) {

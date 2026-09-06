@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Copy } from "lucide-react";
 import { ErrorToast } from "../ErrorToast";
 import { SuccessToast } from "../SuccessToast";
@@ -12,16 +12,21 @@ const HAS_CONFIGURED_INSTALL_URL = Boolean(
     process.env.NEXT_PUBLIC_WEB_URL?.trim()
 );
 
+function subscribeOrigin(onStoreChange: () => void): () => void {
+  // origin 在页面生命周期内不变；订阅仅为满足 useSyncExternalStore 的契约。
+  window.addEventListener("popstate", onStoreChange);
+  return () => window.removeEventListener("popstate", onStoreChange);
+}
+
 export function HomeAgentInstallBar() {
-  const [prompt, setPrompt] = useState(() => resolveRegistryStoreInstallPrompt());
   const [copyState, setCopyState] = useState<"success" | "error" | null>(null);
 
-  useEffect(() => {
-    if (HAS_CONFIGURED_INSTALL_URL) {
-      return;
-    }
-    setPrompt(resolveRegistryStoreInstallPrompt(window.location.origin));
-  }, []);
+  // window.location.origin 在 SSR 首帧不可用：以空字符串为服务端快照，
+  // hydration 后自动拿到真实 origin（useSyncExternalStore），替代“挂载后 effect 里 setState”。
+  const origin = useSyncExternalStore(subscribeOrigin, () => window.location.origin, () => "");
+  const prompt = HAS_CONFIGURED_INSTALL_URL
+    ? resolveRegistryStoreInstallPrompt()
+    : resolveRegistryStoreInstallPrompt(origin || undefined);
 
   async function handleCopy() {
     try {
