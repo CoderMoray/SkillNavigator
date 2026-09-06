@@ -40,10 +40,6 @@ class SkillnavError(Exception):
     def from_hint(cls, hint: ErrorHint) -> SkillnavError:
         return cls(hint.summary, hint=hint)
 
-    @classmethod
-    def from_hint(cls, hint: ErrorHint) -> SkillnavError:
-        return cls(hint.summary, hint=hint)
-
 
 class AuthError(SkillnavError):
     exit_code = EXIT_AUTH

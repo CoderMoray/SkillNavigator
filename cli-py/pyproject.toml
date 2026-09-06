@@ -20,10 +20,30 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.9",
+    "mypy>=1.10",
+]
 
 [project.scripts]
 skillnav = "skillnav.cli:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+src = ["src"]
+
+[tool.ruff.lint]
+# 默认集（F 全部 + E4/E7/E9）；后续需要可扩展（I/UP/B 等）。
+select = ["E4", "E7", "E9", "F"]
+
+[tool.mypy]
+python_version = "3.9"
+check_untyped_defs = false
+warn_redundant_casts = true
+no_implicit_optional = true
+ignore_missing_imports = true
 
 [tool.setuptools.packages.find]
 where = ["src"]

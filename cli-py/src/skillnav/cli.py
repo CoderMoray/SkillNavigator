@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Annotated, Any, Optional
 
@@ -16,7 +15,7 @@ from skillnav.api import (
     request_bytes,
     request_json,
 )
-from skillnav.config import get_profile, load_config, save_config
+from skillnav.config import get_profile, load_config, resolve_profile_api_key, save_config
 from skillnav.contributors import resolve_contributor_id
 from skillnav.context import CliContext
 from skillnav.error_hints import (
@@ -42,15 +41,13 @@ from skillnav.output import (
     emit_json,
     print_leaderboard,
     print_report_version,
-    print_review,
     print_review_result,
     print_search_results,
     print_skill_info,
     print_skill_status,
-    print_virustotal_summary,
     unwrap_resource_id,
 )
-from skillnav.packages import extract_zip_to_directory, package_to_base64, resolve_user_path
+from skillnav.packages import extract_zip_to_directory, package_to_base64
 from skillnav.publish_metadata import build_publish_metadata, read_frontmatter_hints, resolve_package_path
 from skillnav.urls import join_registry_url, slug_path
 
@@ -133,7 +130,7 @@ def _version_callback(value: bool) -> None:
 
 
 @app.callback()
-def main(
+def cli_root(
     ctx: typer.Context,
     registry: Annotated[
         Optional[str], typer.Option("--registry", help="API base URL (overrides profile)")
@@ -813,6 +810,9 @@ def remove_contributor_cmd(
             )
             raise_for_api_status(status, skill_body)
             contributor_id = resolve_contributor_id(skill_body, username)
+
+        if contributor_id is None:
+            raise UsageError.from_hint(enrich_usage_error("no contributor id available to remove"))
 
         status, payload = request_json(
             "DELETE",

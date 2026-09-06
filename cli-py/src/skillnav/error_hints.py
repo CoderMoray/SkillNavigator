@@ -232,7 +232,7 @@ def enrich_api_error(raw: str, *, status: int, body: Any = None) -> ErrorHint:
             summary=f"Version {got} is not greater than latest {latest}",
             detail=f"New releases for '{slug}' must use semver strictly greater than {latest}.",
             next_steps=_steps(
-                f"Publish with a higher version: skillnav publish <package> --version <next-semver>",
+                "Publish with a higher version: skillnav publish <package> --version <next-semver>",
                 f"Inspect versions: skillnav status {slug}",
             ),
         )
