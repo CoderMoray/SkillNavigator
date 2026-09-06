@@ -45,6 +45,8 @@ function DocAnchor({ href, children, ...rest }: ComponentPropsWithoutRef<"a">) {
 function DocImage({ src, alt, ...rest }: ComponentPropsWithoutRef<"img">) {
   // React 19 types img.src as string | Blob | undefined; markdown sources are always strings.
   const resolved = resolveDocImageSrc(typeof src === "string" ? src : undefined);
+  // 文档图片可能是任意相对/远程 URL，next/image 需要 remotePatterns 白名单，故保留原生 img。
+  // eslint-disable-next-line @next/next/no-img-element
   return <img src={resolved} alt={alt} {...rest} />;
 }
 

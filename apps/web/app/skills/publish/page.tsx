@@ -413,7 +413,6 @@ function PublishSkillPageContent() {
     categories,
     displayName,
     canPublishToSkill,
-    existingSkillBySlug,
     isNewVersion,
     releaseTags,
     showPublishForm,

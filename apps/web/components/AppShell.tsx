@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -51,7 +52,7 @@ export function AppShell({ children, title = "概览" }: { children: ReactNode; 
     <div className="app-shell">
       <header className={`site-header${isScrolled ? " is-scrolled" : ""}`}>
         <Link className="brand" href="/">
-          <img
+          <Image
             alt={resolveBrandName()}
             className="brand-logo"
             decoding="async"

@@ -199,6 +199,9 @@ export function ApiKeysPanel() {
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
+    // closeCreateModal 每次渲染重建（依赖父级传入的表单 setter），列入 deps 只会让
+    // 监听器在每次渲染重挂，效果等价于当前仅以 createdSecret 为触发；此处豁免。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createModalOpen, createdSecret]);
 
   function openCreateModal() {
