@@ -634,6 +634,10 @@ export default function SkillDetailPage() {
 
   function handleVersionRepublishClick(version: string) {
     setErrorToast(null);
+    if (!skill) {
+      setErrorToast("Skill 数据尚未加载完成。");
+      return;
+    }
     const blockReason = getVersionRepublishBlockReason(skill, version);
     if (blockReason) {
       setErrorToast(skillRepublishBlockedMessage(blockReason));

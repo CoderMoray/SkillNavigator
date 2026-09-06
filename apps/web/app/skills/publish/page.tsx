@@ -405,7 +405,9 @@ function PublishSkillPageContent() {
     return getVersionConflictMessage(skillForVersionCheck, metadata.version, {
       hasStoredPackage: isNewVersion
         ? sourceSkill?.hasStoredPackage
-        : slugAvailability?.hasStoredPackage,
+        : slugAvailability?.status === "active"
+          ? slugAvailability.hasStoredPackage
+          : undefined,
     });
   }, [
     categories,
