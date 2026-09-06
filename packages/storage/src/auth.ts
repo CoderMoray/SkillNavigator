@@ -130,6 +130,8 @@ export interface AuthStore {
   changePassword(token: string, currentPassword: string, newPassword: string): Promise<PublicUser>;
   updateProfile(sessionToken: string, input: UpdateProfileInput): Promise<PublicUser>;
   deleteAccount(token: string, password: string): Promise<void>;
+  /** Promote a user to the admin role (idempotent). */
+  promoteToAdmin(userId: string): Promise<void>;
   createEmailVerificationToken(userId: string, expiresMs: number): Promise<string>;
   /**
    * 校验并消费邮箱验证 token。
@@ -691,6 +693,7 @@ abstract class JsonAuthStore implements AuthStore {
 
   protected abstract load(): Promise<AuthData>;
   protected abstract save(data: AuthData): Promise<void>;
+  abstract promoteToAdmin(userId: string): Promise<void>;
 }
 
 export class FileAuthStore extends JsonAuthStore {
@@ -711,6 +714,19 @@ export class FileAuthStore extends JsonAuthStore {
         return structuredClone(emptyAuthData);
       }
       throw error;
+    }
+  }
+
+  async promoteToAdmin(userId: string): Promise<void> {
+    const data = await this.load();
+    const user = data.users[userId];
+    if (!user) {
+      throw new Error("User not found");
+    }
+    if (user.role !== "admin") {
+      user.role = "admin";
+      user.updatedAt = new Date().toISOString();
+      await this.save(data);
     }
   }
 
@@ -1840,6 +1856,17 @@ export class PostgresAuthStore implements AuthStore {
     });
 
     return this.schemaReady;
+  }
+
+  async promoteToAdmin(userId: string): Promise<void> {
+    await this.ensureSchema();
+    const result = await this.pool.query(
+      `update platform_users set role = 'admin' where id = $1`,
+      [userId]
+    );
+    if (result.rowCount === 0) {
+      throw new Error("User not found");
+    }
   }
 }
 

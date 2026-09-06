@@ -161,7 +161,11 @@ function VerifyEmailContent() {
       router.replace("/login?notice=invalid_link");
       return;
     }
-    router.replace(outcome.target);
+    // 至此仅剩 success / used-self / invalid-signed-in 三个带 target 的 kind
+    //（isAutoKinds 已排除 pending 等），显式收窄让 TS 能推断 target 存在。
+    if (outcome.kind === "success" || outcome.kind === "used-self" || outcome.kind === "invalid-signed-in") {
+      router.replace(outcome.target);
+    }
   }, [outcome, countdown, router]);
 
   function handlePrimaryAction() {
