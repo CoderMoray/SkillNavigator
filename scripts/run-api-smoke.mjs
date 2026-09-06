@@ -34,9 +34,12 @@ async function waitForApi(timeoutMs) {
   return false;
 }
 
+// smoke 面向无 SMTP 的本地环境：关闭注册邮箱验证（用户创建即自动验证），
+// 否则注册的用户永远无法登录，测试只会得到一串 email_not_verified。
 const api = spawn("npm", ["run", "dev:api"], {
   cwd: root,
-  stdio: "ignore"
+  stdio: "ignore",
+  env: { ...process.env, REGISTRATION_EMAIL_VERIFICATION_REQUIRED: "false" }
 });
 
 let exitCode = 1;

@@ -16,7 +16,9 @@ export default defineConfig({
       command: "npm run dev:api",
       url: "http://127.0.0.1:3000/health",
       timeout: 60_000,
-      reuseExistingServer: true
+      reuseExistingServer: true,
+      // 同 smoke：e2e 不要求本机 SMTP，注册即自动验证。
+      env: { ...process.env, REGISTRATION_EMAIL_VERIFICATION_REQUIRED: "false" }
     },
     {
       command: "npm run dev:web",

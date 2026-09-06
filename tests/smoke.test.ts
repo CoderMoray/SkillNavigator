@@ -6,6 +6,78 @@ const API = "http://127.0.0.1:3000";
 
 let token = "";
 
+const DEMO_SLUG = "demo-skill";
+const SEED_USERNAME = "alice";
+const SEED_PASSWORD = "password123";
+
+/** 登录并返回 token；失败返回 null（不做硬断言，交给上层诊断）。 */
+async function apiLogin(username: string, password: string): Promise<string | null> {
+  const res = await fetch(`${API}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  if (res.status !== 200) {
+    return null;
+  }
+  const body = (await res.json()) as { token?: string };
+  return body.token ?? null;
+}
+
+/**
+ * 环境自检 + 幂等 seed：
+ * - demo-skill 已存在（setup 或历史 seed）→ 直接通过；
+ * - 不存在 → 尝试用 alice 现场发布 examples/demo-skill.zip；
+ * - 任一前置不满足 → 抛出带环境指引的清晰错误，而不是一串晦涩的 404/400。
+ */
+async function ensureDemoSkillReady(): Promise<void> {
+  const head = await fetch(`${API}/skills/${DEMO_SLUG}`);
+  if (head.ok) {
+    return;
+  }
+
+  const seedToken = await apiLogin(SEED_USERNAME, SEED_PASSWORD);
+  if (!seedToken) {
+    throw new Error(
+      `demo-skill 不存在且无法以 ${SEED_USERNAME} 登录以现场 seed。请检查 smoke 环境：` +
+        `(1) 先运行 npm run setup（需 API 运行并配好 SMTP/MinIO），或 ` +
+        `(2) 本地无 SMTP 时以 REGISTRATION_EMAIL_VERIFICATION_REQUIRED=false 启动 API。`
+    );
+  }
+
+  const fs = await import("node:fs");
+  const archiveBase64 = fs.readFileSync("examples/demo-skill.zip").toString("base64");
+  const res = await fetch(`${API}/skills/publish`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${seedToken}`,
+    },
+    body: JSON.stringify({ archiveBase64 }),
+  });
+  if (res.status === 409) {
+    return; // 并发重复 seed：demo-skill 刚被其它进程发布。
+  }
+  if (res.status !== 201 && res.status !== 202) {
+    const text = await res.text();
+    throw new Error(
+      `demo-skill 现场发布失败（HTTP ${res.status}）：${text.slice(0, 300)}\n` +
+        `常见原因：本地 MinIO 未运行（npm run infra:up）或 9000 端口被其它进程占用。`
+    );
+  }
+
+  // 发布走异步审查（202）：轮询直至 Skill 可见，避免后续用例立即 404。
+  const deadline = Date.now() + 90_000;
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const detail = await fetch(`${API}/skills/${DEMO_SLUG}`);
+    if (detail.ok) {
+      return;
+    }
+  }
+  throw new Error(`demo-skill 已提交发布，但 90s 内仍未可见（review 未完成）。`);
+}
+
 test("健康检查", async () => {
   const res = await fetch(`${API}/health`);
   expect(res.status).toBe(200);
@@ -57,29 +129,10 @@ test("无 token 搜索用户名应拒绝", async () => {
   expect(res.status).toBe(401);
 });
 
-test("发布 Demo Skill", async () => {
-  // 用之前 setup 创建的 alice 用户发布
-  const loginRes = await fetch(`${API}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: "alice", password: "password123" }),
-  });
-  const { token: aliceToken } = (await loginRes.json()) as { token: string };
-  expect(aliceToken).toBeTruthy();
-
-  const fs = await import("node:fs");
-  const zip = fs.readFileSync("examples/demo-skill.zip");
-  const archiveBase64 = zip.toString("base64");
-
-  const res = await fetch(`${API}/skills/publish`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${aliceToken}`,
-    },
-    body: JSON.stringify({ archiveBase64 }),
-  });
-  expect([200, 201, 202, 409]).toContain(res.status);
+test("Demo Skill 环境就绪（已存在 seed 或现场发布成功）", async () => {
+  await ensureDemoSkillReady();
+  const res = await fetch(`${API}/skills/${DEMO_SLUG}`);
+  expect(res.status).toBe(200);
 });
 
 test("搜索 Skill", async () => {
