@@ -91,11 +91,11 @@ export function PillSelect({
     };
   }, [open]);
 
-  useEffect(() => {
-    if (disabled) {
-      setOpen(false);
-    }
-  }, [disabled]);
+  // disabled 变为 true 时收起已打开的菜单。
+  // 用"渲染期重置派生状态"替代 useEffect（React 官方模式，行为等价且省一轮渲染）。
+  if (open && disabled) {
+    setOpen(false);
+  }
 
   const menu = open && !disabled ? (
     <div
