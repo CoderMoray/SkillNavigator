@@ -38,10 +38,16 @@ skillnav publish ./my-skill \
 | `--release-tag` | 可重复；首版至少 `latest` |
 | `--changelog` | 版本 changelog 文本 |
 | `--dry-run` | 调用 preview 接口，不写入数据库 |
+| `--wait` | 阻塞至审查结束再返回（默认仅上传并后台审查） |
 
-**流水线**：包校验 → SkillSpector → VirusTotal（若启用）→ HaluCatch（若启用）。全部成功才入库。
+## retry-publish — 重新审查已上传的包
 
-**失败**：`review_pipeline_incomplete` 表示版本**未保存**，可重试 publish。
+```bash
+skillnav retry-publish my-skill
+skillnav retry-publish my-skill --wait
+```
+
+对已暂存但审查失败或未完成的 Skill 重新跑审查，**无需重新上传**。
 
 ---
 
@@ -92,6 +98,7 @@ skillnav report my-skill --version 1.0.1
 | 缺 metadata | 补 frontmatter 或传 CLI flag；`--no-input` 下不能交互补全 |
 | slug 无权限 | 仅 owner/contributor 可发新版 |
 | 回收站 | Web 先恢复 Skill |
+| 重复上传同版本 | `pending_publish_use_retry` → `skillnav retry-publish <slug>` |
 | 限流 | `publish_rate_limited`，等待后重试 |
 
 ## 参考

@@ -79,7 +79,7 @@ test("发布 Demo Skill", async () => {
     },
     body: JSON.stringify({ archiveBase64 }),
   });
-  expect([200, 201, 409]).toContain(res.status);
+  expect([200, 201, 202, 409]).toContain(res.status);
 });
 
 test("搜索 Skill", async () => {
@@ -354,7 +354,7 @@ test("MinIO: 重新发布验证 artifact 存入对象存储", async () => {
     body: JSON.stringify({ archiveBase64 }),
   });
   // 0.1.0 已存在→409，MinIO server 问题→500，都合理
-  expect([200, 201, 409, 500]).toContain(res.status);
+  expect([200, 201, 202, 409, 500]).toContain(res.status);
 });
 
 test("MinIO: 下载仍正常返回 zip", async () => {

@@ -134,7 +134,8 @@ skillnav status <slug> / report <slug>
 | `not logged in` | `skillnav login --api-key sk_…` 或 `SKILLNAV_API_KEY` |
 | `Only skill contributors can publish` | 换 slug 或让 owner 在 Web 添加 contributor |
 | `skill_in_recycle_bin` | Web 个人中心回收站先恢复 |
-| `review_pipeline_incomplete` | 版本未入库，直接重试 `publish`（可不改版本号） |
+| `review_pipeline_incomplete` | 仅 `--wait` 同步发布时；用 `skillnav retry-publish <slug>` 重试 |
+| `pending_publish_use_retry` | 包已上传，用 `skillnav retry-publish <slug>`，勿重复 publish |
 | 分类报错 | 9 类之一：Automation、Developer Tools、Documentation、Productivity、Data & Analytics、Security、Design & Creative、Communication、Other |
 | 连接失败 | `skillnav config test`；registry 须为完整 API 根路径 |
 

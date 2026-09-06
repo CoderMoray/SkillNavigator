@@ -890,7 +890,7 @@ export function buildServer() {
         latestVersion: prepared.version,
       });
 
-      if (request.body.async) {
+      if (request.body.async !== false) {
         void runBackgroundPublishReview(store, prepared, user.id, user.username, changelog).catch((error) => {
           app.log.error(
             { err: error, slug: prepared.slug, version: prepared.version },

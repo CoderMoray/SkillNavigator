@@ -381,7 +381,7 @@ export async function publishSkillArchive(
     body: JSON.stringify({
       archiveBase64,
       metadata,
-      async: options?.async ?? false,
+      async: options?.async ?? true,
       ...(changelog?.trim() ? { changelog: changelog.trim() } : {})
     })
   });

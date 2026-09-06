@@ -270,16 +270,26 @@ skillnav publish ./my-first-skill \
 skillnav publish ./my-first-skill
 ```
 
-CLI 会将目录打包为 ZIP，调用 `POST /skills/publish`，并在服务端运行 **完整审查流水线**：
+CLI 会将目录打包为 ZIP，调用 `POST /skills/publish`（**默认上传后立即返回 202**，审查在服务端后台进行）：
+
+```bash
+skillnav publish ./my-first-skill          # 上传 + 后台审查
+skillnav publish ./my-first-skill --wait   # 阻塞至审查结束（旧行为）
+skillnav status my-first-skill             # 查看审查进度
+```
+
+阻塞至审查结束（`--wait`）时，服务端会同步跑完整流水线：
 
 1. 包格式校验  
 2. SkillSpector 静态安全扫描  
 3. VirusTotal 扫描（若平台已配置）  
 4. HaluCatch 五维质量评估（若平台已配置）  
 
-**仅当所有已启用环节均成功完成**，版本才会写入注册表。任一环节失败会返回 `review_pipeline_incomplete`，此时 Skill **尚未保存**，稍等或修复环境后重试即可。
+**默认（无 `--wait`）**：上传成功即返回 **202**，包已暂存；审查在后台进行。用 `skillnav status <slug>` 查看进度。审查失败时 Skill 标记为 `failed`，可用 `skillnav retry-publish <slug>` 重试，无需重新上传。
 
-发布成功后，CLI 会输出 slug、版本与 verdict 摘要；`author` 字段会自动写入当前登录用户名。
+**使用 `--wait` 时**：仅当所有已启用环节均成功完成，CLI 才以 **201** 返回完整 verdict；任一环节失败会返回 `review_pipeline_incomplete`（503），此时可 `skillnav retry-publish <slug>`。
+
+上传成功后，CLI 会提示 slug 与版本；`author` 字段会自动写入当前登录用户名。
 
 ---
 

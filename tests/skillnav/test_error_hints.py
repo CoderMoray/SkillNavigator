@@ -76,6 +76,11 @@ def test_auth_error_from_hint() -> None:
     assert exc.next_steps
 
 
+def test_enrich_api_error_pending_publish_use_retry() -> None:
+    hint = enrich_api_error("pending_publish_use_retry", status=409)
+    assert "retry-publish" in " ".join(hint.next_steps).casefold()
+
+
 def test_skillnav_error_from_hint() -> None:
     hint = enrich_api_error("review_pipeline_incomplete", status=503)
     exc = SkillnavError.from_hint(hint)

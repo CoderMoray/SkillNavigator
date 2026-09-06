@@ -119,9 +119,21 @@ def enrich_api_error(raw: str, *, status: int, body: Any = None) -> ErrorHint:
             summary="Review pipeline incomplete (503)",
             detail="SkillSpector, VirusTotal, or HaluCatch did not finish. The server marks this as retryable.",
             next_steps=_steps(
-                "Wait a few seconds and retry the same command.",
-                "Run a local dry-run first: skillnav publish <package> --dry-run",
+                "The package may already be saved — retry review: skillnav retry-publish <slug>",
+                "Wait a few seconds and retry, or check progress: skillnav status <slug>",
                 "If it persists, check API logs and review-engine dependencies (Python, SkillSpector, HaluCatch).",
+            ),
+        ),
+        "pending_publish_use_retry": ErrorHint(
+            summary="Package already uploaded — use retry-publish",
+            detail=(
+                "This slug@version has a stored package from a previous upload. "
+                "Re-uploading is blocked; run review again on the saved package."
+            ),
+            next_steps=_steps(
+                "Retry review: skillnav retry-publish <slug>",
+                "Inspect state: skillnav status <slug>",
+                "To upload changed files, bump the version in SKILL.md or pass --version.",
             ),
         ),
         "publish_rate_limited": ErrorHint(

@@ -446,6 +446,27 @@ def report_cmd(
 # --- publish ---
 
 
+def _print_publish_response(status: int, payload: dict[str, Any], *, waited: bool) -> None:
+    if status == 202 or payload.get("reviewStatus") == "reviewing":
+        typer.echo(
+            f"Uploaded {payload.get('name')} ({payload.get('slug')})@{payload.get('version')}"
+        )
+        if waited:
+            typer.echo("Review started (reviewStatus: reviewing).")
+        else:
+            typer.echo("Review started in the background (reviewStatus: reviewing).")
+        typer.echo(f"Check progress: skillnav status {payload.get('slug')}")
+        return
+
+    typer.echo(
+        f"Published {payload.get('name')} ({payload.get('slug')})@{payload.get('version')}"
+    )
+    typer.echo(f"Status: {payload.get('status')}")
+    typer.echo(f"Hash: {payload.get('contentHash')}")
+    if payload.get("review") or payload.get("evaluation"):
+        print_review_result(payload)
+
+
 @app.command("publish")
 def publish_cmd(
     package: Annotated[str, typer.Argument(help="Skill directory or .zip")],
@@ -468,8 +489,15 @@ def publish_cmd(
     ] = None,
     changelog: Annotated[Optional[str], typer.Option("--changelog", help="Changelog text")] = None,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview without publishing")] = False,
+    wait: Annotated[
+        bool,
+        typer.Option(
+            "--wait",
+            help="Wait for the full review pipeline to finish before returning (default: upload only, review in background)",
+        ),
+    ] = False,
 ) -> None:
-    """Publish a skill package to the registry."""
+    """Upload a skill package to the registry; review runs in the background unless --wait."""
     try:
         cli = _ctx()
         token = cli.require_token()
@@ -491,6 +519,8 @@ def publish_cmd(
         body: dict[str, Any] = {"archiveBase64": archive_base64, "metadata": metadata}
         if changelog:
             body["changelog"] = changelog
+        if not dry_run:
+            body["async"] = not wait
         path = "/skills/publish/preview" if dry_run else "/skills/publish"
         status, payload = request_json(
             method="POST",
@@ -515,13 +545,39 @@ def publish_cmd(
             if payload.get("entryPath"):
                 typer.echo(f"Entry: {payload['entryPath']}")
             return
-        typer.echo(
-            f"Published {payload.get('name')} ({payload.get('slug')})@{payload.get('version')}"
+        _print_publish_response(status, payload, waited=wait)
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
+@app.command("retry-publish")
+def retry_publish_cmd(
+    slug: Annotated[str, typer.Argument(help="Skill slug")],
+    wait: Annotated[
+        bool,
+        typer.Option(
+            "--wait",
+            help="Wait for the full review pipeline to finish before returning",
+        ),
+    ] = False,
+) -> None:
+    """Re-run review on the stored package after a failed or incomplete review."""
+    try:
+        cli = _ctx()
+        token = cli.require_token()
+        status, payload = request_json(
+            method="POST",
+            url=join_registry_url(cli.registry, f"/skills/{slug_path(slug)}/retry-publish"),
+            body={"async": not wait},
+            token=token,
         )
-        typer.echo(f"Status: {payload.get('status')}")
-        typer.echo(f"Hash: {payload.get('contentHash')}")
-        if payload.get("review") or payload.get("evaluation"):
-            print_review_result(payload)
+        if status >= 400:
+            hint = enrich_api_error(api_error_message(payload), status=status, body=payload)
+            raise SkillnavError(hint.summary, hint=hint)
+        if cli.json_output:
+            emit_json(payload)
+            return
+        _print_publish_response(status, payload, waited=wait)
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
 

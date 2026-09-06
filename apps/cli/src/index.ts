@@ -69,13 +69,15 @@ program
       slug: string;
       name: string;
       version: string;
-      status: string;
-      contentHash: string;
-      review: ReviewReport;
+      reviewStatus?: string;
+      status?: string;
+      contentHash?: string;
+      review?: ReviewReport;
       evaluation?: FunctionalEvaluationReport;
     }>(`${options.registry}/skills/publish`, {
       archiveBase64: archive.toString("base64"),
-      version: options.version
+      version: options.version,
+      async: true
     }, requireAuthToken(options.token));
 
     if (response.status >= 400) {
@@ -84,10 +86,18 @@ program
       return;
     }
 
+    if (response.status === 202 || response.body.reviewStatus === "reviewing") {
+      console.log(`Uploaded ${response.body.name} (${response.body.slug})@${response.body.version}`);
+      console.log("Review started in the background (reviewStatus: reviewing).");
+      return;
+    }
+
     console.log(`Published ${response.body.name} (${response.body.slug})@${response.body.version}`);
     console.log(`Status: ${response.body.status}`);
     console.log(`Hash: ${response.body.contentHash}`);
-    printReview(response.body.review);
+    if (response.body.review) {
+      printReview(response.body.review);
+    }
     if (response.body.evaluation) {
       printEvaluation(response.body.evaluation);
     }
