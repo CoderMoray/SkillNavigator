@@ -60,7 +60,7 @@ export function skillnavAgentInstallPrompt(): string {
     `  搜索：skillnav search <关键词>`,
     `  安装：${install}`,
     `  下载：${download}`,
-    `  发布：${publish}（先 skillnav review <包> 预审查）`,
+    `  发布：${publish}（可先 skillnav publish <包> --dry-run 预览）`,
     "  更多：skillnav <命令> --help",
     "",
     "【文档】",

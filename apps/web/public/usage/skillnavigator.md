@@ -102,8 +102,8 @@ skillnav install skillnav-skill --dir <skills 目录>
 ## 六、发布（用户明确要求时）
 
 ```bash
-skillnav review ./my-skill      # 远程预审查（不发布）
-skillnav publish ./my-skill     # 正式发布（须用户确认）
+skillnav publish ./my-skill --dry-run  # 预览 metadata（不发布）
+skillnav publish ./my-skill             # 正式发布（须用户确认）
 skillnav status <slug>          # 查看版本与 verdict 摘要
 skillnav report <slug>          # 完整安全/质量报告
 ```

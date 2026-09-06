@@ -20,7 +20,7 @@
     ↓
 AI 编写 Skill 包（SKILL.md + 可选资源）
     ↓
-skillnav review（可选预检）→ publish --dry-run → publish
+skillnav publish --dry-run → publish
     ↓
 skillnav status / report → 解读 verdict
     ↓
@@ -225,17 +225,9 @@ allowed-tools:
 
 ## 5. 发布前检查（推荐）
 
-在正式写入注册表之前，建议按顺序执行：
+在正式写入注册表之前，建议先执行发布预览：
 
-### 5.1 远程预审查（不发布）
-
-```bash
-skillnav review ./my-first-skill
-```
-
-服务端运行 SkillSpector 与 HaluCatch（与发布流水线一致的安全/质量分析），**不会** 创建版本记录。适合在本地改包阶段快速发现问题。
-
-### 5.2 发布预览（dry-run）
+### 5.1 发布预览（dry-run）
 
 ```bash
 skillnav publish ./my-first-skill --dry-run
@@ -356,7 +348,6 @@ skillnav publish ./my-first-skill --json --no-input ...
 4. 重新走发布流程：
 
 ```bash
-skillnav review ./my-first-skill
 skillnav publish ./my-first-skill --version 1.0.1 --release-tag latest
 skillnav report my-first-skill --version 1.0.1
 ```
@@ -401,7 +392,6 @@ skillnav search my-first
 | 连接检查 | `skillnav config test` |
 | 登录 | `skillnav login --api-key sk_…` |
 | 当前用户 | `skillnav whoami` |
-| 预审查 | `skillnav review ./my-skill` |
 | 预览发布 | `skillnav publish ./my-skill --dry-run` |
 | 正式发布 | `skillnav publish ./my-skill` |
 | 状态 | `skillnav status <slug>` |

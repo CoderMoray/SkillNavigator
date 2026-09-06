@@ -99,8 +99,6 @@ skillnav
 ```text
 确认 skillnav 已安装且已登录
     ↓
-skillnav review ./my-skill          # 可选：远程预审查
-    ↓
 skillnav publish ./my-skill --dry-run
     ↓
 skillnav publish ./my-skill [--version … --category …]

@@ -98,7 +98,6 @@ skillnav
 │  ├─ publish <dir|zip> [--version] [--display-name] [--slug] [--description]
 │  │                  [--category C ...] [--topic T ...] [--release-tag TAG ...]
 │  │                  [--changelog] [--dry-run] [--json]
-│  ├─ review   <dir|zip> [--version] [--json]  # 远程审查不发布 → POST /reviews/run（需登录）
 │  ├─ status   <slug> [--json]                 # 发布状态 + 各版本审查结论 → GET /skills/:slug
 │  └─ report   <slug> [--version] [--json]     # 安全/质量报告 → GET /skills/:slug/versions/:version
 ├─ 检索
@@ -129,12 +128,6 @@ skillnav
 - 成功（201）：打印 slug、version、status、contentHash，并按需展示 review / evaluation 摘要；`--json` 输出完整响应体。
 - 失败语义：`skill_in_recycle_bin` → 提示先恢复；`Only skill contributors can publish new versions` → 提示需要贡献者权限；`review_pipeline_incomplete`（503）→ 提示可重试。
 
-### `review`
-
-- 调用 `POST /reviews/run`（需登录），返回安全 + 质量报告。
-- 是"发布前先看报告"的路径：`skillnav review ./demo && skillnav publish ./demo`。
-- 人类可读输出与 `report` 一致：Verdict → SkillSpector（Security）→ VirusTotal（Security）→ HaluCatch（Quality）；若有 stage 失败则展示 Pipeline warnings。
-
 ### `report`
 
 - 取指定版本（默认最新已发布版本）的完整 review / evaluation。
@@ -154,7 +147,7 @@ skillnav
 
 **输出**：
 
-- 默认：人类可读；`review` / `report` / `publish` 成功后按 SkillSpector / VirusTotal / HaluCatch 分区展示。
+- 默认：人类可读；`report` / `publish` 成功后按 SkillSpector / VirusTotal / HaluCatch 分区展示。
 - `--json`：输出**服务端原始响应体**（不二次包装），便于脚本消费；本地命令（`config add` / `config use` / `login` / `download` 等）输出结构化 JSON。
 - 错误一律写 stderr。默认模式：`✗ skillnav: <summary>`，并附 `What happened` 与 numbered `Next steps`（面向 Agent 的可执行指引）。`--json` 模式：`{"error":"...","detail":"...","nextSteps":[...]}`（`detail` / `nextSteps` 可选）。
 
@@ -180,7 +173,6 @@ skillnav
 | config test | `GET /health` | 公开 |
 | publish | `POST /skills/publish` | Bearer |
 | publish --dry-run | `POST /skills/publish/preview` | Bearer |
-| review | `POST /reviews/run` | Bearer |
 | status / info | `GET /skills/:slug` | 视可见性 |
 | report | `GET /skills/:slug/versions/:version` | 视可见性 |
 | search | `GET /skills?query=` | 公开 |
@@ -196,7 +188,7 @@ skillnav
 
 - `0.0.1`（已发布）：PyPI 占位壳，可安装、`skillnav --version`、`--help`。
 - `0.1.0`：平台配置（config add/use/list/test）+ 登录与身份（login/logout/whoami）+ 检索（search/top/info/status）。
-- `0.2.0`：发布流（publish/--dry-run/review）+ report 完整展示。
+- `0.2.0`：发布流（publish/--dry-run）+ report 完整展示。
 - `0.3.0`：分发（download/install）+ 社区（rate/issue/issues/add-contributor）。
 - `1.0.0`：冻结命令集；错误处理与帮助文档 polish；`apps/cli` TS 版下线。（`--json` 已覆盖全部 22 个子命令。）
 

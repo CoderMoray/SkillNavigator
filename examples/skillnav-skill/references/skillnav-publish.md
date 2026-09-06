@@ -1,19 +1,8 @@
 # skillnav — 发布与审查
 
-上传 Skill 包、远程预审查、查看 verdict 与完整报告。
+上传 Skill 包、预览 metadata、发布并查看 verdict 与完整报告。
 
 > **前置**：`skillnav login` 或 `SKILLNAV_API_KEY`。
-
----
-
-## review — 远程预审查（不发布）
-
-```bash
-skillnav review ./my-skill
-skillnav review ./my-skill.zip --json
-```
-
-调用 `POST /reviews/run`，运行 SkillSpector + HaluCatch（与发布流水线一致），**不创建版本**。
 
 ---
 
@@ -23,7 +12,7 @@ skillnav review ./my-skill.zip --json
 # frontmatter 完整时
 skillnav publish ./my-skill
 
-# 预览（不落库）
+# 预览（不落库、不跑完整审查）
 skillnav publish ./my-skill --dry-run
 
 # 显式 metadata（自动化推荐）

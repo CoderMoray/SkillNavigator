@@ -21,7 +21,6 @@ skillnav config test
 skillnav login --api-key sk_...
 skillnav search demo
 skillnav info demo-skill
-skillnav review examples/demo-skill
 skillnav publish examples/demo-skill --dry-run
 skillnav download demo-skill -o /tmp/demo.zip
 skillnav update              # upgrade when PyPI has a newer release

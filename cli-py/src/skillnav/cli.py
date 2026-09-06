@@ -443,7 +443,7 @@ def report_cmd(
         _handle_error(exc)
 
 
-# --- publish / review ---
+# --- publish ---
 
 
 @app.command("publish")
@@ -520,34 +520,6 @@ def publish_cmd(
         )
         typer.echo(f"Status: {payload.get('status')}")
         typer.echo(f"Hash: {payload.get('contentHash')}")
-        if payload.get("review") or payload.get("evaluation"):
-            print_review_result(payload)
-    except Exception as exc:  # noqa: BLE001
-        _handle_error(exc)
-
-
-@app.command("review")
-def review_cmd(
-    package: Annotated[str, typer.Argument(help="Skill directory or .zip")],
-    version: Annotated[Optional[str], typer.Option("--version", help="Version label")] = None,
-) -> None:
-    """Run remote review without publishing."""
-    try:
-        cli = _ctx()
-        archive_base64 = package_to_base64(resolve_user_path(package))
-        body: dict[str, Any] = {"archiveBase64": archive_base64}
-        if version:
-            body["version"] = version
-        status, payload = request_json(
-            "POST",
-            join_registry_url(cli.registry, "/reviews/run"),
-            body=body,
-            token=cli.require_token(),
-        )
-        raise_for_api_status(status, payload)
-        if cli.json_output:
-            emit_json(payload)
-            return
         if payload.get("review") or payload.get("evaluation"):
             print_review_result(payload)
     except Exception as exc:  # noqa: BLE001

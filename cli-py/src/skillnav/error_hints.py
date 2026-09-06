@@ -25,7 +25,7 @@ def not_logged_in(*, profile: str | None = None) -> ErrorHint:
     return ErrorHint(
         summary=f"Not logged in (no API key on profile{profile_label})",
         detail=(
-            "Write commands (publish, review, download, install, rate, issue, contributors) "
+            "Write commands (publish, download, install, rate, issue, contributors) "
             "require a platform API key. None is configured for the active profile."
         ),
         next_steps=_steps(
