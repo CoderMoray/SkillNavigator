@@ -12,7 +12,18 @@ console.log("Registry worker: batch re-review of all skill versions (persists re
 
 const store = createRegistryStoreFromEnv();
 
-const reviewed = await store.reviewAll((snapshot, version) => reviewAndEvaluateSkillSnapshot(snapshot, version));
+const reviewed = await store.reviewAll(async (snapshot, version) => {
+  const result = await reviewAndEvaluateSkillSnapshot(snapshot, version);
+  if (result.failedStages.length > 0) {
+    // Do not persist half-complete reviews in a batch re-review: abort so the
+    // operator fixes the environment first.
+    const summary = result.failedStages
+      .map((failure) => `[${failure.stage}] ${failure.message}`)
+      .join("; ");
+    throw new Error(`review_pipeline_incomplete: ${summary}`);
+  }
+  return result;
+});
 
 console.log(`Done. Re-reviewed ${reviewed.length} version(s).\n`);
 for (const item of reviewed) {
