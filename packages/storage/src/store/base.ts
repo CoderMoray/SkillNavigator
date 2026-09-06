@@ -36,7 +36,6 @@ import { assertAssignableContributorRole } from "../contributors";
 import {
   createId,
   createOwnerContributor,
-  emptyRegistry,
   isSkillOwner,
   matchesContributorUser,
   normalizeCategoryFilters,

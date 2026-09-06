@@ -2,11 +2,9 @@ import {
   findSkillEntryFile,
   getSkillSlug,
   normalizeTools,
-  skillSnapshotToZipBuffer,
   type SkillSnapshot,
   validateSkillSnapshot
 } from "@skill-platform/skill-spec";
-import { createHash } from "node:crypto";
 import {
   evaluateSkillSnapshot,
   evaluateStaticTaskSet,
@@ -210,9 +208,7 @@ export async function reviewAndEvaluateSkillSnapshot(
     });
   }
 
-  let skillSpector: SkillSpectorScanSummary | undefined;
   let skillSpectorAvailable = false;
-  let virusTotal: VirusTotalScanSummary | undefined;
   const failedStages: ReviewStageFailure[] = [];
 
   let evaluation = evaluationOverride;
@@ -236,9 +232,9 @@ export async function reviewAndEvaluateSkillSnapshot(
     runVirusTotalReviewStep(snapshot)
   ]);
 
-  skillSpector = skillSpectorResult.skillSpector;
+  const skillSpector = skillSpectorResult.skillSpector;
   skillSpectorAvailable = skillSpectorResult.skillSpectorAvailable;
-  virusTotal = virusTotalResult.virusTotal;
+  const virusTotal = virusTotalResult.virusTotal;
   findings.push(...skillSpectorResult.findings, ...virusTotalResult.findings);
   for (const failure of [skillSpectorResult.failure, virusTotalResult.failure]) {
     if (failure) {
@@ -440,52 +436,6 @@ function calculateScores(
   };
 }
 
-const SKILLSPECTOR_FINDING_PREFIX = "skillspector-";
-const VIRUSTOTAL_FINDING_PREFIX = "virustotal-";
-const SKILLSPECTOR_UNAVAILABLE_FINDING_ID = "skillspector-unavailable";
-const VIRUSTOTAL_SCAN_FAILED_FINDING_ID = "virustotal-scan-failed";
-const REVIEW_HALUCATCH_UNAVAILABLE_FINDING_ID = "review-halucatch-unavailable";
-const MEDIUM_CONFIDENCE_REJECT_PERCENT = 90;
-
-function isHaluCatchEnabled(): boolean {
-  return process.env.HALUCATCH_ENABLED?.toLowerCase() !== "false";
-}
-
-function getHaluCatchStageFailure(
-  evaluation: FunctionalEvaluationReport
-): ReviewStageFailure | undefined {
-  if (!isHaluCatchEnabled()) {
-    return undefined;
-  }
-
-  const unavailableFinding = evaluation.findings.find((finding) => finding.id === "halucatch-unavailable");
-  if (unavailableFinding) {
-    return {
-      stage: "halucatch",
-      message: unavailableFinding.message
-    };
-  }
-
-  if (evaluation.provider !== "halucatch-adapter") {
-    return {
-      stage: "halucatch",
-      message: "HaluCatch reliability evaluation did not complete successfully for this publish."
-    };
-  }
-
-  const missingDimension = evaluation.findings.find((finding) =>
-    /^halucatch-(foundation|code|rules|guardrails|complexity)-missing$/.test(finding.id)
-  );
-  if (missingDimension) {
-    return {
-      stage: "halucatch",
-      message: missingDimension.message
-    };
-  }
-
-  return undefined;
-}
-
 export {
   calculateReviewVerdict,
   isSkillSpectorReviewFinding,
@@ -569,41 +519,6 @@ async function runVirusTotalReviewStep(snapshot: SkillSnapshot): Promise<{
       }
     };
   }
-}
-
-function createHaluCatchUnavailableReviewFinding(message?: string): ReviewFinding {
-  return {
-    id: REVIEW_HALUCATCH_UNAVAILABLE_FINDING_ID,
-    category: "reliability",
-    severity: "high",
-    title: "HaluCatch reliability evaluation unavailable",
-    message:
-      message ??
-      "HaluCatch reliability evaluation did not complete successfully for this publish.",
-    recommendation:
-      "Install Python 3.8+ and keep packages/halucatch-1.8.8 available, or set HALUCATCH_PYTHON before publishing."
-  };
-}
-
-function createFailedVirusTotalSummary(snapshot: SkillSnapshot, error: unknown): VirusTotalScanSummary {
-  let sha256 = "";
-  try {
-    sha256 = createHash("sha256").update(skillSnapshotToZipBuffer(snapshot)).digest("hex");
-  } catch {
-    sha256 = snapshot.contentHash;
-  }
-
-  return {
-    provider: "virustotal",
-    sha256,
-    status: "failed",
-    malicious: 0,
-    suspicious: 0,
-    harmless: 0,
-    undetected: 0,
-    totalEngines: 0,
-    error: formatVirusTotalError(error)
-  };
 }
 
 function truncateError(error: unknown): string {

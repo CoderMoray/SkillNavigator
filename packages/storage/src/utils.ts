@@ -1,18 +1,14 @@
 import type { ReviewVerdict } from "@skill-platform/review-engine";
-import type { ReviewReport } from "@skill-platform/review-engine";
 import type { SkillSnapshot } from "@skill-platform/skill-spec";
 import { compareSemver } from "@skill-platform/skill-spec/skill-format";
 import { isReviewPendingSkillStatus, type SkillReviewStatus } from "./review-status";
 import {
   type RegistryContributor,
   type RegistryData,
-  type RegistryIssue,
   type RegistryRating,
   type RegistrySkill,
-  type RegistryVersion,
   type SkillSearchResult,
   type PublishSnapshotOptions,
-  type LeaderboardSort,
 } from "./types";
 
 export const emptyRegistry: RegistryData = { skills: {} };

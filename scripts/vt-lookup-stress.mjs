@@ -9,7 +9,7 @@
  * (one SHA-256 id) vs per file inside a ZIP archive.
  */
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import { resolve } from "node:path";
 

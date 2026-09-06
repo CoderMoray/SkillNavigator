@@ -175,41 +175,6 @@ function isHaluCatchEnabled(): boolean {
   return process.env.HALUCATCH_ENABLED?.toLowerCase() !== "false";
 }
 
-function getHaluCatchStageFailure(
-  evaluation: FunctionalEvaluationReport
-): ReviewStageFailure | undefined {
-  if (!isHaluCatchEnabled()) {
-    return undefined;
-  }
-
-  const unavailableFinding = evaluation.findings.find((finding) => finding.id === "halucatch-unavailable");
-  if (unavailableFinding) {
-    return {
-      stage: "halucatch",
-      message: unavailableFinding.message,
-    };
-  }
-
-  if (evaluation.provider !== "halucatch-adapter") {
-    return {
-      stage: "halucatch",
-      message: "HaluCatch reliability evaluation did not complete successfully for this publish.",
-    };
-  }
-
-  const missingDimension = evaluation.findings.find((finding) =>
-    /^halucatch-(foundation|code|rules|guardrails|complexity)-missing$/.test(finding.id)
-  );
-  if (missingDimension) {
-    return {
-      stage: "halucatch",
-      message: missingDimension.message,
-    };
-  }
-
-  return undefined;
-}
-
 async function runHaluCatchStage(
   snapshot: SkillSnapshot,
   version: string,

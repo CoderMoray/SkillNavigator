@@ -1,5 +1,4 @@
 import { pgTable, text, integer, timestamp, uniqueIndex, real } from "drizzle-orm/pg-core";
-import { skillVersions } from "./skills";
 
 export const skillReviews = pgTable("skill_reviews", {
   skillSlug: text("skill_slug").notNull(),

@@ -228,6 +228,8 @@ function runProcess(command: string, args: string[], cwd: string): Promise<Proce
     let stderr = "";
     let settled = false;
     let timedOut = false;
+    // timeout 在下方 finish/取消闭包内被赋值（setTimeout），prefer-const 无法识别闭包内 reassign。
+    // eslint-disable-next-line prefer-const
     let timeout: NodeJS.Timeout | undefined;
 
     const finish = (callback: () => void) => {

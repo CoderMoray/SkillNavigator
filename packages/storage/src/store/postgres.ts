@@ -1,11 +1,9 @@
 import type { FunctionalEvaluationFinding, FunctionalEvaluationReport, FunctionalEvaluationTaskResult, HaluCatchReportBundle } from "@skill-platform/evaluator";
-import type { ReviewFinding, ReviewReport, ReviewVerdict } from "@skill-platform/review-engine";
+import type { ReviewReport } from "@skill-platform/review-engine";
 import {
   getSkillSlug,
   parseSkillMarkdown,
-  readSkillZipBuffer,
   findSkillEntryFile,
-  skillSnapshotToZipBuffer,
   type SkillFile,
   type SkillManifest,
   type SkillSnapshot
@@ -18,7 +16,6 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";
 import type {
   ArtifactDescriptor, ArtifactProvider, ArtifactStore,
-  ContributorRole, IssueSeverity, IssueStatus, IssueType,
   MarkSkillReviewStatusOptions,
   CommitReviewResultsOptions,
   PersistReviewStageResultsOptions,
@@ -26,8 +23,8 @@ import type {
   PublishSnapshotOptions,
   StagePendingPublishSnapshotOptions,
   PostgresRegistryStoreOptions,
-  RegistryContributor, RegistryData, RegistryIssue, RegistryRating,
-  RegistrySkill, RegistryVersion, SkillSearchResult, LeaderboardSort,
+  RegistryContributor, RegistryIssue, RegistryRating,
+  RegistrySkill, RegistryVersion, SkillSearchResult,
   RecycleBinSkill,
   SkillReviewFailureInfo,
   SkillReviewStatus,
@@ -1286,7 +1283,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         .where(eq(schema.skills.slug, slug));
     }
 
-    return (await this.getSkill(slug))?.versions[version]!;
+    return (await this.getSkill(slug))?.versions[version] as RegistryVersion;
   }
 
   async persistReviewStageResults(
@@ -1358,7 +1355,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       await replaceEvaluationDetails(tx, slug, version, evaluation);
     });
 
-    return (await this.getSkill(slug))?.versions[version]!;
+    return (await this.getSkill(slug))?.versions[version] as RegistryVersion;
   }
 
   async markSkillReviewStatus(
@@ -1896,7 +1893,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       }
     });
 
-    return (await this.getSkill(slug))?.versions[version]!;
+    return (await this.getSkill(slug))?.versions[version] as RegistryVersion;
   }
 
   async reviewAll(

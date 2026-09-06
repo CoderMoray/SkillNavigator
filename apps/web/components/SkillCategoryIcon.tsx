@@ -38,6 +38,8 @@ interface SkillCategoryIconProps {
 
 export function SkillCategoryIcon({ category, size = 14, className }: SkillCategoryIconProps) {
   const Icon = getSkillCategoryIcon(category);
+  // Icon 来自 module 级稳定映射（非 render 期创建组件），此处 JSX 动态渲染是刻意设计。
+  // eslint-disable-next-line react-hooks/static-components
   return <Icon aria-hidden="true" className={className} size={size} />;
 }
 

@@ -88,7 +88,7 @@ import {
 } from "../../../lib/skillspector-summary";
 import { averageHaluCatchRadarScores, type HaluCatchRadarScores } from "../../../lib/halucatch-scores";
 import { formatVirusTotalThreatVerdict, resolveVirusTotalEngineTotal } from "../../../lib/virustotal-summary";
-import type { PublicUser, RegistryContributor, RegistryIssue, RegistrySkill } from "../../../lib/types";
+import type { PublicUser, RegistryIssue, RegistrySkill } from "../../../lib/types";
 
 type DetailPanel =
   | "skill-md"

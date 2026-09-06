@@ -17,7 +17,10 @@ export function PublishNoticeToast({ notice, onClose }: PublishNoticeToastProps)
   const onCloseRef = useRef(onClose);
   const closedRef = useRef(false);
 
-  onCloseRef.current = onClose;
+  // render 期禁止写 ref（react-hooks/refs）：改为 effect 内同步最新 onClose。
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   const dismiss = useCallback(() => {
     if (closedRef.current) {
