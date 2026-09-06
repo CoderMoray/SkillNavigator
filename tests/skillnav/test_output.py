@@ -17,6 +17,7 @@ SAMPLE_SKILL = {
     "name": "Demo Skill",
     "description": "A demo skill for testing.",
     "latestVersion": "1.0.1",
+    "reviewStatus": "completed",
     "published": True,
     "averageRating": 4.5,
     "ratingCount": 12,
@@ -88,14 +89,105 @@ def test_print_skill_status(capsys) -> None:
     print_skill_status(SAMPLE_SKILL)
     out = capsys.readouterr().out
     assert out.startswith("demo-skill@1.0.1")
+    assert "Review status: review completed" in out
     assert "Verdict: published" in out
     assert "Visibility: public" in out
     assert "Versions:" in out
-    assert "1.0.0  published=yes  verdict=published" in out
+    assert "1.0.0  review=review completed  verdict=published" in out
     assert "VT=0/0" in out
-    assert "VT=0/1 (latest)" in out
+    assert "1.0.1 (latest)  review=review completed  verdict=published" in out
+    assert "VT=0/1" in out
     assert "Tip: skillnav report demo-skill --version 1.0.1" in out
     assert "Description:" not in out
+
+
+def test_print_skill_status_reviewing(capsys) -> None:
+    skill = {
+        **SAMPLE_SKILL,
+        "reviewStatus": "reviewing",
+        "published": False,
+        "reviewCompletedStages": ["halucatch"],
+        "versions": {
+            "1.0.1": {
+                "version": "1.0.1",
+                "status": "needs-review",
+                "published": False,
+                "contentHash": "fedcba9876543210",
+            }
+        },
+    }
+    print_skill_status(skill)
+    out = capsys.readouterr().out
+    assert "Review status: in review" in out
+    assert "HaluCatch: done" in out
+    assert "SkillSpector: pending" in out
+    assert "Verdict: pending" in out
+    assert "Visibility: unpublished" in out
+    assert "1.0.1 (latest)  review=in review  verdict=pending" in out
+    assert "progress: HaluCatch: done" in out
+
+
+def test_print_skill_status_failed(capsys) -> None:
+    skill = {
+        **SAMPLE_SKILL,
+        "reviewStatus": "failed",
+        "published": False,
+        "reviewCompletedStages": ["halucatch"],
+        "reviewFailure": {
+            "stages": ["virustotal"],
+            "message": "VirusTotal scan timed out",
+        },
+        "versions": {
+            "1.0.2": {
+                "version": "1.0.2",
+                "status": "rejected",
+                "published": False,
+                "contentHash": "abc123",
+            }
+        },
+        "latestVersion": "1.0.2",
+    }
+    print_skill_status(skill)
+    out = capsys.readouterr().out
+    assert "Review status: review failed" in out
+    assert "VirusTotal: failed" in out
+    assert "Review failure: VirusTotal: VirusTotal scan timed out" in out
+    assert "Verdict: pending" in out
+    assert "1.0.2 (latest)  review=review failed  verdict=pending" in out
+    assert "failure: VirusTotal: VirusTotal scan timed out" in out
+    assert "Tip: skillnav retry-publish demo-skill" in out
+
+
+def test_print_skill_status_multi_version_mixed_review(capsys) -> None:
+    skill = {
+        **SAMPLE_SKILL,
+        "reviewStatus": "reviewing",
+        "published": False,
+        "reviewCompletedStages": ["halucatch"],
+        "latestVersion": "1.0.2",
+        "versions": {
+            "1.0.0": SAMPLE_SKILL["versions"]["1.0.0"],
+            "1.0.1": {
+                "version": "1.0.1",
+                "status": "rejected",
+                "published": False,
+                "contentHash": "aaa111",
+                "reviewEndedAt": "2026-08-15T00:00:00.000Z",
+                "review": {"verdict": "rejected"},
+            },
+            "1.0.2": {
+                "version": "1.0.2",
+                "status": "needs-review",
+                "published": False,
+                "contentHash": "bbb222",
+            },
+        },
+    }
+    print_skill_status(skill)
+    out = capsys.readouterr().out
+    assert "1.0.0  review=review completed  verdict=published" in out
+    assert "1.0.1  review=review completed  verdict=rejected" in out
+    assert "1.0.2 (latest)  review=in review  verdict=pending" in out
 
 
 def test_unwrap_resource_id_nested() -> None:

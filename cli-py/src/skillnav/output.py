@@ -283,6 +283,148 @@ def _hash_prefix(value: Any) -> str:
     return f"{text[:12]}..." if len(text) > 12 else text
 
 
+_REVIEW_STAGE_ORDER = ("halucatch", "skillspector", "virustotal")
+
+_REVIEW_STAGE_LABELS = {
+    "halucatch": "HaluCatch",
+    "skillspector": "SkillSpector",
+    "virustotal": "VirusTotal",
+}
+
+_SKILL_REVIEW_STATUS_LABELS = {
+    "reviewing": "in review",
+    "completed": "review completed",
+    "failed": "review failed",
+}
+
+
+def _skill_review_status_label(status: str | None) -> str:
+    if not status:
+        return _SKILL_REVIEW_STATUS_LABELS["completed"]
+    return _SKILL_REVIEW_STATUS_LABELS.get(status, status)
+
+
+def _format_review_stage_progress(
+    completed_stages: list[str] | None,
+    failed_stages: list[str] | None,
+) -> str:
+    completed = set(completed_stages or [])
+    failed = set(failed_stages or [])
+    parts: list[str] = []
+    for stage in _REVIEW_STAGE_ORDER:
+        label = _REVIEW_STAGE_LABELS.get(stage, stage)
+        if stage in failed:
+            parts.append(f"{label}: failed")
+        elif stage in completed:
+            parts.append(f"{label}: done")
+        else:
+            parts.append(f"{label}: pending")
+    return " · ".join(parts)
+
+
+def _review_failure_summary(failure: dict[str, Any] | None) -> str:
+    if not failure:
+        return ""
+    stages = failure.get("stages") or []
+    message = str(failure.get("message") or "").strip()
+    if stages:
+        labels = [_REVIEW_STAGE_LABELS.get(str(stage), str(stage)) for stage in stages]
+        stage_text = ", ".join(labels)
+        return f"{stage_text}: {message}" if message else stage_text
+    return message
+
+
+def _resolve_version_review_info(
+    skill: dict[str, Any],
+    version_id: str,
+    entry: dict[str, Any],
+) -> dict[str, Any]:
+    """Derive per-version review status, verdict, and optional stage progress."""
+    latest = skill.get("latestVersion")
+    skill_review_status = str(skill.get("reviewStatus") or "completed")
+    is_latest = version_id == latest
+
+    if is_latest and skill_review_status in {"reviewing", "failed"}:
+        failure = skill.get("reviewFailure") if skill_review_status == "failed" else None
+        failed_stages = (failure or {}).get("stages") or []
+        return {
+            "review_status": _skill_review_status_label(skill_review_status),
+            "verdict": "pending",
+            "completed_stages": skill.get("reviewCompletedStages") or entry.get("reviewCompletedStages") or [],
+            "failed_stages": failed_stages,
+            "failure_summary": _review_failure_summary(failure) if isinstance(failure, dict) else "",
+            "show_progress": True,
+        }
+
+    review = entry.get("review") or {}
+    verdict = str(review.get("verdict") or entry.get("status") or "?")
+    has_review_record = bool(review.get("verdict") or review.get("findings") is not None)
+    review_finished = bool(
+        entry.get("reviewEndedAt")
+        or has_review_record
+        or entry.get("status") in {"published", "rejected", "needs-review"}
+    )
+
+    if review_finished:
+        completed = entry.get("reviewCompletedStages") or []
+        if not completed and has_review_record:
+            completed = list(_REVIEW_STAGE_ORDER)
+        return {
+            "review_status": _skill_review_status_label("completed"),
+            "verdict": verdict,
+            "completed_stages": completed,
+            "failed_stages": [],
+            "failure_summary": "",
+            "show_progress": False,
+        }
+
+    completed = entry.get("reviewCompletedStages") or []
+    if completed:
+        return {
+            "review_status": _skill_review_status_label("reviewing"),
+            "verdict": "pending",
+            "completed_stages": completed,
+            "failed_stages": [],
+            "failure_summary": "",
+            "show_progress": True,
+        }
+
+    return {
+        "review_status": "review pending",
+        "verdict": "pending",
+        "completed_stages": [],
+        "failed_stages": [],
+        "failure_summary": "",
+        "show_progress": False,
+    }
+
+
+def _print_version_status_row(
+    skill: dict[str, Any],
+    version_id: str,
+    entry: dict[str, Any],
+) -> None:
+    review_info = _resolve_version_review_info(skill, version_id, entry)
+    review = entry.get("review") or {}
+    published = "yes" if entry.get("published") is not False else "no"
+    hash_prefix = _hash_prefix(entry.get("contentHash"))
+    vt = _virustotal_one_liner(review)
+    latest_marker = " (latest)" if version_id == skill.get("latestVersion") else ""
+    print(
+        f"  {version_id}{latest_marker}  review={review_info['review_status']}  "
+        f"verdict={review_info['verdict']}  published={published}  "
+        f"hash={hash_prefix}  VT={vt}"
+    )
+    if review_info["show_progress"]:
+        print(
+            "    progress: "
+            f"{_format_review_stage_progress(review_info['completed_stages'], review_info['failed_stages'])}"
+        )
+    failure_summary = review_info.get("failure_summary") or ""
+    if failure_summary:
+        print(f"    failure: {failure_summary}")
+
+
 def _virustotal_one_liner(review: dict[str, Any]) -> str:
     summary = review.get("virusTotal")
     if not isinstance(summary, dict):
@@ -372,24 +514,35 @@ def print_skill_status(body: dict[str, Any]) -> None:
     """Human-readable publish and review status summary."""
     slug = body.get("slug", "?")
     latest = body.get("latestVersion", "?")
+    review_status = str(body.get("reviewStatus") or "completed")
     print(f"{slug}@{latest}")
-    print(f"Verdict: {_resolve_latest_verdict(body)}")
+    print(f"Review status: {_skill_review_status_label(review_status)}")
+
+    completed_stages = body.get("reviewCompletedStages") or []
+    failed_stage_ids = (body.get("reviewFailure") or {}).get("stages") or []
+    if review_status in {"reviewing", "failed"}:
+        print(f"Review progress: {_format_review_stage_progress(completed_stages, failed_stage_ids)}")
+
+    failure = body.get("reviewFailure")
+    if review_status == "failed" and isinstance(failure, dict):
+        summary = _review_failure_summary(failure)
+        if summary:
+            print(f"Review failure: {summary}")
+
+    if review_status == "completed":
+        print(f"Verdict: {_resolve_latest_verdict(body)}")
+    else:
+        print("Verdict: pending")
+
     print(f"Visibility: {_format_visibility(body.get('published'))}")
     version_rows = _iter_version_rows(body)
     if version_rows:
         print("Versions:")
         for vid, entry in version_rows:
-            review = entry.get("review") or {}
-            verdict = review.get("verdict") or entry.get("status", "?")
-            published = "yes" if entry.get("published") is not False else "no"
-            hash_prefix = _hash_prefix(entry.get("contentHash"))
-            vt = _virustotal_one_liner(review)
-            latest_marker = " (latest)" if vid == body.get("latestVersion") else ""
-            print(
-                f"  {vid}  published={published}  verdict={verdict}  "
-                f"hash={hash_prefix}  VT={vt}{latest_marker}"
-            )
-    if latest and latest != "?":
+            _print_version_status_row(body, vid, entry)
+    if review_status == "failed":
+        print(f"\nTip: skillnav retry-publish {slug} to re-run review on the stored package")
+    elif latest and latest != "?":
         print(f"\nTip: skillnav report {slug} --version {latest} for full review")
 
 

@@ -955,6 +955,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         uploadedAt: mapOptionalTimestamp(v.uploadedAt),
         reviewStartedAt: mapOptionalTimestamp(v.reviewStartedAt),
         reviewEndedAt: mapOptionalTimestamp(v.reviewEndedAt),
+        reviewCompletedStages: parseSkillReviewStages(v.reviewCompletedStages),
         createdAt: String(v.createdAt), updatedAt: String(v.updatedAt),
       };
     }
