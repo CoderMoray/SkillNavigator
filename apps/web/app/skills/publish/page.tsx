@@ -91,7 +91,6 @@ function PublishSkillPageContent() {
   const [existingSkillBySlug, setExistingSkillBySlug] = useState<RegistrySkill | null>(null);
   const [slugAvailability, setSlugAvailability] = useState<SkillSlugAvailabilityResponse | null>(null);
   const [loadingSlugAvailability, setLoadingSlugAvailability] = useState(false);
-  const [slugPermissionError, setSlugPermissionError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -130,17 +129,16 @@ function PublishSkillPageContent() {
 
   useEffect(() => {
     if (!sourceSlug) {
-      setSourceSkill(null);
-      setSourceError(null);
-      setLoadingSource(false);
+      // 无 source：三个相关状态的初始值本就为 null/false/null，无需重置。
       return;
     }
 
     let cancelled = false;
-    setLoadingSource(true);
-    setSourceError(null);
 
     async function loadSourceSkill() {
+      // 状态写入位于 effect 调用的异步函数内，避免在 effect 主体同步 setState。
+      setLoadingSource(true);
+      setSourceError(null);
       try {
         const token = getAuthToken();
         const skill = await getSkill(sourceSlug, token ?? undefined);
@@ -181,116 +179,112 @@ function PublishSkillPageContent() {
 
   useEffect(() => {
     if (isNewVersion) {
-      setSlugAvailability(null);
-      setExistingSkillBySlug(null);
-      setLoadingSlugAvailability(false);
-      return;
-    }
-
-    const normalizedSlug = slug.trim();
-    if (!normalizedSlug || !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(normalizedSlug)) {
-      setSlugAvailability(null);
-      setExistingSkillBySlug(null);
-      setLoadingSlugAvailability(false);
+      // 新版本模式不做 slug 可用性检查：相关状态初始即 null/false/null。
       return;
     }
 
     let cancelled = false;
-    const token = getAuthToken();
-    setLoadingSlugAvailability(true);
-    const timeout = window.setTimeout(() => {
-      void checkSkillSlugAvailability(normalizedSlug, token ?? undefined)
-        .then(async (availability) => {
-          if (cancelled) {
-            return;
-          }
-          setSlugAvailability(availability);
+    let timeoutId: number | undefined;
 
-          if (availability.status === "active" && availability.viewerCanPublish) {
-            try {
-              const skill = await getSkill(normalizedSlug, token ?? undefined);
-              if (!cancelled) {
-                setExistingSkillBySlug(skill);
-              }
-            } catch {
-              if (!cancelled) {
-                setExistingSkillBySlug(null);
-              }
+    // 状态写入位于 effect 调用的异步函数内，避免在 effect 主体同步 setState。
+    // 函数体在首个 await 之前是同步执行的，因此分支/防抖时序与原实现一致。
+    async function runSlugChecks() {
+      const normalizedSlug = slug.trim();
+      if (!normalizedSlug || !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(normalizedSlug)) {
+        setSlugAvailability(null);
+        setExistingSkillBySlug(null);
+        setLoadingSlugAvailability(false);
+        return;
+      }
+
+      const token = getAuthToken();
+      setLoadingSlugAvailability(true);
+      timeoutId = window.setTimeout(() => {
+        void checkSkillSlugAvailability(normalizedSlug, token ?? undefined)
+          .then(async (availability) => {
+            if (cancelled) {
+              return;
             }
-            return;
-          }
+            setSlugAvailability(availability);
 
-          setExistingSkillBySlug(null);
-        })
-        .catch(() => {
-          if (!cancelled) {
-            setSlugAvailability(null);
+            if (availability.status === "active" && availability.viewerCanPublish) {
+              try {
+                const skill = await getSkill(normalizedSlug, token ?? undefined);
+                if (!cancelled) {
+                  setExistingSkillBySlug(skill);
+                }
+              } catch {
+                if (!cancelled) {
+                  setExistingSkillBySlug(null);
+                }
+              }
+              return;
+            }
+
             setExistingSkillBySlug(null);
-          }
-        })
-        .finally(() => {
-          if (!cancelled) {
-            setLoadingSlugAvailability(false);
-          }
-        });
-    }, 280);
+          })
+          .catch(() => {
+            if (!cancelled) {
+              setSlugAvailability(null);
+              setExistingSkillBySlug(null);
+            }
+          })
+          .finally(() => {
+            if (!cancelled) {
+              setLoadingSlugAvailability(false);
+            }
+          });
+      }, 280);
+    }
+
+    void runSlugChecks();
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timeout);
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
       setLoadingSlugAvailability(false);
     };
   }, [isNewVersion, slug, user?.id]);
 
-  useEffect(() => {
+  // slug 发布权限提示是各输入的纯推导，用 useMemo 派生，替代原 effect 内同步 setState。
+  const slugPermissionError = useMemo<string | null>(() => {
     if (isNewVersion) {
       if (!sourceSkill || loadingUser) {
-        return;
+        return null;
       }
       if (!user) {
-        setSlugPermissionError(null);
-        return;
+        return null;
       }
-      setSlugPermissionError(
-        isSkillContributor(sourceSkill, user) ? null : "你没有权限向该 Skill 发布新版本。"
-      );
-      return;
+      return isSkillContributor(sourceSkill, user) ? null : "你没有权限向该 Skill 发布新版本。";
     }
 
     const normalizedSlug = slug.trim();
     if (!normalizedSlug || !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(normalizedSlug)) {
-      setSlugPermissionError(null);
-      return;
+      return null;
     }
 
     if (loadingSlugAvailability) {
-      return;
+      return null;
     }
 
     if (slugAvailability?.status === "recycle_bin") {
-      setSlugPermissionError(
-        `该 Slug 已被 Skill「${slugAvailability.name}」占用且位于回收站中，请先恢复或等待 ${formatDateTime(slugAvailability.purgeAt)} 过期后再发布。`
-      );
-      return;
+      return `该 Slug 已被 Skill「${slugAvailability.name}」占用且位于回收站中，请先恢复或等待 ${formatDateTime(slugAvailability.purgeAt)} 过期后再发布。`;
     }
 
     if (!slugAvailability || slugAvailability.status === "available") {
-      setSlugPermissionError(null);
-      return;
+      return null;
     }
 
     if (slugAvailability.status === "active") {
       if (!user) {
-        setSlugPermissionError("该 Slug 已被使用，请先登录以确认是否有权发布新版本。");
-        return;
+        return "该 Slug 已被使用，请先登录以确认是否有权发布新版本。";
       }
-
-      setSlugPermissionError(
-        slugAvailability.viewerCanPublish
-          ? null
-          : "你没有权限向该 Skill 发布新版本，请联系 contributor。"
-      );
+      return slugAvailability.viewerCanPublish ? null : "你没有权限向该 Skill 发布新版本，请联系 contributor。";
     }
+
+    return null;
   }, [isNewVersion, loadingSlugAvailability, loadingUser, slug, slugAvailability, sourceSkill, user]);
 
   useEffect(() => {
