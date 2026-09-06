@@ -1,5 +1,5 @@
 import type { FunctionalEvaluationFinding, FunctionalEvaluationReport, FunctionalEvaluationTaskResult, HaluCatchReportBundle } from "@skill-platform/evaluator";
-import type { ReviewReport } from "@skill-platform/review-engine";
+import type { ReviewFinding, ReviewReport } from "@skill-platform/review-engine";
 import {
   getSkillSlug,
   parseSkillMarkdown,
@@ -16,6 +16,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import * as schema from "../schema";
 import type {
   ArtifactDescriptor, ArtifactProvider, ArtifactStore,
+  IssueSeverity, IssueStatus, IssueType,
   MarkSkillReviewStatusOptions,
   CommitReviewResultsOptions,
   PersistReviewStageResultsOptions,
@@ -23,7 +24,7 @@ import type {
   PublishSnapshotOptions,
   StagePendingPublishSnapshotOptions,
   PostgresRegistryStoreOptions,
-  RegistryContributor, RegistryIssue, RegistryRating,
+  RegistryContributor, RegistryData, RegistryIssue, RegistryRating,
   RegistrySkill, RegistryVersion, SkillSearchResult,
   RecycleBinSkill,
   SkillReviewFailureInfo,
@@ -52,6 +53,7 @@ import {
 import { JsonRegistryStore } from "./base";
 
 type DB = NodePgDatabase<typeof schema>;
+type DrizzleTx = Parameters<Parameters<DB["transaction"]>[0]>[0];
 
 type EvaluationFindingRow = {
   findingId: string;
@@ -301,7 +303,7 @@ function parseManifestFromDatabaseFiles(files: StoredSkillFile[]): SkillManifest
   }
 }
 
-async function replaceEvaluationDetails(db: any, slug: string, version: string, evaluation: FunctionalEvaluationReport) {
+async function replaceEvaluationDetails(db: DrizzleTx, slug: string, version: string, evaluation: FunctionalEvaluationReport) {
   const reportFindings = Array.isArray(evaluation.findings) ? evaluation.findings : [];
   const taskResults = Array.isArray(evaluation.taskResults) ? evaluation.taskResults : [];
 
@@ -934,7 +936,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
             reliabilityScore: Number(review.reliabilityScore),
           },
           findings: findings.map((f) => ({
-            id: f.findingId, category: f.category as any, severity: f.severity as any,
+            id: f.findingId, category: f.category as ReviewFinding["category"], severity: f.severity as ReviewFinding["severity"],
             title: f.title, message: f.message, path: f.path ?? undefined,
             evidence: f.evidence ?? undefined, recommendation: f.recommendation,
             ...(f.confidence != null && Number.isFinite(Number(f.confidence))
@@ -973,8 +975,8 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       versions: versionMap,
       contributors: contributors.map((c) => mapContributorRow(c)),
       issues: issues.map((i) => ({
-        id: i.id, type: i.type as any, status: i.status as any,
-        severity: i.severity as any, title: i.title, body: i.body ?? undefined,
+        id: i.id, type: i.type as IssueType, status: i.status as IssueStatus,
+        severity: i.severity as IssueSeverity, title: i.title, body: i.body ?? undefined,
         createdBy: i.createdBy ?? undefined, createdAt: String(i.createdAt), updatedAt: String(i.updatedAt),
       })),
       ratings: ratings.map((r) => ({
@@ -1059,13 +1061,13 @@ export class PostgresRegistryStore extends JsonRegistryStore {
 
     await this.db.insert(schema.skillIssues).values({
       id, skillSlug: slug,
-      type: issue.type as any, status: "open" as any, severity: (issue.severity ?? "medium") as any,
+      type: issue.type as IssueType, status: "open" as IssueStatus, severity: (issue.severity ?? "medium") as IssueSeverity,
       title: issue.title, body: issue.body ?? null, createdBy: issue.createdBy ?? null,
       createdAt, updatedAt: createdAt,
     });
 
     return {
-      id, type: issue.type as any, status: "open" as any, severity: (issue.severity ?? "medium") as any,
+      id, type: issue.type as IssueType, status: "open" as IssueStatus, severity: (issue.severity ?? "medium") as IssueSeverity,
       title: issue.title, body: issue.body, createdBy: issue.createdBy,
       createdAt: createdAt.toISOString(), updatedAt: createdAt.toISOString(),
     };
@@ -1126,7 +1128,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       .where(and(eq(schema.skillContributors.skillSlug, slug), eq(schema.skillContributors.id, contributorId)));
   }
 
-  async downloadSnapshot(slug: string, version = "latest"): Promise<any | undefined> {
+  async downloadSnapshot(slug: string, version = "latest"): Promise<SkillSnapshot | undefined> {
     await this.ensureSchema();
     const resolved = await this.resolveStoredSnapshotVersion(slug, version);
     if (!resolved) {
@@ -1216,7 +1218,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
   async upsertReview(
     slug: string,
     version: string,
-    review: any,
+    review: ReviewReport,
     options: { finalize?: boolean } = {}
   ): Promise<RegistryVersion> {
     await this.ensureSchema();
@@ -1254,7 +1256,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
 
     if (review.findings?.length) {
       await this.db.insert(schema.skillReviewFindings).values(
-        review.findings.map((f: any, i: number) => ({
+        review.findings.map((f, i) => ({
           skillSlug: slug, version, position: i,
           findingId: f.id ?? `finding_${i}`,
           category: f.category, severity: f.severity,
@@ -1328,7 +1330,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     }
   }
 
-  async upsertEvaluation(slug: string, version: string, evaluation: any): Promise<RegistryVersion> {
+  async upsertEvaluation(slug: string, version: string, evaluation: FunctionalEvaluationReport): Promise<RegistryVersion> {
     await this.ensureSchema();
     const createdAt = new Date();
 
@@ -1336,8 +1338,8 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       await tx.insert(schema.skillEvaluations).values({
         skillSlug: slug, version, evaluationId: evaluation.id,
         provider: evaluation.provider, status: evaluation.status,
-        score: evaluation.score, tasksTotal: evaluation.tasksTotal ?? evaluation.tasks_total ?? 0,
-        tasksPassed: evaluation.tasksPassed ?? evaluation.tasks_passed ?? 0,
+        score: evaluation.score, tasksTotal: evaluation.tasksTotal ?? 0,
+        tasksPassed: evaluation.tasksPassed ?? 0,
         haluCatchReport: serializeHaluCatchReport(evaluation.haluCatchReport),
         createdAt,
       }).onConflictDoUpdate({
@@ -1345,8 +1347,8 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         set: {
           evaluationId: evaluation.id, provider: evaluation.provider,
           status: evaluation.status, score: evaluation.score,
-          tasksTotal: evaluation.tasksTotal ?? evaluation.tasks_total ?? 0,
-          tasksPassed: evaluation.tasksPassed ?? evaluation.tasks_passed ?? 0,
+          tasksTotal: evaluation.tasksTotal ?? 0,
+          tasksPassed: evaluation.tasksPassed ?? 0,
           haluCatchReport: serializeHaluCatchReport(evaluation.haluCatchReport),
           createdAt,
         },
@@ -1704,14 +1706,20 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     });
   }
 
-  async publishSnapshot(snapshot: any, review: any, evaluation?: any, options: PublishSnapshotOptions = {}): Promise<RegistryVersion> {
+  async publishSnapshot(
+    snapshot: SkillSnapshot,
+    review: ReviewReport,
+    evaluation?: FunctionalEvaluationReport,
+    options: PublishSnapshotOptions = {}
+  ): Promise<RegistryVersion> {
     await this.ensureSchema();
-    const slug = (snapshot.manifest as any).slug || getSkillSlug(snapshot.manifest);
+    const manifest = snapshot.manifest as SkillManifest & { slug?: string };
+    const slug = manifest.slug ?? getSkillSlug(snapshot.manifest);
     const version = review.version;
     const now = new Date();
-    const releaseTags = options.releaseTags ?? (snapshot.manifest as any)["release-tags"] ?? ["latest"];
-    const name = (snapshot.manifest as any).name;
-    const description = (snapshot.manifest as any).description ?? "";
+    const releaseTags = options.releaseTags ?? manifest["release-tags"] ?? ["latest"];
+    const name = manifest.name;
+    const description = manifest.description ?? "";
     const supportedAgents = toStringList(snapshot.manifest.supportedAgents);
     const allowedTools = snapshot.manifest["allowed-tools"];
     const disallowedTools = snapshot.manifest["disallowed-tools"];
@@ -1831,7 +1839,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
 
       if (snapshot.files?.length) {
         await tx.insert(schema.skillVersionFiles).values(
-          snapshot.files.map((f: any) => ({
+          snapshot.files.map((f) => ({
             skillSlug: slug,
             version,
             path: f.path,
@@ -1857,7 +1865,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
 
         if (review.findings?.length) {
           await tx.insert(schema.skillReviewFindings).values(
-            review.findings.map((f: any, i: number) => ({
+            review.findings.map((f, i) => ({
               skillSlug: slug, version, position: i, findingId: f.id ?? `finding_${i}`,
               category: f.category, severity: f.severity, title: f.title, message: f.message,
               path: f.path ?? null, evidence: f.evidence ?? null, recommendation: f.recommendation,
@@ -2022,7 +2030,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     });
   }
 
-  async listIssues(slug: string, status?: string): Promise<any[]> {
+  async listIssues(slug: string, status?: string): Promise<RegistryIssue[]> {
     await this.ensureSchema();
     const rows = await this.db.select()
       .from(schema.skillIssues)
@@ -2032,7 +2040,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     return rows
       .filter((i) => !status || i.status === status)
       .map((i) => ({
-        id: i.id, type: i.type, status: i.status, severity: i.severity,
+        id: i.id, type: i.type as IssueType, status: i.status as IssueStatus, severity: i.severity as IssueSeverity,
         title: i.title, body: i.body ?? undefined, createdBy: i.createdBy ?? undefined,
         createdAt: String(i.createdAt), updatedAt: String(i.updatedAt),
       }));
@@ -2534,8 +2542,8 @@ export class PostgresRegistryStore extends JsonRegistryStore {
 
 
   // ==================== Deprecated (base class compatibility) ====================
-  protected async load(): Promise<any> { throw new Error("load() is deprecated — use Drizzle methods directly"); }
-  protected async save(): Promise<void> { throw new Error("save() is deprecated — use Drizzle methods directly"); }
+  protected async load(): Promise<RegistryData> { throw new Error("load() is deprecated — use Drizzle methods directly"); }
+  protected async save(_data: RegistryData): Promise<void> { throw new Error("save() is deprecated — use Drizzle methods directly"); }
 
   // ==================== Schema ====================
   private ensureSchema(): Promise<void> {
