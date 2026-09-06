@@ -103,8 +103,12 @@ const bridgePath = join(evaluatorDirectory, "halucatch_bridge.py");
  * Runs HaluCatch's five static reliability dimensions against an isolated
  * temporary copy of a Skill snapshot. HaluCatch never executes Skill scripts.
  *
- * If Python or the bundled HaluCatch runtime is unavailable, the existing
- * task-set evaluator remains as a safe fallback so publishing is not blocked.
+ * HALUCATCH_ENABLED=false is an explicit opt-out: evaluation falls back to the
+ * static taskset evaluator (Skill-provided tests/*.json), which is a valid
+ * provider. When HaluCatch is enabled but its runtime (Python / vendored
+ * modules) fails, this is an environment problem: it throws so the caller can
+ * surface it as a pipeline/stage failure instead of masquerading it as a
+ * functional evaluation result.
  */
 export async function evaluateSkillSnapshot(snapshot: SkillSnapshot): Promise<FunctionalEvaluationReport> {
   if (process.env.HALUCATCH_ENABLED?.toLowerCase() === "false") {
@@ -114,20 +118,11 @@ export async function evaluateSkillSnapshot(snapshot: SkillSnapshot): Promise<Fu
   try {
     return await evaluateWithHaluCatch(snapshot);
   } catch (error) {
-    const fallback = evaluateStaticTaskSet(snapshot);
-    return {
-      ...fallback,
-      findings: [
-        ...fallback.findings,
-        {
-          id: "halucatch-unavailable",
-          severity: "low",
-          message: `HaluCatch reliability evaluation was unavailable: ${truncate(toErrorMessage(error), 300)}`,
-          recommendation:
-            "Install Python 3.8+ and keep packages/halucatch-1.8.8 available, or set HALUCATCH_PYTHON to the Python executable."
-        }
-      ]
-    };
+    throw new Error(
+      `HaluCatch reliability evaluation could not run: ${truncate(toErrorMessage(error), 300)}. ` +
+        "Install Python 3.8+, keep packages/halucatch-1.8.8 available (or set HALUCATCH_DIR/HALUCATCH_PYTHON), " +
+        "or set HALUCATCH_ENABLED=false to use the static taskset evaluator."
+    );
   }
 }
 

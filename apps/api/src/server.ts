@@ -7,6 +7,7 @@ import {
   resolveReviewStagesToRun,
   reviewAndEvaluateSkillSnapshot,
   runReviewPipeline,
+  type ReviewAndEvaluationResult,
   type ReviewPipelineState,
   type ReviewStage,
   type ReviewStageFailure,
@@ -1114,7 +1115,22 @@ export function buildServer() {
       return reply.code(403).send({ error: "Forbidden" });
     }
 
-    const reviewed = await store.reviewAll((snapshot, version) => reviewAndEvaluateSkillSnapshot(snapshot, version));
+    const pipeline = async (
+      snapshot: SkillSnapshot,
+      version: string
+    ): Promise<ReviewAndEvaluationResult> => {
+      const result = await reviewAndEvaluateSkillSnapshot(snapshot, version);
+      if (result.failedStages.length > 0) {
+        // Do not persist half-complete reviews during a full rebuild: abort so
+        // the operator fixes the environment first.
+        const summary = result.failedStages
+          .map((failure) => `[${failure.stage}] ${failure.message}`)
+          .join("; ");
+        throw new Error(`review_pipeline_incomplete: ${summary}`);
+      }
+      return result;
+    };
+    const reviewed = await store.reviewAll(pipeline);
     return {
       reviewed: reviewed.length,
       items: reviewed.map((item) => ({

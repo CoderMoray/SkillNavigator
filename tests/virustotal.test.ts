@@ -294,11 +294,10 @@ describe("VirusTotal package review adapter", () => {
 
     const { review, failedStages } = await reviewAndEvaluateSkillSnapshot(snapshot, undefined, evaluation());
 
-    expect(review.virusTotal).toMatchObject({
-      status: "failed",
-      totalEngines: 0,
-      error: expect.stringMatching(/analysis did not complete/i)
-    });
+    // A scan that never produced a report is an environment/integration failure:
+    // no fabricated summary, no finding, only a retryable stage failure.
+    expect(review.virusTotal).toBeUndefined();
+    expect(review.findings.some((finding) => finding.id === "virustotal-scan-failed")).toBe(false);
     expect(failedStages).toEqual([
       expect.objectContaining({
         stage: "virustotal",
@@ -415,18 +414,10 @@ describe("VirusTotal package review adapter", () => {
 
     const { review: report, failedStages } = await reviewAndEvaluateSkillSnapshot(snapshot, undefined, evaluation());
 
-    expect(report.virusTotal).toMatchObject({
-      provider: "virustotal",
-      status: "failed",
-      error: expect.stringMatching(/network|fetch failed/i)
-    });
-    expect(report.findings).toContainEqual(
-      expect.objectContaining({
-        id: "virustotal-scan-failed",
-        severity: "high"
-      })
-    );
-    expect(report.verdict).toBe("rejected");
+    // Integration errors surface as retryable stage failures, not as a fake
+    // scan summary or a review finding.
+    expect(report.virusTotal).toBeUndefined();
+    expect(report.findings.some((finding) => finding.id === "virustotal-scan-failed")).toBe(false);
     expect(failedStages).toEqual([
       expect.objectContaining({
         stage: "virustotal",

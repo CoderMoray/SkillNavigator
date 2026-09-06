@@ -14,7 +14,7 @@ import {
 describe("skill review status", () => {
   it("exposes the expected lifecycle values", () => {
     expect(SKILL_REVIEW_STATUSES).toEqual(["reviewing", "completed", "failed"]);
-    expect(SKILL_REVIEW_STAGES).toEqual(["skillspector", "virustotal", "halucatch"]);
+    expect(SKILL_REVIEW_STAGES).toEqual(["halucatch", "skillspector", "virustotal"]);
     expect(DEFAULT_SKILL_REVIEW_STATUS).toBe("completed");
   });
 

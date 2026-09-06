@@ -7,7 +7,11 @@ import {
   validateSkillSnapshot
 } from "@skill-platform/skill-spec";
 import { createHash } from "node:crypto";
-import { evaluateSkillSnapshot, type FunctionalEvaluationReport } from "@skill-platform/evaluator";
+import {
+  evaluateSkillSnapshot,
+  evaluateStaticTaskSet,
+  type FunctionalEvaluationReport,
+} from "@skill-platform/evaluator";
 import {
   isSkillSpectorEnabled,
   runSkillSpectorSecurityScan,
@@ -211,14 +215,21 @@ export async function reviewAndEvaluateSkillSnapshot(
   let virusTotal: VirusTotalScanSummary | undefined;
   const failedStages: ReviewStageFailure[] = [];
 
-  const evaluation = evaluationOverride ?? (await evaluateSkillSnapshot(snapshot));
-  const haluCatchFailure = getHaluCatchStageFailure(evaluation);
-  const haluCatchAvailable = evaluation.provider === "halucatch-adapter" && !haluCatchFailure;
-
-  if (haluCatchFailure) {
-    findings.push(createHaluCatchUnavailableReviewFinding(haluCatchFailure.message));
-    failedStages.push(haluCatchFailure);
+  let evaluation = evaluationOverride;
+  if (!evaluation) {
+    try {
+      evaluation = await evaluateSkillSnapshot(snapshot);
+    } catch (error) {
+      // Environment problem (Python / vendored runtime) — never masquerade it
+      // as a review finding; record a stage failure so callers can retry after
+      // fixing the environment (npm run verify:review-deps).
+      failedStages.push({ stage: "halucatch", message: truncateError(error) });
+      evaluation = evaluateStaticTaskSet(snapshot);
+    }
   }
+  const haluCatchAvailable =
+    evaluation.provider === "halucatch-adapter" &&
+    !failedStages.some((failure) => failure.stage === "halucatch");
 
   const [skillSpectorResult, virusTotalResult] = await Promise.all([
     runSkillSpectorReviewStep(snapshot),
@@ -518,23 +529,15 @@ async function runSkillSpectorReviewStep(snapshot: SkillSnapshot): Promise<{
     };
   } catch (error) {
     const message = truncateError(error);
+    // Environment problem — surface as a stage failure (retryable) instead of a
+    // review finding; the publish path reports review_pipeline_incomplete.
     return {
       skillSpectorAvailable: false,
+      findings: [],
       failure: {
         stage: "skillspector",
         message
-      },
-      findings: [
-        {
-          id: SKILLSPECTOR_UNAVAILABLE_FINDING_ID,
-          category: "security",
-          severity: "high",
-          title: "SkillSpector security scan unavailable",
-          message: `SkillSpector static security scan could not run: ${message}`,
-          recommendation:
-            "Install Python 3.12+ with SkillSpector dependencies, keep packages/SkillSpector-main available, or set SKILLSPECTOR_PYTHON before publishing."
-        }
-      ]
+      }
     };
   }
 }
@@ -556,23 +559,14 @@ async function runVirusTotalReviewStep(snapshot: SkillSnapshot): Promise<{
     };
   } catch (error) {
     const message = formatVirusTotalError(error);
+    // Integration error — record as a stage failure, do not fabricate a scan
+    // summary or a finding for a scan that did not run.
     return {
-      virusTotal: createFailedVirusTotalSummary(snapshot, error),
+      findings: [],
       failure: {
         stage: "virustotal",
         message
-      },
-      findings: [
-        {
-          id: VIRUSTOTAL_SCAN_FAILED_FINDING_ID,
-          category: "security",
-          severity: "high",
-          title: "VirusTotal package scan failed",
-          message: `VirusTotal static AV scan could not complete: ${message}`,
-          recommendation:
-            "Resolve the VirusTotal scan error (network, API key, timeout, or upload settings) and publish again."
-        }
-      ]
+      }
     };
   }
 }

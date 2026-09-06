@@ -46,7 +46,17 @@ program
   .option("--json", "Print raw JSON report")
   .action(async (input: string, options: { version?: string; json?: boolean }) => {
     const snapshot = await readSkillPackage(resolveUserPath(input));
-    const { review: report } = await reviewAndEvaluateSkillSnapshot(snapshot, options.version);
+    const { review: report, failedStages } = await reviewAndEvaluateSkillSnapshot(snapshot, options.version);
+
+    if (failedStages.length > 0) {
+      console.error("Review could not complete — environment problem:");
+      for (const failure of failedStages) {
+        console.error(`  [${failure.stage}] ${failure.message}`);
+      }
+      console.error("Fix the providers (npm run verify:review-deps) or disable them with *_ENABLED=false, then retry.");
+      process.exitCode = 1;
+      return;
+    }
 
     if (options.json) {
       printJson(report);

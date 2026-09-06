@@ -3,7 +3,11 @@ import {
   validateSkillSnapshot,
   type SkillSnapshot,
 } from "@skill-platform/skill-spec";
-import { evaluateSkillSnapshot, type FunctionalEvaluationReport } from "@skill-platform/evaluator";
+import {
+  evaluateSkillSnapshot,
+  evaluateStaticTaskSet,
+  type FunctionalEvaluationReport,
+} from "@skill-platform/evaluator";
 import type {
   ReviewAndEvaluationResult,
   ReviewFinding,
@@ -131,16 +135,8 @@ async function runSkillSpectorStage(
   } catch (error) {
     const message = truncateError(error);
     state.skillSpectorAvailable = false;
+    // Environment problem → stage failure (retryable), not a review finding.
     state.failedStages.push({ stage: "skillspector", message });
-    state.findings.push({
-      id: "skillspector-unavailable",
-      category: "security",
-      severity: "high",
-      title: "SkillSpector security scan unavailable",
-      message: `SkillSpector static security scan could not run: ${message}`,
-      recommendation:
-        "Install Python 3.12+ with SkillSpector dependencies, keep packages/SkillSpector-main available, or set SKILLSPECTOR_PYTHON before publishing.",
-    });
   }
 
   if (!state.completedStages.includes("skillspector")) {
@@ -165,16 +161,8 @@ async function runVirusTotalStage(
     state.findings.push(...scan.findings);
   } catch (error) {
     const message = formatVirusTotalError(error);
+    // Integration error → stage failure, not a fabricated scan finding.
     state.failedStages.push({ stage: "virustotal", message });
-    state.findings.push({
-      id: "virustotal-scan-failed",
-      category: "security",
-      severity: "high",
-      title: "VirusTotal package scan failed",
-      message: `VirusTotal static AV scan could not complete: ${message}`,
-      recommendation:
-        "Resolve the VirusTotal scan error (network, API key, timeout, or upload settings) and publish again.",
-    });
   }
 
   if (!state.completedStages.includes("virustotal")) {
@@ -232,22 +220,17 @@ async function runHaluCatchStage(
     return;
   }
 
-  const evaluation = await evaluateSkillSnapshot(snapshot);
-  state.evaluation = evaluation;
-
-  const haluCatchFailure = getHaluCatchStageFailure(evaluation);
-  if (haluCatchFailure) {
-    state.failedStages.push(haluCatchFailure);
-    state.findings.push({
-      id: "review-halucatch-unavailable",
-      category: "reliability",
-      severity: "high",
-      title: "HaluCatch reliability evaluation unavailable",
-      message: haluCatchFailure.message,
-      recommendation:
-        "Install Python 3.8+ and keep packages/halucatch-1.8.8 available, or set HALUCATCH_PYTHON before publishing.",
-    });
+  let evaluation;
+  try {
+    evaluation = await evaluateSkillSnapshot(snapshot);
+  } catch (error) {
+    // Environment problem (Python / vendored runtime) → stage failure. Use the
+    // static taskset evaluator only as a placeholder report; never fabricate a
+    // "review-halucatch-unavailable" finding.
+    evaluation = evaluateStaticTaskSet(snapshot);
+    state.failedStages.push({ stage: "halucatch", message: truncateError(error) });
   }
+  state.evaluation = evaluation;
 
   if (!state.completedStages.includes("halucatch")) {
     state.completedStages.push("halucatch");
