@@ -12,7 +12,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 @pytest.fixture()
 def runner() -> CliRunner:
-    return CliRunner(mix_stderr=True)
+    # click>=8.3 已移除 mix_stderr（stdout/stderr 默认混合），cli_output 兼容两种形态。
+    return CliRunner()
 
 
 @pytest.fixture()
