@@ -37,9 +37,32 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [errorToast, setErrorToast] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [resetNotice, setResetNotice] = useState(false);
-  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // ---- URL 一次性提示（notice / reset=ok）----
+  // 是否展示直接由 URL 派生（响应式：searchParams 变化即重渲染），用户可关闭；
+  // 已关闭的提示记录在 dismissed 集合里，URL 提示签名变化时（渲染期重置）清空，
+  // 让同一组参数重新导航回来时提示再次出现（与原 effect 语义一致）。
+  const noticeParam = searchParams.get("notice");
+  const noticeKind: "logged_out" | "invalid_link" | null =
+    noticeParam === "logged_out" || noticeParam === "invalid_link" ? noticeParam : null;
+  const resetParamOk = searchParams.get("reset") === "ok";
+  const noticeSignature = noticeKind !== null ? `notice:${noticeKind}` : resetParamOk ? "reset:ok" : null;
+
+  const [dismissedNotices, setDismissedNotices] = useState<Set<string>>(() => new Set());
+  const [seenNoticeSignature, setSeenNoticeSignature] = useState<string | null>(noticeSignature);
+  if (seenNoticeSignature !== noticeSignature) {
+    setSeenNoticeSignature(noticeSignature);
+    setDismissedNotices(new Set());
+  }
+
+  const resetNotice = noticeSignature === "reset:ok" && !dismissedNotices.has("reset:ok");
+  const noticeMessage =
+    noticeKind !== null && !dismissedNotices.has(`notice:${noticeKind}`)
+      ? noticeKind === "logged_out"
+        ? "已退出原账号，请重新登录。"
+        : "激活链接无效或已过期，请重新登录。"
+      : null;
 
   // 已登录用户直接进入个人主页，避免看到登录表单。
   useEffect(() => {
@@ -72,18 +95,6 @@ function LoginContent() {
       cancelled = true;
     };
   }, [router]);
-
-  useEffect(() => {
-    const notice = searchParams.get("notice");
-    if (notice === "logged_out") {
-      setNoticeMessage("已退出原账号，请重新登录。");
-    } else if (notice === "invalid_link") {
-      setNoticeMessage("激活链接无效或已过期，请重新登录。");
-    }
-    if (searchParams.get("reset") === "ok") {
-      setResetNotice(true);
-    }
-  }, [searchParams]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -135,11 +146,18 @@ function LoginContent() {
       {resetNotice ? (
         <SuccessToast
           message="密码已重置，请使用新密码登录。"
-          onClose={() => setResetNotice(false)}
+          onClose={() => setDismissedNotices((current) => new Set(current).add("reset:ok"))}
         />
       ) : null}
       {noticeMessage ? (
-        <SuccessToast message={noticeMessage} onClose={() => setNoticeMessage(null)} />
+        <SuccessToast
+          message={noticeMessage}
+          onClose={() => {
+            if (noticeSignature) {
+              setDismissedNotices((current) => new Set(current).add(noticeSignature));
+            }
+          }}
+        />
       ) : null}
       <div className="auth-page">
         <section className="auth-card card">

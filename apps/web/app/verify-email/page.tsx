@@ -58,7 +58,10 @@ function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
-  const [outcome, setOutcome] = useState<VerifyOutcome>({ kind: "pending" });
+  // 无 token 时首帧即为 no-token（lazy 初始化），无需 mount 后用 effect 再写一次状态。
+  const [outcome, setOutcome] = useState<VerifyOutcome>(() =>
+    token ? { kind: "pending" } : { kind: "no-token" }
+  );
   const [countdown, setCountdown] = useState(SUCCESS_HOLD_MS / 1000);
   // no-token / 未登录失败页的重发表单状态
   const [username, setUsername] = useState("");
@@ -70,7 +73,7 @@ function VerifyEmailContent() {
   // 校验流程：先探测本地登录态，再携带 session 调用验证 API。
   useEffect(() => {
     if (!token) {
-      setOutcome({ kind: "no-token" });
+      // outcome 已在 lazy 初始化时置为 no-token，这里只需跳过校验流程。
       return;
     }
 

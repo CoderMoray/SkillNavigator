@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useEffect, useState } from "react";
+import { FormEvent, Suspense, useState } from "react";
 import { KeyRound } from "lucide-react";
 import { AppShell } from "../../components/AppShell";
 import { ErrorToast } from "../../components/ErrorToast";
@@ -16,13 +16,8 @@ function ResetPasswordContent() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorToast, setErrorToast] = useState<string | null>(null);
-  const [invalid, setInvalid] = useState(false);
-
-  useEffect(() => {
-    if (!token) {
-      setInvalid(true);
-    }
-  }, [token]);
+  // 无 token 时展示“链接无效”（由 URL 派生，无需 state/effect；本页不手动改回）。
+  const invalid = !token;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

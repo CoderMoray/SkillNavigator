@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { Save, UserRound } from "lucide-react";
 import { ErrorToast } from "../../../../components/ErrorToast";
 import { SuccessToast } from "../../../../components/SuccessToast";
@@ -10,16 +10,21 @@ import { useSettingsUser } from "../settings-user-context";
 
 export default function SettingsProfilePage() {
   const user = useSettingsUser();
-  const [displayName, setDisplayName] = useState("");
-  const [about, setAbout] = useState("");
+  // 表单初值来自服务端用户数据（lazy 初始化覆盖首帧），不再用 effect 去 set。
+  const [displayName, setDisplayName] = useState(user.displayName ?? "");
+  const [about, setAbout] = useState(user.about ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [errorToast, setErrorToast] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  useEffect(() => {
+  // 用户数据（重新）就绪或刷新时，把服务端值同步回表单。
+  // 用 React 官方“渲染期基于前值重置”模式（guard 在前值比较上），替代原 useEffect。
+  const [prevUser, setPrevUser] = useState(user);
+  if (prevUser !== user) {
+    setPrevUser(user);
     setDisplayName(user.displayName ?? "");
     setAbout(user.about ?? "");
-  }, [user]);
+  }
 
   async function handleProfileSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
