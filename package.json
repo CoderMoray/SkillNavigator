@@ -26,6 +26,7 @@
     "review:demo": "npm --workspace @skill-platform/cli run dev -- review examples/demo-skill",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:smoke": "node scripts/run-api-smoke.mjs",
     "vt:stress": "tsx scripts/vt-lookup-stress.mjs --phase all --count 6",
     "review:benchmark": "tsx scripts/review-benchmark.ts --sizes demo,1,10,50",
     "review:benchmark:full": "tsx scripts/review-benchmark.ts --unlimited --vt-cold --sizes 1,10,50",
