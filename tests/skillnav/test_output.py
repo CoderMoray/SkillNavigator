@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import pytest
+
 from skillnav.output import (
+    filter_skill_body_version,
+    find_version_entry,
     print_report_version,
     print_review,
     print_review_result,
@@ -188,6 +192,43 @@ def test_print_skill_status_multi_version_mixed_review(capsys) -> None:
     assert "1.0.0  review=review completed  verdict=published" in out
     assert "1.0.1  review=review completed  verdict=rejected" in out
     assert "1.0.2 (latest)  review=in review  verdict=pending" in out
+
+
+def test_print_skill_status_single_version(capsys) -> None:
+    print_skill_status(SAMPLE_SKILL, version="1.0.0")
+    out = capsys.readouterr().out
+    assert out.startswith("demo-skill@1.0.0")
+    assert "Review status: review completed" in out
+    assert "Verdict: published" in out
+    assert "Published: yes" in out
+    assert "Content hash:" in out
+    assert "VirusTotal: 0/0" in out
+    assert "Versions:" not in out
+    assert "Tip: skillnav report demo-skill --version 1.0.0" in out
+
+
+def test_print_skill_status_single_version_latest(capsys) -> None:
+    print_skill_status(SAMPLE_SKILL, version="1.0.1")
+    out = capsys.readouterr().out
+    assert out.startswith("demo-skill@1.0.1 (latest)")
+    assert "VirusTotal: 0/1" in out
+
+
+def test_find_version_entry_by_key_and_semver() -> None:
+    version_id, entry = find_version_entry(SAMPLE_SKILL, "1.0.0")
+    assert version_id == "1.0.0"
+    assert entry["published"] is True
+
+
+def test_filter_skill_body_version() -> None:
+    filtered = filter_skill_body_version(SAMPLE_SKILL, "1.0.1")
+    assert list(filtered["versions"].keys()) == ["1.0.1"]
+    assert filtered["versions"]["1.0.1"]["version"] == "1.0.1"
+
+
+def test_find_version_entry_missing_raises() -> None:
+    with pytest.raises(ValueError, match="9.9.9"):
+        find_version_entry(SAMPLE_SKILL, "9.9.9")
 
 
 def test_unwrap_resource_id_nested() -> None:

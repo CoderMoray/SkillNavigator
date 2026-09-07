@@ -39,6 +39,8 @@ from skillnav.errors import (
 from skillnav.output import (
     emit_error,
     emit_json,
+    filter_skill_body_version,
+    find_version_entry,
     print_leaderboard,
     print_report_version,
     print_review_result,
@@ -397,7 +399,13 @@ def info_cmd(slug: Annotated[str, typer.Argument(help="Skill slug")]) -> None:
 
 
 @app.command("status")
-def status_cmd(slug: Annotated[str, typer.Argument(help="Skill slug")]) -> None:
+def status_cmd(
+    slug: Annotated[str, typer.Argument(help="Skill slug")],
+    version: Annotated[
+        Optional[str],
+        typer.Option("--version", help="Show only this version (default: all versions)"),
+    ] = None,
+) -> None:
     """Show publish status and version review summaries."""
     try:
         cli = _ctx()
@@ -407,10 +415,12 @@ def status_cmd(slug: Annotated[str, typer.Argument(help="Skill slug")]) -> None:
             token=cli.token,
         )
         raise_for_api_status(status, body)
+        if version:
+            body = filter_skill_body_version(body, version)
         if cli.json_output:
             emit_json(body)
         else:
-            print_skill_status(body)
+            print_skill_status(body, version=version)
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
 

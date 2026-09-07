@@ -425,6 +425,41 @@ def _print_version_status_row(
         print(f"    failure: {failure_summary}")
 
 
+def _print_single_version_status(body: dict[str, Any], version: str) -> None:
+    slug = body.get("slug", "?")
+    version_id, entry = find_version_entry(body, version)
+    latest = body.get("latestVersion")
+    is_latest = version_id == latest
+    review_info = _resolve_version_review_info(body, version_id, entry)
+    review = entry.get("review") or {}
+
+    print(f"{slug}@{version_id}" + (" (latest)" if is_latest else ""))
+    print(f"Review status: {review_info['review_status']}")
+    if review_info["show_progress"]:
+        print(
+            "Review progress: "
+            f"{_format_review_stage_progress(review_info['completed_stages'], review_info['failed_stages'])}"
+        )
+    failure_summary = review_info.get("failure_summary") or ""
+    if failure_summary:
+        print(f"Review failure: {failure_summary}")
+    print(f"Verdict: {review_info['verdict']}")
+    published = "yes" if entry.get("published") is not False else "no"
+    print(f"Published: {published}")
+    print(f"Visibility: {_format_visibility(body.get('published'))}")
+    print(f"Content hash: {_hash_prefix(entry.get('contentHash'))}")
+    print(f"VirusTotal: {_virustotal_one_liner(review)}")
+    if entry.get("reviewStartedAt"):
+        print(f"Review started: {entry['reviewStartedAt']}")
+    if entry.get("reviewEndedAt"):
+        print(f"Review ended: {entry['reviewEndedAt']}")
+
+    if is_latest and str(body.get("reviewStatus") or "") == "failed":
+        print(f"\nTip: skillnav retry-publish {slug} to re-run review on the stored package")
+    else:
+        print(f"\nTip: skillnav report {slug} --version {version_id} for full review")
+
+
 def _virustotal_one_liner(review: dict[str, Any]) -> str:
     summary = review.get("virusTotal")
     if not isinstance(summary, dict):
@@ -437,6 +472,33 @@ def _virustotal_one_liner(review: dict[str, Any]) -> str:
     malicious = int(summary.get("malicious") or 0)
     suspicious = int(summary.get("suspicious") or 0)
     return f"{malicious}/{suspicious}"
+
+
+def find_version_entry(body: dict[str, Any], version: str) -> tuple[str, dict[str, Any]]:
+    """Resolve a semver (or version map key) to (version_id, entry). Raises ValueError if missing."""
+    versions = body.get("versions")
+    if isinstance(versions, dict):
+        direct = versions.get(version)
+        if isinstance(direct, dict):
+            return str(direct.get("version", version)), direct
+        for key, entry in versions.items():
+            if isinstance(entry, dict):
+                version_id = str(entry.get("version", key))
+                if version_id == version or str(key) == version:
+                    return version_id, entry
+    slug = body.get("slug", "?")
+    raise ValueError(f"Version '{version}' not found for skill '{slug}'")
+
+
+def filter_skill_body_version(body: dict[str, Any], version: str) -> dict[str, Any]:
+    """Return a copy of the skill body with only the requested version in versions."""
+    version_id, entry = find_version_entry(body, version)
+    versions = body.get("versions")
+    if isinstance(versions, dict):
+        for key, candidate in versions.items():
+            if candidate is entry:
+                return {**body, "versions": {key: entry}}
+    return {**body, "versions": {version_id: entry}}
 
 
 def _iter_version_rows(body: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
@@ -510,9 +572,13 @@ def print_skill_info(body: dict[str, Any]) -> None:
         print("Bookmarked: yes")
 
 
-def print_skill_status(body: dict[str, Any]) -> None:
+def print_skill_status(body: dict[str, Any], *, version: str | None = None) -> None:
     """Human-readable publish and review status summary."""
     slug = body.get("slug", "?")
+    if version:
+        _print_single_version_status(body, version)
+        return
+
     latest = body.get("latestVersion", "?")
     review_status = str(body.get("reviewStatus") or "completed")
     print(f"{slug}@{latest}")
