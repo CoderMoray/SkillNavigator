@@ -430,6 +430,10 @@ export default function SkillDetailPage() {
   const isReviewPending = skill.reviewStatus === "reviewing" || skill.reviewStatus === "failed";
   const isOwner = Boolean(viewer && isSkillOwner(skill, viewer));
   const isContributor = Boolean(viewer && isSkillContributor(skill, viewer));
+  const showReviewFailureDetail =
+    skill.reviewStatus === "failed" &&
+    Boolean(skill.reviewFailure) &&
+    getSkillRepublishBlockReason(skill) !== "review_failed";
   const canRetryStoredPackage = canRetryStoredReview(skill, skill.hasStoredPackage);
   const needsPackageReupload = skill.reviewStatus === "failed" && isContributor && !canRetryStoredPackage;
   const retryReviewLabel =
@@ -464,8 +468,8 @@ export default function SkillDetailPage() {
                 <SkillReviewStatusBadge
                   status={skill.reviewStatus}
                   title={
-                    skill.reviewStatus === "failed" && skill.reviewFailure
-                      ? formatSkillReviewFailureSummary(skill.reviewFailure)
+                    showReviewFailureDetail
+                      ? formatSkillReviewFailureSummary(skill.reviewFailure!)
                       : undefined
                   }
                 />
@@ -481,9 +485,9 @@ export default function SkillDetailPage() {
                   </span>
                 ) : null}
               </div>
-              {skill.reviewStatus === "failed" && skill.reviewFailure ? (
+              {showReviewFailureDetail ? (
                 <p className="description skill-review-failure" style={{ marginTop: 12 }}>
-                  {formatSkillReviewFailureSummary(skill.reviewFailure)}
+                  {formatSkillReviewFailureSummary(skill.reviewFailure!)}
                 </p>
               ) : null}
               {skill.reviewStatus === "failed" || skill.reviewStatus === "reviewing" ? (
@@ -1100,8 +1104,8 @@ export default function SkillDetailPage() {
                 <SkillReviewStatusBadge
                   status={skill.reviewStatus}
                   title={
-                    skill.reviewStatus === "failed" && skill.reviewFailure
-                      ? formatSkillReviewFailureSummary(skill.reviewFailure)
+                    showReviewFailureDetail
+                      ? formatSkillReviewFailureSummary(skill.reviewFailure!)
                       : undefined
                   }
                 />
@@ -1189,9 +1193,9 @@ export default function SkillDetailPage() {
                 )
               ) : null}
             </div>
-            {skill.reviewStatus === "failed" && skill.reviewFailure ? (
+            {showReviewFailureDetail ? (
               <p className="description skill-review-failure" style={{ marginTop: 12 }}>
-                {formatSkillReviewFailureSummary(skill.reviewFailure)}
+                {formatSkillReviewFailureSummary(skill.reviewFailure!)}
               </p>
             ) : null}
             {skill.reviewStatus === "failed" || skill.reviewStatus === "reviewing" ? (
