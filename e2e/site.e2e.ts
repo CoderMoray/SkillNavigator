@@ -266,6 +266,56 @@ test.describe.serial("MonoSkillNavigator browser flows", () => {
     expectNoRuntimeErrors(errors);
   });
 
+  test("shows owner unlisted notice and review progress without duplicate failure summary", async ({
+    page
+  }) => {
+    const slug = "demo-skill";
+    const detailResponse = await fetch(apiUrl(`/skills/${slug}`));
+    expect(detailResponse.ok, "demo-skill must exist for review-failed UI coverage.").toBeTruthy();
+    const baseSkill = (await detailResponse.json()) as Record<string, unknown>;
+
+    const failedSkill = {
+      ...baseSkill,
+      reviewStatus: "failed",
+      published: false,
+      reviewFailure: {
+        message: "E2E 模拟审查中断",
+        stages: ["virustotal"]
+      },
+      reviewCompletedStages: ["halucatch", "skillspector"],
+      hasStoredPackage: true
+    };
+
+    await page.route(
+      (url) =>
+        url.origin === API_BASE_URL && url.pathname === `/skills/${encodeURIComponent(slug)}`,
+      async (route) => {
+        if (route.request().method() !== "GET") {
+          await route.continue();
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(failedSkill)
+        });
+      }
+    );
+
+    await visit(page, "/login");
+    await page.getByLabel("用户名或邮箱").fill(E2E_USERNAME);
+    await page.getByLabel("密码").fill(E2E_PASSWORD);
+    await page.getByRole("button", { name: "登录" }).click();
+    await expect(page).toHaveURL(new RegExp(`/creators/${encodeURIComponent(E2E_USERNAME)}$`));
+
+    await visit(page, `/skills/${encodeURIComponent(slug)}`);
+    await expect(page.getByText("此 Skill 已下架（审查失败）")).toBeVisible();
+    await expect(page.getByRole("status", { name: "审查进度" })).toBeVisible();
+    await expect(page.getByText("VirusTotal").first()).toBeVisible();
+    await expect(page.locator(".skill-review-failure")).toHaveCount(0);
+    await expect(page.getByText(/E2E 模拟审查中断/)).toHaveCount(0);
+  });
+
   test("verify-email routes signed-out users to login for expired links", async ({ page }) => {
     await page.route(
       (url) => url.origin === API_BASE_URL && url.pathname === "/auth/verify-email",
