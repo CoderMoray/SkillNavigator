@@ -62,11 +62,15 @@ function SkillsPageContent() {
 
   const urlQuery = searchParams.get("query") ?? "";
   const urlCategoryKey = searchParams.getAll("category").join("\0");
+  const urlSignature = `${urlQuery}\0${urlCategoryKey}`;
 
-  useEffect(() => {
+  // URL 导航变化时同步搜索/分类（渲染期基于前值重置，见 login/page.tsx）。
+  const [seenUrlSignature, setSeenUrlSignature] = useState(urlSignature);
+  if (seenUrlSignature !== urlSignature) {
+    setSeenUrlSignature(urlSignature);
     setQuery(urlQuery);
     setSelectedCategories(normalizeSkillCategoryFilters(searchParams.getAll("category")));
-  }, [urlQuery, urlCategoryKey, searchParams]);
+  }
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
