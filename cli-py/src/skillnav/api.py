@@ -37,6 +37,8 @@ def request_bytes(
     except urllib.error.URLError as exc:
         reason = getattr(exc, "reason", exc)
         raise NetworkError.from_hint(network_unreachable(str(reason), registry=url)) from exc
+    except OSError as exc:
+        raise NetworkError.from_hint(network_unreachable(str(exc), registry=url)) from exc
 
 
 def request_json(

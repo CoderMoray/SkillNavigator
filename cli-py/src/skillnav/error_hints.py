@@ -55,8 +55,9 @@ def network_unreachable(reason: str, *, registry: str | None = None) -> ErrorHin
     return ErrorHint(
         summary=f"Cannot reach the Skill platform API ({reason})",
         detail=(
-            "The CLI could not open an HTTP connection to the registry."
-            f"{registry_line} The API may be stopped, the URL wrong, or a firewall blocking the port."
+            "The CLI could not complete an HTTP request to the registry."
+            f"{registry_line} The API may be stopped, crashed mid-response, the URL wrong,"
+            " or a firewall blocking the port."
         ),
         next_steps=_steps(
             "Start the API locally: npm run dev:api (or npm run dev for API + Web).",
