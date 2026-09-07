@@ -23,7 +23,7 @@
 
 3. **VirusTotal 摘要**（已配置 API 时）  
    独立卡片展示扫描器名称、状态（已完成 / 未命中历史报告 / 扫描失败）、恶意与可疑 **检出数量**、**厂家总数**（参与扫描的 AV 引擎数）、威胁结论（若有）、SHA-256 前缀与 **VirusTotal 报告链接**（若有）。  
-   **已完成** 仅当参与扫描的 **厂家总数 > 0**；hash 命中但 VT 仍在排队分析时，平台会继续轮询，超时则视为审查未完成（发布页可重试），**不会**入库为「已完成且零检出」。
+   **已完成** 仅当参与扫描的 **厂家总数 > 0**；hash 命中但 VT 仍在排队分析时，平台会继续轮询，超时则视为审查未完成（详情页或 `retry-publish` 可重试），**不会**在审查记录中标记为「已完成且零检出」。
 
 4. **VirusTotal finding**（扫描 **completed** 且存在 malicious 或 suspicious 检出时）  
    按 **风险类别** 合并展示，**不是** 每个 AV 引擎单独一条：
@@ -86,7 +86,7 @@ SkillSpector 对每条 finding 按 **严重度** 与 **置信度** 贡献分数�
 | **平台规则等** | 不自动拒绝 | 存在任意 finding 时为需复核 |
 | **无任何 finding 且各启用步骤均成功** | — | **已发布（published）** |
 
-**审查流水线未完成**（如 VirusTotal 分析超时、SkillSpector/HaluCatch 运行时不可用）时，API 返回 `review_pipeline_incomplete`，**Skill 版本不会写入注册表**；发布页会列出失败环节并提供 **重新运行完整审查**。这与「版本已入库但 verdict 为已拒绝」不同（见 [发布流程](./publish-workflow.md)）。
+**审查流水线未完成或失败**（如 VirusTotal 分析超时、SkillSpector/HaluCatch 运行时不可用、审查中断）时，Skill 标记为 **审查失败**（`reviewStatus: failed`）；**包通常已暂存在服务端**，但 **不会公开**。在 Skill 详情页或 CLI 使用 **重试失败环节 / `skillnav retry-publish`** 重新跑审查（默认只重试失败或未完成的环节）。这与「审查已全部完成但 verdict 为 **已拒绝**」不同（见 [发布流程](./publish-workflow.md)）。
 
 SkillSpector 的「不建议安装」是 **包级安全建议**，与页面「已拒绝 / 需复核」徽章相关但不完全等同。
 
@@ -193,7 +193,7 @@ GET /files/{zipSha256}  → 200，引擎统计为 0
 GET /files/{zipSha256} × N  → 轮询直至 stats 就绪或超时
 ```
 
-→ **1 + N 次 quota**（每次 file lookup 通常算 1 次）；超时则审查流水线失败，**不保存 Skill**，发布页可重试。  
+→ **1 + N 次 quota**（每次 file lookup 通常算 1 次）；超时则审查流水线失败，Skill 标记为 **审查失败**（包通常已暂存），在详情页或 `skillnav retry-publish` 重试。  
 常见原因：首次 upload 已成功但平台在分析完成前超时；或他人刚上传同 hash、VT 仍在排队。
 
 **路径 B：Hash 不存在且开启 upload-on-miss**

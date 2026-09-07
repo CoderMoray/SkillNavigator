@@ -108,17 +108,18 @@ Web 发布路径会在审查前补全缺失或不完整的 frontmatter，避免�
 
 ### 4.2 审查流水线
 
-审查顺序（`reviewAndEvaluateSkillSnapshot`）：
+发布时平台 **先暂存包**，再运行审查（Web / CLI 默认 **异步**，后台执行）。审查顺序（`runReviewPipeline`）：
 
 ```text
 1. 格式校验（validateSkillSnapshot）→ compliance findings
-2. 并行执行：
+2. HaluCatch 五维可靠性评估（Python，可选；否则回退 tests/*.json）
+3. 并行执行：
    ├── SkillSpector 静态安全扫描（Python，可选）
    └── VirusTotal 静态 AV 扫描（可选，见 §5.3）
-3. HaluCatch 五维可靠性评估（Python，可选；否则回退 tests/*.json）
-4. 平台内置规则（仅当 HaluCatch 或 SkillSpector 不可用时作为补充）
-5. 汇总 findings → verdict + 三维度评分
+4. 汇总 findings → verdict + 三维度评分
 ```
+
+**审查失败**（任一已启用环节未成功完成）：`reviewStatus: failed`，包通常 **已暂存**；通过 `POST /skills/:slug/retry-publish` 或 CLI `retry-publish` **增量重试**失败/未完成环节。
 
 **Verdict 规则**（`calculateReviewVerdict`，仅 SkillSpector / VirusTotal 触发自动拒绝）：
 

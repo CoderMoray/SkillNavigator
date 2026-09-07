@@ -2,7 +2,7 @@
 
 本指南面向希望通过 **skillnav CLI** 完成 Skill 全生命周期的作者：安装工具、在平台注册并登录、用 AI 编写 Skill 包、发布、查看审查报告，以及根据结果迭代发版。
 
-> **与 Web 的关系：** CLI 与 Web 发布页共用同一套 API 与审查流水线（SkillSpector、VirusTotal、HaluCatch）。你可以在 CLI 完成发布，在 Web 详情页查看图表与 finding；反之亦然。
+> **与 Web 的关系：** CLI 与 Web 发布页共用同一套 API 与审查流水线（HaluCatch → SkillSpector + VirusTotal 并行）。你可以在 CLI 完成发布，在 Web 详情页查看图表与 finding；反之亦然。
 
 ## 你将完成什么
 
@@ -299,9 +299,10 @@ skillnav status my-first-skill             # 查看审查进度
 
 ```bash
 skillnav status my-first-skill
+skillnav status my-first-skill --version 1.0.0
 ```
 
-显示 Skill 是否存在、最新版本、verdict 概要。
+显示 Skill 级审查状态（审查中 / 审查失败 / 审查完成）、可见性，以及各版本的 **review**、**verdict**、发布与 VirusTotal 摘要。省略 `--version` 时列出全部版本；指定 `--version` 时只展示该版本详情。
 
 ### 7.2 完整报告
 
@@ -342,7 +343,7 @@ skillnav publish ./my-first-skill --json --no-input ...
 | **需复核（needs-review）** | 有 finding，但未触发自动拒绝 | 版本已入库；评估 finding Severity，可接受则完成，或修复后发新版本 |
 | **已拒绝（rejected）** | 命中 SkillSpector / VirusTotal 等高置信度拒绝规则 | 版本已入库但 **不会出现在公开搜索**；必须修复后发 **新版本** |
 
-**流水线未完成（未入库）：** 若看到 `review_pipeline_incomplete`（例如 VirusTotal 超时），版本 **没有保存**。直接重跑 `publish` 即可，无需改版本号。
+**流水线未完成或审查失败：** 包 **通常已暂存** 于服务端（`reviewStatus: failed`）。使用 **`skillnav retry-publish <slug>`** 重试审查（默认只重跑失败或未完成的环节），**不要**对同版本重复 `publish`（可能得到 `pending_publish_use_retry`）。仅在使用 **`publish --wait`** 同步等待时，失败会以 `review_pipeline_incomplete`（503）返回，处理方式相同。
 
 更多规则见 [发布流程](./publish-workflow.md)、[安全检测](./security-scan.md)、[质量审查](./halucatch-review.md)。
 

@@ -17,9 +17,9 @@
 
 【建包】目录含 SKILL.md；frontmatter 必填 slug、name、description、version、categories、release-tags（首版含 latest）。slug 不可变，name 可变。缺字段时按 Skill 格式文档补全，勿编造 slug。
 
-【发布】推荐 review → publish --dry-run → publish。Agent/CI 加 --no-input --json。仅 owner/contributor 可为已有 slug 发新版；新版本须提高 SemVer，不可覆盖旧版。
+【发布】推荐 publish --dry-run → publish（默认后台审查）。审查失败用 retry-publish，勿重复 upload 同版本。Agent/CI 加 --no-input --json。仅 owner/contributor 可为已有 slug 发新版；新版本须提高 SemVer，不可覆盖旧版。
 
-【报告】status 看 verdict 与版本摘要；report 看 SkillSpector、VirusTotal、HaluCatch 详情。verdict：已发布 / 需复核 / 已拒绝（不进入公开搜索）。review_pipeline_incomplete 表示未入库，直接重试 publish，无需改版本号。
+【报告】status 看审查状态、各版本 review/verdict 与阶段进度（可选 --version）；report 看 SkillSpector、VirusTotal、HaluCatch 详情。verdict：已发布 / 需复核 / 已拒绝（不进入公开搜索）。reviewStatus failed 或 review_pipeline_incomplete 表示审查未完成，包通常已暂存，用 retry-publish 重试。
 
 【改进】按 report 修包：high/critical finding 必改；HaluCatch 低分补步骤、边界与示例；description/tags 不规范则修 frontmatter。改后升版本再 publish → report 验证。
 

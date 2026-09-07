@@ -47,7 +47,7 @@ skillnav retry-publish my-skill
 skillnav retry-publish my-skill --wait
 ```
 
-对已暂存但审查失败或未完成的 Skill 重新跑审查，**无需重新上传**。
+对已暂存但审查失败或未完成的 Skill 重新跑审查，**无需重新上传**。默认 **只重试失败或未完成的审查环节**（HaluCatch / SkillSpector / VirusTotal）。
 
 ---
 
@@ -55,10 +55,11 @@ skillnav retry-publish my-skill --wait
 
 ```bash
 skillnav status my-skill
+skillnav status my-skill --version 1.0.0
 skillnav status my-skill --json
 ```
 
-显示 Skill 是否存在、最新版本、verdict 概要。
+显示 Skill 级 **审查状态**（审查中 / 审查失败 / 审查完成）、可见性，以及各版本的 `review`、`verdict`、hash 与 VirusTotal 摘要。指定 `--version` 时只展示该版本。
 
 ---
 

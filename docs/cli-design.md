@@ -142,7 +142,7 @@ skillnav
 
 ### `status`
 
-- 同一 API；人类可读：**发布/审查状态**（最新 verdict、可见性、版本表：published / verdict / hash / VT 摘要）。
+- 同一 API；人类可读：**Skill 级审查状态**、可见性、各版本 `review` / `verdict` / hash / VT 摘要；可选 `--version` 只看某一版本。
 - 末尾提示使用 `skillnav report <slug> --version <ver>` 查看完整报告。
 
 ## 7. 输出与退出码约定
@@ -175,6 +175,7 @@ skillnav
 | config test | `GET /health` | 公开 |
 | publish | `POST /skills/publish` | Bearer |
 | publish --dry-run | `POST /skills/publish/preview` | Bearer |
+| retry-publish | `POST /skills/:slug/retry-publish` | Bearer（contributor） |
 | status / info | `GET /skills/:slug` | 视可见性 |
 | report | `GET /skills/:slug/versions/:version` | 视可见性 |
 | search | `GET /skills?query=` | 公开 |

@@ -80,8 +80,8 @@ skillnav
 │   └── test [name]
 ├── login / logout / whoami / update
 ├── publish <dir|zip>               # 发布 → [references/skillnav-publish.md](references/skillnav-publish.md)
-├── review <dir|zip>                # 远程预审查（不发布）
-├── status <slug>                   # 版本与 verdict 摘要
+├── retry-publish <slug>            # 对已暂存包重新跑审查
+├── status <slug> [--version VER]   # 审查状态与各版本摘要
 ├── report <slug> [--version VER]   # 完整安全/质量报告
 ├── search <query> [--category]     # 搜索 → [references/skillnav-discover.md](references/skillnav-discover.md)
 ├── top [--sort] [--limit]

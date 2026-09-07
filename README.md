@@ -14,7 +14,7 @@
 - 用户注册、登录、登出、当前用户查询、密码修改、忘记密码/重置密码；可选邮箱验证（本地默认关闭）。
 - 账户设置（`/account/settings/*`）：个人资料、API 密钥、修改密码、注销账户；旧路径自动重定向。
 - Web 站内文档（8 篇）：格式规范、发布流程、CLI 指南、平台 Agent 系统提示词、安全扫描与 HaluCatch 审查等。
-- **skillnav** Python CLI（PyPI 分发）：搜索、发布、审查、下载等；Web 创建 API 密钥后 `skillnav login --api-key sk_...`。
+- **skillnav** Python CLI（PyPI 分发）：搜索、发布（含 `--dry-run` 预览）、`retry-publish`、状态/报告、下载等；Web 创建 API 密钥后 `skillnav login --api-key sk_...`。
 - Worker 支持重跑注册表审查。
 - PostgreSQL 注册表存储与 MinIO Skill artifact 对象存储（可选）。
 
