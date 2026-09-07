@@ -15,7 +15,7 @@ import {
   skillRepublishBlockedMessage,
   skillUnlistedNotice,
 } from "../../../lib/publish-helpers";
-import { formatReviewStageProgress } from "../../../lib/review-stages";
+import { SkillReviewProgress } from "../../../components/SkillReviewProgress";
 import {
   ArrowLeft,
   BookOpen,
@@ -438,9 +438,10 @@ export default function SkillDetailPage() {
   const unlistedNotice = skillUnlistedNotice(skill);
   const reviewProgressSection =
     skill.reviewStatus === "failed" || skill.reviewStatus === "reviewing" ? (
-      <p className="description" style={{ marginTop: 8 }}>
-        审查进度：{formatReviewStageProgress(skill.reviewCompletedStages, skill.reviewFailure?.stages)}
-      </p>
+      <SkillReviewProgress
+        completedStages={skill.reviewCompletedStages}
+        failedStages={skill.reviewFailure?.stages}
+      />
     ) : null;
   const ownerUnlistedNoticeSection =
     isOwner && isUnlisted ? (

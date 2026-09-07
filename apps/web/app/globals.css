@@ -2356,6 +2356,103 @@ button {
   background: rgba(251, 146, 60, 0.14);
 }
 
+.skill-review-progress {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.skill-review-progress-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-strong);
+}
+
+.skill-review-progress-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.skill-review-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.skill-review-stage-name {
+  color: var(--foreground);
+}
+
+.skill-review-stage-status {
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+  color: var(--muted-strong);
+  font-weight: 600;
+}
+
+.skill-review-stage--completed {
+  border-color: rgba(24, 128, 56, 0.22);
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.skill-review-stage--completed .skill-review-stage-name,
+.skill-review-stage--completed .skill-review-stage-status {
+  color: inherit;
+  border-left-color: rgba(24, 128, 56, 0.18);
+}
+
+.skill-review-stage--failed {
+  border-color: rgba(217, 48, 37, 0.22);
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.skill-review-stage--failed .skill-review-stage-name,
+.skill-review-stage--failed .skill-review-stage-status {
+  color: inherit;
+  border-left-color: rgba(217, 48, 37, 0.18);
+}
+
+.skill-review-stage--pending {
+  border-color: rgba(176, 96, 0, 0.2);
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.skill-review-stage--pending .skill-review-stage-name,
+.skill-review-stage--pending .skill-review-stage-status {
+  color: inherit;
+  border-left-color: rgba(176, 96, 0, 0.18);
+}
+
+:root[data-theme="dark"] .skill-review-stage {
+  background: rgba(24, 26, 36, 0.78);
+}
+
+:root[data-theme="dark"] .skill-review-stage--completed {
+  background: rgba(24, 128, 56, 0.16);
+}
+
+:root[data-theme="dark"] .skill-review-stage--failed {
+  background: rgba(217, 48, 37, 0.16);
+}
+
+:root[data-theme="dark"] .skill-review-stage--pending {
+  background: rgba(176, 96, 0, 0.16);
+}
+
 .detail-summary-actions .button {
   width: 100%;
   justify-content: center;
