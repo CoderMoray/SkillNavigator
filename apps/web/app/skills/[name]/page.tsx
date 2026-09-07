@@ -434,6 +434,26 @@ export default function SkillDetailPage() {
     skill.reviewStatus === "failed" &&
     Boolean(skill.reviewFailure) &&
     getSkillRepublishBlockReason(skill) !== "review_failed";
+  const isUnlisted = isSkillUnlisted(skill);
+  const unlistedNotice = skillUnlistedNotice(skill);
+  const reviewProgressSection =
+    skill.reviewStatus === "failed" || skill.reviewStatus === "reviewing" ? (
+      <p className="description" style={{ marginTop: 8 }}>
+        审查进度：{formatReviewStageProgress(skill.reviewCompletedStages, skill.reviewFailure?.stages)}
+      </p>
+    ) : null;
+  const ownerUnlistedNoticeSection =
+    isOwner && isUnlisted ? (
+      <div className="skill-unpublished-notice" role="status">
+        <span className="skill-unpublished-notice-icon" aria-hidden="true">
+          <EyeOff size={18} />
+        </span>
+        <div className="skill-unpublished-notice-body">
+          <strong>{unlistedNotice.title}</strong>
+          <p>{unlistedNotice.description}</p>
+        </div>
+      </div>
+    ) : null;
   const canRetryStoredPackage = canRetryStoredReview(skill, skill.hasStoredPackage);
   const needsPackageReupload = skill.reviewStatus === "failed" && isContributor && !canRetryStoredPackage;
   const retryReviewLabel =
@@ -490,11 +510,8 @@ export default function SkillDetailPage() {
                   {formatSkillReviewFailureSummary(skill.reviewFailure!)}
                 </p>
               ) : null}
-              {skill.reviewStatus === "failed" || skill.reviewStatus === "reviewing" ? (
-                <p className="description" style={{ marginTop: 8 }}>
-                  审查进度：{formatReviewStageProgress(skill.reviewCompletedStages, skill.reviewFailure?.stages)}
-                </p>
-              ) : null}
+              {ownerUnlistedNoticeSection}
+              {reviewProgressSection}
               {skill.reviewStatus === "reviewing" ? (
                 <p className="description" style={{ marginTop: 12 }}>
                   审查仍在进行中。完成后此页将显示版本、文件与审查结果；请稍后刷新。
@@ -622,8 +639,6 @@ export default function SkillDetailPage() {
       meta: `${openIssues.length} 个开放 Issue`
     }
   ];
-  const isUnlisted = isSkillUnlisted(skill);
-  const unlistedNotice = skillUnlistedNotice(skill);
   const republishBlockReason = getSkillRepublishBlockReason(skill);
   const installCommand = skillnavInstallExample(skill.slug);
 
@@ -1198,22 +1213,8 @@ export default function SkillDetailPage() {
                 {formatSkillReviewFailureSummary(skill.reviewFailure!)}
               </p>
             ) : null}
-            {skill.reviewStatus === "failed" || skill.reviewStatus === "reviewing" ? (
-              <p className="description" style={{ marginTop: 8 }}>
-                审查进度：{formatReviewStageProgress(skill.reviewCompletedStages, skill.reviewFailure?.stages)}
-              </p>
-            ) : null}
-            {isOwner && isUnlisted ? (
-              <div className="skill-unpublished-notice" role="status">
-                <span className="skill-unpublished-notice-icon" aria-hidden="true">
-                  <EyeOff size={18} />
-                </span>
-                <div className="skill-unpublished-notice-body">
-                  <strong>{unlistedNotice.title}</strong>
-                  <p>{unlistedNotice.description}</p>
-                </div>
-              </div>
-            ) : null}
+            {ownerUnlistedNoticeSection}
+            {reviewProgressSection}
           </div>
 
           <aside className="hero-card detail-summary-card">
