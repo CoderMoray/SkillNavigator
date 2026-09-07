@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { Search, Sparkles, Trophy, UploadCloud } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AppShell } from "../../components/AppShell";
 import { SkillCategoryLabel } from "../../components/SkillCategoryIcon";
 import { PillSelect } from "../../components/PillSelect";
@@ -24,9 +25,30 @@ const sortOptions = [
 ];
 
 export default function SkillsPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppShell title="Skill 广场">
+          <div className="claw-list">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div className="skill-row skeleton-row" key={index} />
+            ))}
+          </div>
+        </AppShell>
+      }
+    >
+      <SkillsPageContent />
+    </Suspense>
+  );
+}
+
+function SkillsPageContent() {
+  const searchParams = useSearchParams();
   const [skills, setSkills] = useState<SkillSearchResult[]>([]);
-  const [query, setQuery] = useState("");
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [query, setQuery] = useState(() => searchParams.get("query") ?? "");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(() =>
+    normalizeSkillCategoryFilters(searchParams.getAll("category"))
+  );
   const [sort, setSort] = useState("recent");
   const [tab, setTab] = useState("Skills");
   const [loading, setLoading] = useState(true);
@@ -38,15 +60,13 @@ export default function SkillsPage() {
     [selectedCategories]
   );
 
-  // 首次渲染时从 URL 的 query/category 初始化搜索与分类筛选。
-  // 用渲染期一次性重置（guard 在 urlSeeded 标记上）替代挂载后 effect。
-  const [urlSeeded, setUrlSeeded] = useState(false);
-  if (!urlSeeded) {
-    const url = new URL(typeof window === "undefined" ? "http://localhost/" : window.location.href);
-    setQuery(url.searchParams.get("query") ?? "");
-    setSelectedCategories(normalizeSkillCategoryFilters(url.searchParams.getAll("category")));
-    setUrlSeeded(true);
-  }
+  const urlQuery = searchParams.get("query") ?? "";
+  const urlCategoryKey = searchParams.getAll("category").join("\0");
+
+  useEffect(() => {
+    setQuery(urlQuery);
+    setSelectedCategories(normalizeSkillCategoryFilters(searchParams.getAll("category")));
+  }, [urlQuery, urlCategoryKey, searchParams]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
