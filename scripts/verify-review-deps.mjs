@@ -98,7 +98,7 @@ function checkSkillSpector() {
     );
     record(
       "error",
-      "SkillSpector fix: set SKILLSPECTOR_PYTHON to a Python 3.12+ interpreter, then run `npm run setup` (or: pip install --upgrade skillspector)."
+      "SkillSpector fix: set SKILLSPECTOR_PYTHON to a Python 3.12+ interpreter, then run `npm run setup:skillspector` (installs from the vendored source; no PyPI needed for SkillSpector itself)."
     );
     return;
   }
@@ -107,9 +107,9 @@ function checkSkillSpector() {
   if (!versionOk) {
     record(
       "error",
-      `SkillSpector: Python ${probes.command} is ${probes.stdout}; SkillSpector requires 3.12+ (install-skillspector.sh).`
+      `SkillSpector: Python ${probes.command} is ${probes.stdout}; SkillSpector requires 3.12+.`
     );
-    record("error", "SkillSpector fix: point SKILLSPECTOR_PYTHON at a Python 3.12+ interpreter, then run `npm run setup`.");
+    record("error", "SkillSpector fix: point SKILLSPECTOR_PYTHON at a Python 3.12+ interpreter, then run `npm run setup:skillspector`.");
     return;
   }
 
@@ -127,7 +127,7 @@ function checkSkillSpector() {
   ].join("; "));
   if (!importProbe.ok) {
     record("error", `SkillSpector: 'import skillspector.graph' failed under ${probes.command}. ${importProbe.error}`);
-    record("error", "SkillSpector fix: run `npm run setup` (installs SkillSpector) or set SKILLSPECTOR_DIR/SKILLSPECTOR_PYTHON.");
+    record("error", "SkillSpector fix: run `npm run setup:skillspector` (installs from the vendored source into the local interpreter) or set SKILLSPECTOR_DIR/SKILLSPECTOR_PYTHON.");
     return;
   }
   record("ok", `SkillSpector: ready (${probes.command}, Python ${probes.stdout})`);

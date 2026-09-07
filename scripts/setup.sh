@@ -27,18 +27,12 @@ ON_DEV="${ON_DEV:-true}"
 
 echo "=== Skill Platform Setup (ON_DEV=$ON_DEV) ==="
 
-# 0. SkillSpector (PyPI or GitHub fallback) — used by the HTTP review
-#    pipeline; harmless when absent (built-in rules still apply).
-echo "[0] Installing SkillSpector..."
-if bash "$(dirname "$0")/install-skillspector.sh"; then
-  echo "  ✅ SkillSpector install step finished"
-else
-  echo "  ⚠️  SkillSpector install failed — security scans may fall back to built-in rules"
-fi
-
-# Review provider preflight (SkillSpector / HaluCatch python+imports, VT key).
-# Production (ON_DEV=false) fails fast; dev warns unless REVIEW_DEPS_STRICT=true.
-echo "[1] Verifying review providers..."
+# 0. Review provider preflight (SkillSpector / HaluCatch python+imports, VT key).
+#    SkillSpector & HaluCatch are vendored source trees, imported via sys.path
+#    injection at review time — this step is fully offline (no PyPI/GitHub).
+#    If the preflight reports a gap, install locally: `npm run setup:skillspector`.
+#    Production (ON_DEV=false) fails fast; dev warns unless REVIEW_DEPS_STRICT=true.
+echo "[0] Verifying review providers..."
 if node "$REPO_ROOT/scripts/verify-review-deps.mjs"; then
   echo "  ✅ Review providers ready"
 else
@@ -61,14 +55,14 @@ if [ "$ON_DEV" = "true" ]; then
   PASSWORD="password123"
   SKILL_PATH="examples/demo-skill"
 
-  echo "[1/6] Checking API..."
+  echo "[1/5] Checking API..."
   if ! curl -sf "$API/health" > /dev/null; then
     echo "  ❌ API not running at $API — start it first: npm run dev:api"
     exit 1
   fi
   echo "  ✅ API running"
 
-  echo "[2/6] Registering user '$USERNAME'..."
+  echo "[2/5] Registering user '$USERNAME'..."
   # Note: no -f here — on 4xx (e.g. duplicate user) curl would drop the JSON
   # body and we could not detect the error to fall back to login below.
   RESP=$(curl -s -X POST "$API/auth/register" \
@@ -89,12 +83,12 @@ if [ "$ON_DEV" = "true" ]; then
   fi
   echo "  ✅ Token obtained"
 
-  echo "[3/6] Publishing demo skill..."
+  echo "[3/5] Publishing demo skill..."
   export SKILL_AUTH_TOKEN="$TOKEN"
   npm run skill -- publish "$SKILL_PATH" 2>&1 | grep -E "Published|Verdict|Scores" || echo "  ⚠️  Publish reported no summary (skill may already exist)"
   echo "  ✅ Published (or already present)"
 
-  echo "[4/6] Verifying search..."
+  echo "[4/5] Verifying search..."
   RESULT=$(curl -sf "$API/skills?query=demo" | cat)
   if echo "$RESULT" | grep -q '"name"'; then
     COUNT=$(echo "$RESULT" | grep -o '"name"' | wc -l | tr -d ' ')
@@ -103,7 +97,7 @@ if [ "$ON_DEV" = "true" ]; then
     echo "  ⚠️  No skills found in search"
   fi
 
-  echo "[6/6] Setup complete!"
+  echo "[5/5] Setup complete!"
   echo ""
   echo "Open $API (Web: http://127.0.0.1:3001) to see the skill in the UI"
   echo "Login: $USERNAME / $PASSWORD"
