@@ -1,6 +1,6 @@
 import type { SkillReviewStage } from "./types";
 
-export const REVIEW_STAGE_ORDER: SkillReviewStage[] = ["halucatch", "skillspector", "virustotal"];
+export const REVIEW_STAGE_ORDER: SkillReviewStage[] = ["skillspector", "virustotal", "halucatch"];
 
 export type ReviewStageDisplayStatus = "completed" | "failed" | "pending";
 

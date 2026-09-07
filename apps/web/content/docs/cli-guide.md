@@ -2,7 +2,7 @@
 
 本指南面向希望通过 **skillnav CLI** 完成 Skill 全生命周期的作者：安装工具、在平台注册并登录、用 AI 编写 Skill 包、发布、查看审查报告，以及根据结果迭代发版。
 
-> **与 Web 的关系：** CLI 与 Web 发布页共用同一套 API 与审查流水线（HaluCatch → SkillSpector + VirusTotal 并行）。你可以在 CLI 完成发布，在 Web 详情页查看图表与 finding；反之亦然。
+> **与 Web 的关系：** CLI 与 Web 发布页共用同一套 API 与审查流水线（SkillSpector + VirusTotal 并行 → HaluCatch）。你可以在 CLI 完成发布，在 Web 详情页查看图表与 finding；反之亦然。
 
 ## 你将完成什么
 

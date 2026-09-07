@@ -211,6 +211,21 @@ export async function reviewAndEvaluateSkillSnapshot(
   let skillSpectorAvailable = false;
   const failedStages: ReviewStageFailure[] = [];
 
+  const [skillSpectorResult, virusTotalResult] = await Promise.all([
+    runSkillSpectorReviewStep(snapshot),
+    runVirusTotalReviewStep(snapshot)
+  ]);
+
+  const skillSpector = skillSpectorResult.skillSpector;
+  skillSpectorAvailable = skillSpectorResult.skillSpectorAvailable;
+  const virusTotal = virusTotalResult.virusTotal;
+  findings.push(...skillSpectorResult.findings, ...virusTotalResult.findings);
+  for (const failure of [skillSpectorResult.failure, virusTotalResult.failure]) {
+    if (failure) {
+      failedStages.push(failure);
+    }
+  }
+
   let evaluation = evaluationOverride;
   if (!evaluation) {
     try {
@@ -226,21 +241,6 @@ export async function reviewAndEvaluateSkillSnapshot(
   const haluCatchAvailable =
     evaluation.provider === "halucatch-adapter" &&
     !failedStages.some((failure) => failure.stage === "halucatch");
-
-  const [skillSpectorResult, virusTotalResult] = await Promise.all([
-    runSkillSpectorReviewStep(snapshot),
-    runVirusTotalReviewStep(snapshot)
-  ]);
-
-  const skillSpector = skillSpectorResult.skillSpector;
-  skillSpectorAvailable = skillSpectorResult.skillSpectorAvailable;
-  const virusTotal = virusTotalResult.virusTotal;
-  findings.push(...skillSpectorResult.findings, ...virusTotalResult.findings);
-  for (const failure of [skillSpectorResult.failure, virusTotalResult.failure]) {
-    if (failure) {
-      failedStages.push(failure);
-    }
-  }
 
   const shouldRunPlatformRules = !haluCatchAvailable || !skillSpectorAvailable;
   if (shouldRunPlatformRules) {
@@ -428,7 +428,7 @@ function calculateScores(
   _evaluation: FunctionalEvaluationReport,
   _skillSpector?: SkillSpectorScanSummary
 ): ReviewScores {
-  // HaluCatch runs first; SkillSpector and VirusTotal run in parallel afterward.
+  // SkillSpector and VirusTotal run in parallel first; HaluCatch runs afterward.
   return {
     qualityScore: 100,
     securityScore: 100,

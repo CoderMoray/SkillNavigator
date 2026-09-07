@@ -47,7 +47,7 @@ skillnav retry-publish my-skill
 skillnav retry-publish my-skill --wait
 ```
 
-对已暂存但审查失败或未完成的 Skill 重新跑审查，**无需重新上传**。默认 **只重试失败或未完成的审查环节**（HaluCatch / SkillSpector / VirusTotal）。
+对已暂存但审查失败或未完成的 Skill 重新跑审查，**无需重新上传**。默认 **只重试失败或未完成的审查环节**（SkillSpector / VirusTotal / HaluCatch）。
 
 ---
 

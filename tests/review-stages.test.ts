@@ -4,19 +4,19 @@ import { formatReviewStageProgress, resolveReviewStageStates } from "../apps/web
 describe("resolveReviewStageStates", () => {
   it("marks completed, failed, and pending stages", () => {
     expect(
-      resolveReviewStageStates(["halucatch", "virustotal"], ["virustotal"])
+      resolveReviewStageStates(["skillspector", "virustotal"], ["virustotal"])
     ).toEqual([
-      { stage: "halucatch", label: "HaluCatch", status: "completed", statusLabel: "已完成" },
-      { stage: "skillspector", label: "SkillSpector", status: "pending", statusLabel: "待审查" },
+      { stage: "skillspector", label: "SkillSpector", status: "completed", statusLabel: "已完成" },
       { stage: "virustotal", label: "VirusTotal", status: "failed", statusLabel: "失败" },
+      { stage: "halucatch", label: "HaluCatch", status: "pending", statusLabel: "待审查" },
     ]);
   });
 });
 
 describe("formatReviewStageProgress", () => {
   it("joins stage labels for plain-text output", () => {
-    expect(formatReviewStageProgress(["halucatch"], ["skillspector"])).toBe(
-      "HaluCatch：已完成 · SkillSpector：失败 · VirusTotal：待审查"
+    expect(formatReviewStageProgress(["skillspector"], ["virustotal"])).toBe(
+      "SkillSpector：已完成 · VirusTotal：失败 · HaluCatch：待审查"
     );
   });
 });

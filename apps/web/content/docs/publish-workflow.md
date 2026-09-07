@@ -1,6 +1,6 @@
 # 发布流程
 
-发布将 Skill 包注册到平台，并自动触发 **格式校验、HaluCatch 质量评估、SkillSpector 安全扫描、VirusTotal 静态 AV 扫描（若已配置）**（以及平台合规/质量 finding）。审查顺序为：**HaluCatch → SkillSpector 与 VirusTotal（并行）** → 汇总 verdict。
+发布将 Skill 包注册到平台，并自动触发 **格式校验、SkillSpector 安全扫描、VirusTotal 静态 AV 扫描（若已配置）、HaluCatch 质量评估**（以及平台合规/质量 finding）。审查顺序为：**SkillSpector 与 VirusTotal（并行）→ HaluCatch** → 汇总 verdict。
 
 ## 前置条件
 
@@ -22,7 +22,7 @@
 5. **提交发布**：
    - 平台 **先暂存 ZIP 与版本元数据**，再 **在后台异步运行审查流水线**（Web 默认行为）。
    - 提交成功后通常 **立即跳转个人中心**，并提示「已提交审查」；不必在发布页等待审查结束。
-   - 用 Skill 详情页或 `skillnav status <slug>` 查看 **审查进度**（HaluCatch / SkillSpector / VirusTotal 各阶段）。
+   - 用 Skill 详情页或 `skillnav status <slug>` 查看 **审查进度**（SkillSpector / VirusTotal / HaluCatch 各阶段）。
    - 审查 **全部成功完成** 后，会将 **当前登录用户名** 写入包内 `SKILL.md` 的 `author` 字段（覆盖包内原有值），并根据 finding 给出 verdict。
 6. 审查结束后打开 Skill 详情查看 **已发布 / 需复核 / 已拒绝** 等结果；若审查 **流程失败**（见下），详情页会显示 **已下架（审查失败）** 与 **重新发布 / 重试失败环节**。
 

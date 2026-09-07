@@ -5,17 +5,17 @@ describe("resolveReviewStagesToRun", () => {
   it("runs only failed stages when some stages already completed", () => {
     expect(
       resolveReviewStagesToRun({
-        configuredStages: ["halucatch", "skillspector", "virustotal"],
+        configuredStages: ["skillspector", "virustotal", "halucatch"],
         completedStages: ["skillspector", "virustotal"],
         failedStages: ["virustotal"],
       })
-    ).toEqual(["halucatch", "virustotal"]);
+    ).toEqual(["virustotal", "halucatch"]);
   });
 
   it("honors explicit stage requests within the remaining work", () => {
     expect(
       resolveReviewStagesToRun({
-        configuredStages: ["halucatch", "skillspector", "virustotal"],
+        configuredStages: ["skillspector", "virustotal", "halucatch"],
         completedStages: ["skillspector"],
         failedStages: ["virustotal"],
         requestedStages: ["virustotal"],

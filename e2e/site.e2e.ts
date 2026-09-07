@@ -282,7 +282,7 @@ test.describe.serial("MonoSkillNavigator browser flows", () => {
         message: "E2E 模拟审查中断",
         stages: ["virustotal"]
       },
-      reviewCompletedStages: ["halucatch", "skillspector"],
+      reviewCompletedStages: ["skillspector", "virustotal"],
       hasStoredPackage: true
     };
 

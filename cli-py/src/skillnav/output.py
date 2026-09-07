@@ -283,7 +283,7 @@ def _hash_prefix(value: Any) -> str:
     return f"{text[:12]}..." if len(text) > 12 else text
 
 
-_REVIEW_STAGE_ORDER = ("halucatch", "skillspector", "virustotal")
+_REVIEW_STAGE_ORDER = ("skillspector", "virustotal", "halucatch")
 
 _REVIEW_STAGE_LABELS = {
     "halucatch": "HaluCatch",

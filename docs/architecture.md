@@ -112,10 +112,10 @@ Web 发布路径会在审查前补全缺失或不完整的 frontmatter，避免�
 
 ```text
 1. 格式校验（validateSkillSnapshot）→ compliance findings
-2. HaluCatch 五维可靠性评估（Python，可选；否则回退 tests/*.json）
-3. 并行执行：
+2. 并行执行：
    ├── SkillSpector 静态安全扫描（Python，可选）
    └── VirusTotal 静态 AV 扫描（可选，见 §5.3）
+3. HaluCatch 五维可靠性评估（Python，可选；否则回退 tests/*.json）
 4. 汇总 findings → verdict + 三维度评分
 ```
 
@@ -199,7 +199,7 @@ SkillSpector 与 VirusTotal **并行**执行（`Promise.all`），互不阻塞�
 
 ### 5.4 evaluator
 
-- **HaluCatch**（优先）：五维静态可靠性（地基、代码风险、规则、护栏、复杂度）。
+- **HaluCatch**：五维静态可靠性（地基、代码风险、规则、护栏、复杂度）；流水线中于安全审查之后执行。
 - **回退**：`tests/*.json` 任务集功能性检查。
 - 报告持久化至 `skill_review.halucatch_report` JSON 列。
 

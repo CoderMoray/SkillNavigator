@@ -216,22 +216,22 @@ export async function runReviewPipeline(
     state.findings.push(...specValidationFindings(snapshot));
   }
 
-  if (!shouldSkipStage("halucatch", skipStages)) {
-    await runHaluCatchStage(snapshot, version, state, options.onStageComplete);
-  }
-
-  const parallelStages: Promise<void>[] = [];
+  const securityStages: Promise<void>[] = [];
 
   if (!shouldSkipStage("skillspector", skipStages)) {
-    parallelStages.push(runSkillSpectorStage(snapshot, version, state, options.onStageComplete));
+    securityStages.push(runSkillSpectorStage(snapshot, version, state, options.onStageComplete));
   }
 
   if (!shouldSkipStage("virustotal", skipStages)) {
-    parallelStages.push(runVirusTotalStage(snapshot, version, state, options.onStageComplete));
+    securityStages.push(runVirusTotalStage(snapshot, version, state, options.onStageComplete));
   }
 
-  if (parallelStages.length > 0) {
-    await Promise.all(parallelStages);
+  if (securityStages.length > 0) {
+    await Promise.all(securityStages);
+  }
+
+  if (!shouldSkipStage("halucatch", skipStages)) {
+    await runHaluCatchStage(snapshot, version, state, options.onStageComplete);
   }
 
   const review = buildReviewFromState(snapshot, version, state);
@@ -283,14 +283,14 @@ export function resolveReviewStagesToRun(input: {
 
 export function getConfiguredReviewStages(): ReviewStage[] {
   const stages: ReviewStage[] = [];
-  if (isHaluCatchEnabled()) {
-    stages.push("halucatch");
-  }
   if (isSkillSpectorEnabled()) {
     stages.push("skillspector");
   }
   if (isVirusTotalEnabled()) {
     stages.push("virustotal");
+  }
+  if (isHaluCatchEnabled()) {
+    stages.push("halucatch");
   }
   return stages;
 }
