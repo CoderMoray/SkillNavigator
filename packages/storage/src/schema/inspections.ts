@@ -1,9 +1,9 @@
 import { pgTable, text, integer, timestamp, uniqueIndex, real } from "drizzle-orm/pg-core";
 
-export const skillReviews = pgTable("skill_reviews", {
+export const skillInspections = pgTable("skill_inspections", {
   skillSlug: text("skill_slug").notNull(),
   version: text("version").notNull(),
-  reviewId: text("review_id").notNull(),
+  inspectionId: text("inspection_id").notNull(),
   reportVersion: text("report_version").notNull(),
   contentHash: text("content_hash").notNull(),
   verdict: text("verdict").notNull(),
@@ -28,10 +28,10 @@ export const skillReviews = pgTable("skill_reviews", {
   virustotalThreatVerdict: text("virustotal_threat_verdict"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 }, (table) => [
-  uniqueIndex("skill_reviews_pkey").on(table.skillSlug, table.version),
+  uniqueIndex("skill_inspections_pkey").on(table.skillSlug, table.version),
 ]);
 
-export const skillReviewFindings = pgTable("skill_review_findings", {
+export const skillInspectionFindings = pgTable("skill_inspection_findings", {
   skillSlug: text("skill_slug").notNull(),
   version: text("version").notNull(),
   position: integer("position").notNull(),
@@ -45,5 +45,5 @@ export const skillReviewFindings = pgTable("skill_review_findings", {
   recommendation: text("recommendation").notNull(),
   confidence: real("confidence"),
 }, (table) => [
-  uniqueIndex("skill_review_findings_pkey").on(table.skillSlug, table.version, table.position),
+  uniqueIndex("skill_inspection_findings_pkey").on(table.skillSlug, table.version, table.position),
 ]);

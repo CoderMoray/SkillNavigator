@@ -15,8 +15,23 @@
 | **slug** | Skill 的唯一标识，用于 URL、API 与存储；发布后不应随意更改。 |
 | **name** | 展示名称，可随版本更新。 |
 | **version** | 语义化版本（SemVer），同一 slug 下每个版本不可变。 |
-| **审查（review）** | 发布时对包格式、SkillSpector、VirusTotal（可选）与合规 finding 的记录。 |
+| **审查（inspection）** | 发布时对包格式、SkillSpector、VirusTotal（可选）与合规 finding 的记录；API 字段为 `inspection`、`inspectionStatus` 等。 |
 | **评估（evaluation）** | 默认由 HaluCatch 对包做五维静态质量检查；环境未配置时可回退到 `tests/*.json` 任务集。 |
+
+## 常用 API / JSON 字段
+
+Skill 详情（`GET /skills/:slug`）及 CLI `--json` 输出中，与审查相关的字段如下（旧版 `review*` 字段已统一为 `inspection*`）：
+
+| 字段 | 说明 |
+| --- | --- |
+| `inspectionStatus` | 最新版本的流水线状态：`inspecting`（审查中）/ `completed`（审查完成）/ `failed`（审查失败） |
+| `inspectionFailure` | 失败时：`{ stages: string[], message: string }`，`stages` 为 `skillspector` / `virustotal` / `halucatch` |
+| `inspectionCompletedStages` | 已成功完成的阶段 id 列表 |
+| `inspectionStartedAt` / `inspectionEndedAt` | 该版本审查开始 / 结束时间（ISO 8601） |
+| `versions[ver].inspection` | 该版本的完整审查报告（verdict、findings、SkillSpector / VirusTotal 摘要等） |
+| `versions[ver].status` | 版本 verdict：`published` / `needs-inspection` / `rejected` |
+
+异步发布未完成时，API 可能返回错误码 `inspection_pipeline_incomplete`（503）；审查被新版本取代时为 `inspection_superseded`（409）。
 
 ## 你在 Web 上能做什么
 
@@ -33,9 +48,9 @@
 平台 **不** 向用户展示单一的「综合安全分」或「综合质量分」作为主结论，而是：
 
 - **安全**：以 SkillSpector 的 **包级风险分 / 风险等级 / 安装建议**、VirusTotal 检出摘要与 **按类别合并的 finding**（malicious / suspicious 各至多一条）为准（见 [安全检测](./security-scan.md)）。
-- **质量**：以 **HaluCatch 五维雷达** 与 Markdown 报告为准（见 [质量审查](./halucatch-review.md)）。
+- **质量**：以 **HaluCatch 五维雷达** 与 Markdown 报告为准（见 [质量审查](./halucatch-inspection.md)）。
 - **发布状态（verdict）**：**已发布** 表示无 finding；**需复核** 表示有 finding 但未触发 SkillSpector/VirusTotal 自动拒绝；**已拒绝** 表示命中 high 级或 SkillSpector 高置信度 medium 规则，且 **不会出现在公开搜索**（拥有者仍可在个人中心看到，详见 [发布流程](./publish-workflow.md)）。
-- **审查状态（reviewStatus）**：**审查中** 或 **审查失败** 表示流水线尚未成功结束；包 **通常已暂存**，在详情页 **重试失败环节** 或 CLI `retry-publish` 即可，无需重新上传。
+- **审查状态（inspectionStatus）**：**审查中** 或 **审查失败** 表示流水线尚未成功结束；包 **通常已暂存**，在详情页 **重试失败环节** 或 CLI `retry-publish` 即可，无需重新上传。
 
 ## 技术说明（简要）
 

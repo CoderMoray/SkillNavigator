@@ -1,4 +1,4 @@
-import type { SkillSpectorScanSummary } from "@skill-platform/review-engine";
+import type { SkillSpectorScanSummary } from "@skill-platform/inspection-engine";
 
 export interface SkillSpectorReviewColumns {
   skillspectorProvider: string | null;
@@ -8,7 +8,7 @@ export interface SkillSpectorReviewColumns {
   skillspectorScanMode: string | null;
 }
 
-export function skillSpectorReviewColumns(
+export function skillSpectorInspectionColumns(
   summary: SkillSpectorScanSummary | undefined
 ): SkillSpectorReviewColumns {
   if (!summary) {
@@ -30,7 +30,7 @@ export function skillSpectorReviewColumns(
   };
 }
 
-export function parseSkillSpectorReviewRow(row: {
+export function parseSkillSpectorInspectionRow(row: {
   skillspectorProvider?: string | null;
   skillspectorRiskScore?: number | null;
   skillspectorRiskSeverity?: string | null;

@@ -34,7 +34,13 @@ const nextConfig: NextConfig = {
   basePath: process.env.NEXT_PUBLIC_BASE_PATH ?? "",
   reactStrictMode: true,
   transpilePackages: ["@skill-platform/skill-spec"],
-  allowedDevOrigins: ["127.0.0.1"]
+  allowedDevOrigins: ["127.0.0.1"],
+  async redirects() {
+    return [
+      { source: "/reviews", destination: "/inspections", permanent: true },
+      { source: "/docs/halucatch-review", destination: "/docs/halucatch-inspection", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

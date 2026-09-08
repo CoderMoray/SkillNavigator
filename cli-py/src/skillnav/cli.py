@@ -42,7 +42,7 @@ from skillnav.output import (
     filter_skill_body_version,
     print_leaderboard,
     print_report_version,
-    print_review_result,
+    print_inspection_result,
     print_search_results,
     print_skill_info,
     print_skill_status,
@@ -405,7 +405,7 @@ def status_cmd(
         typer.Option("--version", help="Version to show (default: latest)"),
     ] = None,
 ) -> None:
-    """Show publish and review status for one skill version."""
+    """Show publish and inspection status for one skill version."""
     try:
         cli = _ctx()
         status, body = request_json(
@@ -455,14 +455,14 @@ def report_cmd(
 
 
 def _print_publish_response(status: int, payload: dict[str, Any], *, waited: bool) -> None:
-    if status == 202 or payload.get("reviewStatus") == "reviewing":
+    if status == 202 or payload.get("inspectionStatus") == "inspecting":
         typer.echo(
             f"Uploaded {payload.get('name')} ({payload.get('slug')})@{payload.get('version')}"
         )
         if waited:
-            typer.echo("Review started (reviewStatus: reviewing).")
+            typer.echo("Inspection started (inspectionStatus: inspecting).")
         else:
-            typer.echo("Review started in the background (reviewStatus: reviewing).")
+            typer.echo("Inspection started in the background (inspectionStatus: inspecting).")
         typer.echo(f"Check progress: skillnav status {payload.get('slug')}")
         return
 
@@ -471,8 +471,8 @@ def _print_publish_response(status: int, payload: dict[str, Any], *, waited: boo
     )
     typer.echo(f"Status: {payload.get('status')}")
     typer.echo(f"Hash: {payload.get('contentHash')}")
-    if payload.get("review") or payload.get("evaluation"):
-        print_review_result(payload)
+    if payload.get("inspection") or payload.get("review") or payload.get("evaluation"):
+        print_inspection_result(payload)
 
 
 @app.command("publish")
@@ -501,11 +501,11 @@ def publish_cmd(
         bool,
         typer.Option(
             "--wait",
-            help="Wait for the full review pipeline to finish before returning (default: upload only, review in background)",
+            help="Wait for the full inspection pipeline to finish before returning (default: upload only, inspection in background)",
         ),
     ] = False,
 ) -> None:
-    """Upload a skill package to the registry; review runs in the background unless --wait."""
+    """Upload a skill package to the registry; inspection runs in the background unless --wait."""
     try:
         cli = _ctx()
         token = cli.require_token()
@@ -565,11 +565,11 @@ def retry_publish_cmd(
         bool,
         typer.Option(
             "--wait",
-            help="Wait for the full review pipeline to finish before returning",
+            help="Wait for the full inspection pipeline to finish before returning",
         ),
     ] = False,
 ) -> None:
-    """Re-run review on the stored package after a failed or incomplete review."""
+    """Re-run inspection on the stored package after a failed or incomplete inspection."""
     try:
         cli = _ctx()
         token = cli.require_token()

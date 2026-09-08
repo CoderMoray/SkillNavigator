@@ -9,7 +9,7 @@ function skill(overrides: Partial<RegistrySkill> = {}): RegistrySkill {
     name: "Demo",
     description: "Demo skill",
     latestVersion: "1.0.0",
-    reviewStatus: "completed",
+    inspectionStatus: "completed",
     versions: {
       "1.0.0": {
         version: "1.0.0",
@@ -89,15 +89,15 @@ describe("assertPublishPreflight", () => {
         slug: "demo-skill",
         version: "1.0.0",
         releaseTags: ["latest"],
-        allowFailedReviewRetry: true,
+        allowFailedInspectionRetry: true,
         existingSkill: skill({
           latestVersion: "1.0.0",
-          reviewStatus: "failed",
+          inspectionStatus: "failed",
           versions: {
             "1.0.0": {
               ...skill().versions["1.0.0"],
               published: false,
-              reviewStatus: "failed",
+              inspectionStatus: "failed",
             },
           },
         }),
@@ -113,7 +113,7 @@ describe("assertPublishPreflight", () => {
         releaseTags: ["latest"],
         existingSkill: skill({
           latestVersion: "0.1.0",
-          reviewStatus: "failed",
+          inspectionStatus: "failed",
           published: false,
           versions: {},
         }),
@@ -124,13 +124,13 @@ describe("assertPublishPreflight", () => {
   it("does not treat failed review with stored package as same-version republish", () => {
     const failedWithPackage = skill({
       latestVersion: "1.0.0",
-      reviewStatus: "failed",
+      inspectionStatus: "failed",
       published: false,
       versions: {
         "1.0.0": {
           ...skill().versions["1.0.0"],
           published: false,
-          reviewStatus: "failed",
+          inspectionStatus: "failed",
           snapshot: {
             manifest: { name: "Demo", description: "Demo skill" },
             files: [{ path: "SKILL.md", content: "# Demo\n" }],
@@ -152,20 +152,20 @@ describe("assertPublishPreflight", () => {
         releaseTags: ["latest"],
         existingSkill: skill({
           latestVersion: "1.0.0",
-          reviewStatus: "reviewing",
+          inspectionStatus: "inspecting",
           versions: {
             "1.0.0": {
               ...skill().versions["1.0.0"],
               published: false,
-              reviewStatus: "reviewing",
+              inspectionStatus: "inspecting",
             },
           },
         }),
       })
-    ).toThrow(/skill_review_in_progress/);
+    ).toThrow(/skill_inspection_in_progress/);
   });
 
-  it("allows publishing a newer version while latest is reviewing", () => {
+  it("allows publishing a newer version while latest is inspecting", () => {
     expect(() =>
       assertPublishPreflight({
         slug: "demo-skill",
@@ -173,14 +173,14 @@ describe("assertPublishPreflight", () => {
         releaseTags: ["latest"],
         existingSkill: skill({
           latestVersion: "1.0.0",
-          reviewStatus: "reviewing",
+          inspectionStatus: "inspecting",
           published: false,
           versions: {
             "1.0.0": {
               ...skill().versions["1.0.0"],
               version: "1.0.0",
               published: false,
-              reviewStatus: "reviewing",
+              inspectionStatus: "inspecting",
             },
           },
         }),
@@ -194,10 +194,10 @@ describe("assertPublishPreflight", () => {
         slug: "demo-skill",
         version: "1.0.0",
         releaseTags: ["latest"],
-        allowReviewInProgress: true,
+        allowInspectionInProgress: true,
         existingSkill: skill({
           latestVersion: "1.0.0",
-          reviewStatus: "reviewing",
+          inspectionStatus: "inspecting",
           versions: {},
         }),
       })
@@ -210,10 +210,10 @@ describe("assertPublishPreflight", () => {
         slug: "demo-skill",
         version: "1.0.0",
         releaseTags: ["latest"],
-        allowReviewInProgress: true,
+        allowInspectionInProgress: true,
         existingSkill: skill({
           latestVersion: "1.0.0",
-          reviewStatus: "completed",
+          inspectionStatus: "completed",
           versions: {
             "1.0.0": {
               ...skill().versions["1.0.0"],

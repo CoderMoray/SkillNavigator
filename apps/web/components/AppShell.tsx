@@ -14,7 +14,7 @@ const navItems = [
   { href: "/skills", label: "Skills", icon: Boxes },
   { href: "/creators", label: "Creators", icon: UserCircle },
   { href: "/leaderboard", label: "榜单", icon: BarChart3 },
-  { href: "/reviews", label: "Audits", icon: ShieldCheck },
+  { href: "/inspections", label: "Inspections", icon: ShieldCheck },
   { href: "/docs", label: "文档", icon: BookOpen }
 ];
 

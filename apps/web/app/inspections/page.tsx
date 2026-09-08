@@ -28,7 +28,7 @@ const SORT_FIELD_OPTIONS: { value: AuditSortField; label: string }[] = [
   { value: "halucatch_score", label: "halucatch_score" }
 ];
 
-export default function ReviewsPage() {
+export default function InspectionsPage() {
   const [summaries, setSummaries] = useState<SkillSearchResult[]>([]);
   const [skills, setSkills] = useState<RegistrySkill[]>([]);
   const [detailOffset, setDetailOffset] = useState(0);

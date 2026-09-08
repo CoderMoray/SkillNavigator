@@ -1,5 +1,5 @@
 import type { SkillManifest } from "@skill-platform/skill-spec";
-import type { ReviewFinding } from "./index.js";
+import type { InspectionFinding } from "./index.js";
 
 const MIT_LICENSE_PATTERN = /^MIT(-0)?$/i;
 
@@ -9,8 +9,8 @@ export function isSkillLicenseValidationEnabled(): boolean {
 }
 
 /** License compliance findings (MIT-0 policy). Call only when {@link isSkillLicenseValidationEnabled} is true. */
-export function collectSkillLicenseFindings(manifest: SkillManifest): ReviewFinding[] {
-  const findings: ReviewFinding[] = [];
+export function collectSkillLicenseFindings(manifest: SkillManifest): InspectionFinding[] {
+  const findings: InspectionFinding[] = [];
   const license = manifest.license?.trim();
 
   if (license && !MIT_LICENSE_PATTERN.test(license)) {

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { skillSnapshotToZipBuffer, type SkillSnapshot } from "@skill-platform/skill-spec";
-import type { ReviewFinding } from "./index.js";
+import type { InspectionFinding } from "./index.js";
 
 const VIRUSTOTAL_API_BASE_URL = "https://www.virustotal.com/api/v3";
 const VIRUSTOTAL_GUI_BASE_URL = "https://www.virustotal.com/gui/file";
@@ -123,7 +123,7 @@ export function isVirusTotalUploadOnMissEnabled(): boolean {
 
 export async function runVirusTotalScan(
   snapshot: SkillSnapshot
-): Promise<{ summary: VirusTotalScanSummary; findings: ReviewFinding[] }> {
+): Promise<{ summary: VirusTotalScanSummary; findings: InspectionFinding[] }> {
   const apiKey = readApiKey();
   if (!apiKey) {
     throw new Error("VIRUSTOTAL_API_KEY is required to run VirusTotal scans.");
@@ -171,7 +171,7 @@ export async function runVirusTotalScan(
 function completeScan(
   sha256: string,
   report: VirusTotalReport
-): { summary: VirusTotalScanSummary; findings: ReviewFinding[] } {
+): { summary: VirusTotalScanSummary; findings: InspectionFinding[] } {
   const summary: VirusTotalScanSummary = {
     provider: "virustotal",
     sha256,
@@ -648,7 +648,7 @@ export function parseEngineResults(value: unknown): VirusTotalEngineResult[] {
   });
 }
 
-function createFindings(summary: VirusTotalScanSummary, engineResults: VirusTotalEngineResult[]): ReviewFinding[] {
+function createFindings(summary: VirusTotalScanSummary, engineResults: VirusTotalEngineResult[]): InspectionFinding[] {
   if (summary.status !== "completed") {
     return [];
   }
@@ -656,7 +656,7 @@ function createFindings(summary: VirusTotalScanSummary, engineResults: VirusTota
   const maliciousEngines = engineResults.filter((engine) => engine.category === "malicious");
   const suspiciousEngines = engineResults.filter((engine) => engine.category === "suspicious");
   if (maliciousEngines.length > 0 || suspiciousEngines.length > 0) {
-    const findings: ReviewFinding[] = [];
+    const findings: InspectionFinding[] = [];
     if (maliciousEngines.length > 0) {
       findings.push(createGroupedCategoryFinding(summary, "malicious", maliciousEngines));
     }
@@ -673,7 +673,7 @@ function createGroupedCategoryFinding(
   summary: VirusTotalScanSummary,
   category: "malicious" | "suspicious",
   engines: VirusTotalEngineResult[]
-): ReviewFinding {
+): InspectionFinding {
   const severity = category === "malicious" ? "high" : "medium";
   const engineNames = engines.map((engine) => engine.engine).join(", ");
 
@@ -691,7 +691,7 @@ function createGroupedCategoryFinding(
   };
 }
 
-function createAggregateFindings(summary: VirusTotalScanSummary): ReviewFinding[] {
+function createAggregateFindings(summary: VirusTotalScanSummary): InspectionFinding[] {
   const totalEngines = resolveVirusTotalEngineTotal(summary);
   const evidence = [
     `SHA-256: ${summary.sha256}`,

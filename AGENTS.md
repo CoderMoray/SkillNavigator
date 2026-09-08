@@ -19,7 +19,7 @@ apps/
   web/       Next.js Web UI（端口 3001）
 packages/
   skill-spec/     SKILL.md 解析、校验、快照与 ZIP
-  review-engine/  静态风险审查与评分
+  inspection-engine/  静态风险审查与评分
   evaluator/      tests/*.json 功能性评估
   storage/        PostgreSQL 注册表 + MinIO artifact
 cli-py/      对外 Python CLI skillnav（PyPI 分发）

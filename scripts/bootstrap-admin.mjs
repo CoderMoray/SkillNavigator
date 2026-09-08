@@ -35,7 +35,7 @@ import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readSkillPackage } from "@skill-platform/skill-spec";
-import { reviewSkillSnapshot } from "@skill-platform/review-engine";
+import { inspectSkillSnapshot } from "@skill-platform/inspection-engine";
 import {
   createAuthStoreFromEnv,
   createRegistryStoreFromEnv,
@@ -73,8 +73,8 @@ async function defaultReadPackage(skillDir) {
   return readSkillPackage(skillDir);
 }
 
-async function defaultReview(snapshot) {
-  return reviewSkillSnapshot(snapshot);
+async function defaultInspect(snapshot) {
+  return inspectSkillSnapshot(snapshot);
 }
 
 /**
@@ -85,10 +85,10 @@ async function defaultReview(snapshot) {
  * @param deps.registryStore   RegistryStore-like (getSkill, publishSnapshot)
  * @param deps.skillDir        official Skill directory (default repo example)
  * @param deps.readPackage     snapshot loader (default readSkillPackage)
- * @param deps.reviewSnapshot  review function (default reviewSkillSnapshot)
+ * @param deps.inspectSnapshot  review function (default inspectSkillSnapshot)
  */
 export async function runBootstrap(
-  { authStore, registryStore, skillDir = OFFICIAL_SKILL_DIR, readPackage = defaultReadPackage, reviewSnapshot = defaultReview },
+  { authStore, registryStore, skillDir = OFFICIAL_SKILL_DIR, readPackage = defaultReadPackage, inspectSnapshot = defaultInspect },
   { username, email, displayName } = {}
 ) {
   const missing = [username, email, displayName].some((value) => !value?.trim());
@@ -156,8 +156,8 @@ export async function runBootstrap(
   }
 
   const snapshot = await readPackage(skillDir);
-  const review = await reviewSnapshot(snapshot);
-  const version = await registryStore.publishSnapshot(snapshot, review, undefined, {
+  const inspection = await inspectSnapshot(snapshot);
+  const version = await registryStore.publishSnapshot(snapshot, inspection, undefined, {
     owner: { userId: target.id, username: target.username },
   });
 

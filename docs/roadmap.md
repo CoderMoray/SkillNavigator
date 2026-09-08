@@ -44,12 +44,12 @@
 - [x] 发布 metadata 合并（`applySkillPublishMetadata`）；发布时写入 `author`
 - [x] 宽松 frontmatter 读取（`readSkillZipBufferLoose`），Web 发布时自动补全 description 等字段
 
-### review-engine
+### inspection-engine
 
 - [x] 格式校验 findings（compliance）与平台内置静态规则
 - [x] SkillSpector 集成：并行扫描、per-finding 解析、summary 持久化
 - [x] VirusTotal 集成：SHA256 lookup + 可选 upload-on-miss、按 category 合并 malicious/suspicious findings、`threat_verdict` 解析与展示
-- [x] Verdict 拒绝规则（`calculateReviewVerdict`）：SkillSpector `high`/`critical`（或 `medium` 且置信度 ≥ 90%）、VT `high` → `rejected`；扫描/评估未完成亦拒绝（详见 [rules/review-rubric.md](./rules/review-rubric.md)）
+- [x] Verdict 拒绝规则（`calculateInspectionVerdict`）：SkillSpector `high`/`critical`（或 `medium` 且置信度 ≥ 90%）、VT `high` → `rejected`；扫描/评估未完成亦拒绝（详见 [rules/review-rubric.md](./rules/review-rubric.md)）
 - [x] 三维度评分结构（quality / security / reliability）
 
 ### evaluator
@@ -132,9 +132,9 @@
 
 | 领域 | 路径 |
 | --- | --- |
-| 审查入口 / verdict | `packages/review-engine/src/index.ts` |
-| VirusTotal | `packages/review-engine/src/virustotal.ts` |
-| VT 存储 | `packages/storage/src/virustotal-review.ts` |
+| 审查入口 / verdict | `packages/inspection-engine/src/index.ts` |
+| VirusTotal | `packages/inspection-engine/src/virustotal.ts` |
+| VT 存储 | `packages/storage/src/virustotal-inspection.ts` |
 | 搜索 / rejected 过滤 | `packages/storage/src/store/postgres.ts` |
 | Creator 合并 | `packages/storage/src/creators.ts` |
 | 发布 API | `apps/api/src/server.ts` |

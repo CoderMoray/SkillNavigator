@@ -536,7 +536,7 @@ async function readTextFiles(rootDir: string, currentDir = rootDir): Promise<Ski
     }
 
     if (stats.size > 1024 * 1024) {
-      throw new Error(`File is too large for text review: ${relativePath}`);
+      throw new Error(`File is too large for text inspection: ${relativePath}`);
     }
 
     const content = await readFile(absolutePath, "utf8");
@@ -590,7 +590,7 @@ function readZipTextFiles(zip: AdmZip): SkillFile[] {
     }
 
     if (buffer.byteLength > 1024 * 1024) {
-      throw new Error(`File is too large for text review: ${relativePath}`);
+      throw new Error(`File is too large for text inspection: ${relativePath}`);
     }
 
     const content = buffer.toString("utf8");

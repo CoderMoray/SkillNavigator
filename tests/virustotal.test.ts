@@ -3,10 +3,10 @@ import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import {
   parseEngineResults,
   parseThreatVerdict,
-  reviewAndEvaluateSkillSnapshot,
-  reviewSkillSnapshot,
+  inspectAndEvaluateSkillSnapshot,
+  inspectSkillSnapshot,
   runVirusTotalScan
-} from "@skill-platform/review-engine";
+} from "@skill-platform/inspection-engine";
 import type { FunctionalEvaluationReport } from "@skill-platform/evaluator";
 import { readSkillPackage, type SkillSnapshot } from "@skill-platform/skill-spec";
 
@@ -153,7 +153,7 @@ describe("VirusTotal package review adapter", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const report = await reviewSkillSnapshot(snapshot, undefined, evaluation());
+    const report = await inspectSkillSnapshot(snapshot, undefined, evaluation());
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0]?.[0])).toMatch(/\/files\/[a-f0-9]{64}$/);
@@ -292,12 +292,12 @@ describe("VirusTotal package review adapter", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const { review, failedStages } = await reviewAndEvaluateSkillSnapshot(snapshot, undefined, evaluation());
+    const { inspection, failedStages } = await inspectAndEvaluateSkillSnapshot(snapshot, undefined, evaluation());
 
     // A scan that never produced a report is an environment/integration failure:
     // no fabricated summary, no finding, only a retryable stage failure.
-    expect(review.virusTotal).toBeUndefined();
-    expect(review.findings.some((finding) => finding.id === "virustotal-scan-failed")).toBe(false);
+    expect(inspection.virusTotal).toBeUndefined();
+    expect(inspection.findings.some((finding) => finding.id === "virustotal-scan-failed")).toBe(false);
     expect(failedStages).toEqual([
       expect.objectContaining({
         stage: "virustotal",
@@ -412,7 +412,7 @@ describe("VirusTotal package review adapter", () => {
     configureVirusTotal();
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("fetch failed")));
 
-    const { review: report, failedStages } = await reviewAndEvaluateSkillSnapshot(snapshot, undefined, evaluation());
+    const { inspection: report, failedStages } = await inspectAndEvaluateSkillSnapshot(snapshot, undefined, evaluation());
 
     // Integration errors surface as retryable stage failures, not as a fake
     // scan summary or a review finding.

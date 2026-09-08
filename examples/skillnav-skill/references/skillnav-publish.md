@@ -59,7 +59,7 @@ skillnav status my-skill --version 1.0.0
 skillnav status my-skill --json
 ```
 
-显示 Skill 级 **审查状态**（审查中 / 审查失败 / 审查完成）、可见性，以及各版本的 `review`、`verdict`、hash 与 VirusTotal 摘要。指定 `--version` 时只展示该版本。
+显示 **单个版本**（默认 latest）的 **审查状态**（`inspectionStatus`：审查中 / 审查失败 / 审查完成）、可见性，以及该版本的 `inspection`（含 verdict）、hash 与 VirusTotal 摘要。`--version` 可选。
 
 ---
 
@@ -76,7 +76,7 @@ skillnav report my-skill --json
 | Verdict | 含义 |
 | --- | --- |
 | published | 无 finding，已公开 |
-| needs-review | 有 finding，已入库 |
+| needs-inspection | 有 finding，已入库 |
 | rejected | 高置信度拒绝，不进入公开搜索 |
 
 ---

@@ -1,22 +1,22 @@
-import type { ReviewReport, ReviewVerdict } from "@skill-platform/review-engine";
+import type { InspectionReport, InspectionVerdict } from "@skill-platform/inspection-engine";
 import type { FunctionalEvaluationReport } from "@skill-platform/evaluator";
 import type { SkillManifest, SkillSnapshot } from "@skill-platform/skill-spec";
-import type { SkillReviewFailureInfo, SkillReviewStage, SkillReviewStatus } from "./review-status.js";
+import type { SkillInspectionFailureInfo, SkillInspectionStage, SkillInspectionStatus } from "./inspection-status.js";
 
-export type { SkillReviewFailureInfo, SkillReviewStage, SkillReviewStatus } from "./review-status.js";
+export type { SkillInspectionFailureInfo, SkillInspectionStage, SkillInspectionStatus } from "./inspection-status.js";
 export {
-  buildSkillReviewFailureFromError,
-  buildSkillReviewFailureFromStages,
-  DEFAULT_SKILL_REVIEW_STATUS,
-  formatSkillReviewFailureSummary,
-  isSkillReviewStage,
-  isSkillReviewStatus,
-  parseSkillReviewStages,
-  skillReviewStageLabel,
-  skillReviewStatusLabel,
-  SKILL_REVIEW_STAGES,
-  SKILL_REVIEW_STATUSES,
-} from "./review-status.js";
+  buildSkillInspectionFailureFromError,
+  buildSkillInspectionFailureFromStages,
+  DEFAULT_SKILL_INSPECTION_STATUS,
+  formatSkillInspectionFailureSummary,
+  isSkillInspectionStage,
+  isSkillInspectionStatus,
+  parseSkillInspectionStages,
+  skillInspectionStageLabel,
+  skillInspectionStatusLabel,
+  SKILL_INSPECTION_STAGES,
+  SKILL_INSPECTION_STATUSES,
+} from "./inspection-status.js";
 
 export type ContributorRole = "owner" | "contributor";
 export type IssueType = "bug" | "security" | "compatibility" | "feature" | "docs";
@@ -81,19 +81,19 @@ export interface RegistryVersion {
   contentHash: string;
   snapshot: SkillSnapshot;
   artifact?: ArtifactDescriptor;
-  review: ReviewReport;
+  inspection: InspectionReport;
   evaluation?: FunctionalEvaluationReport;
-  status: ReviewVerdict;
+  status: InspectionVerdict;
   releaseTags: string[];
   changelog?: string;
   downloads: number;
   published?: boolean;
   uploadedAt?: string;
-  reviewStartedAt?: string;
-  reviewEndedAt?: string;
-  reviewStatus?: SkillReviewStatus;
-  reviewFailure?: SkillReviewFailureInfo;
-  reviewCompletedStages?: SkillReviewStage[];
+  inspectionStartedAt?: string;
+  inspectionEndedAt?: string;
+  inspectionStatus?: SkillInspectionStatus;
+  inspectionFailure?: SkillInspectionFailureInfo;
+  inspectionCompletedStages?: SkillInspectionStage[];
   createdAt: string;
   updatedAt: string;
 }
@@ -104,12 +104,12 @@ export interface RegistrySkill {
   description: string;
   ownerUserId?: string;
   latestVersion: string;
-  reviewStatus: SkillReviewStatus;
-  reviewFailure?: SkillReviewFailureInfo;
-  reviewCompletedStages?: SkillReviewStage[];
+  inspectionStatus: SkillInspectionStatus;
+  inspectionFailure?: SkillInspectionFailureInfo;
+  inspectionCompletedStages?: SkillInspectionStage[];
   uploadedAt?: string;
-  reviewStartedAt?: string;
-  reviewEndedAt?: string;
+  inspectionStartedAt?: string;
+  inspectionEndedAt?: string;
   versions: Record<string, RegistryVersion>;
   contributors: RegistryContributor[];
   issues: RegistryIssue[];
@@ -131,13 +131,13 @@ export interface SkillSearchResult {
   name: string;
   description: string;
   latestVersion: string;
-  reviewStatus: SkillReviewStatus;
-  reviewFailure?: SkillReviewFailureInfo;
+  inspectionStatus: SkillInspectionStatus;
+  inspectionFailure?: SkillInspectionFailureInfo;
   uploadedAt?: string;
-  reviewStartedAt?: string;
-  reviewEndedAt?: string;
-  status: ReviewVerdict;
-  scores: ReviewReport["scores"];
+  inspectionStartedAt?: string;
+  inspectionEndedAt?: string;
+  status: InspectionVerdict;
+  scores: InspectionReport["scores"];
   categories: string[];
   averageRating: number;
   ratingCount: number;
@@ -173,20 +173,20 @@ export interface PublishSnapshotOptions {
   };
   releaseTags?: string[];
   changelog?: string;
-  /** Review/evaluation rows were already persisted via commitReviewResultsBeforePublish. */
-  reviewAlreadyCommitted?: boolean;
+  /** Review/evaluation rows were already persisted via commitInspectionResultsBeforePublish. */
+  inspectionAlreadyCommitted?: boolean;
 }
 
-export interface CommitReviewResultsOptions {
+export interface CommitInspectionResultsOptions {
   releaseTags?: string[];
 }
 
-export interface PersistReviewStageResultsOptions {
-  completedStages: SkillReviewStage[];
+export interface PersistInspectionStageResultsOptions {
+  completedStages: SkillInspectionStage[];
   finalize?: boolean;
 }
 
-export interface UpsertReviewOptions {
+export interface UpsertInspectionOptions {
   finalize?: boolean;
 }
 
@@ -197,14 +197,14 @@ export interface StagePendingPublishSnapshotOptions {
   ownerUsername?: string;
 }
 
-export interface RecoverStaleReviewingSkillsOptions {
-  /** Fail every reviewing skill. Use on API startup when in-process jobs cannot survive restarts. */
+export interface RecoverStaleInspectingSkillsOptions {
+  /** Fail every inspecting skill. Use on API startup when in-process jobs cannot survive restarts. */
   recoverAll?: boolean;
-  /** Fail reviewing skills whose updatedAt is older than this threshold. */
+  /** Fail inspecting skills whose updatedAt is older than this threshold. */
   olderThanMs?: number;
 }
 
-export interface MarkSkillReviewStatusOptions {
+export interface MarkSkillInspectionStatusOptions {
   name?: string;
   description?: string;
   ownerUserId?: string;
@@ -215,7 +215,7 @@ export interface MarkSkillReviewStatusOptions {
   setLatestVersion?: string;
   /** @deprecated Use version + setLatestVersion instead. */
   latestVersion?: string;
-  failure?: SkillReviewFailureInfo;
+  failure?: SkillInspectionFailureInfo;
 }
 
 export interface PostgresRegistryStoreOptions {
@@ -260,29 +260,29 @@ export type SkillSlugAvailability =
       name: string;
       latestVersion: string;
       published: boolean;
-      reviewStatus?: SkillReviewStatus;
+      inspectionStatus?: SkillInspectionStatus;
       needsPackageReupload?: boolean;
       hasStoredPackage?: boolean;
     };
 
 export interface RegistryStore {
-  markSkillReviewStatus(
+  markSkillInspectionStatus(
     slug: string,
-    reviewStatus: SkillReviewStatus,
-    options?: MarkSkillReviewStatusOptions
+    inspectionStatus: SkillInspectionStatus,
+    options?: MarkSkillInspectionStatusOptions
   ): Promise<void>;
-  commitReviewResultsBeforePublish(
+  commitInspectionResultsBeforePublish(
     snapshot: SkillSnapshot,
-    review: ReviewReport,
+    inspection: InspectionReport,
     evaluation?: FunctionalEvaluationReport,
-    options?: CommitReviewResultsOptions
+    options?: CommitInspectionResultsOptions
   ): Promise<void>;
-  persistReviewStageResults(
+  persistInspectionStageResults(
     slug: string,
     version: string,
-    review: ReviewReport,
+    inspection: InspectionReport,
     evaluation: FunctionalEvaluationReport | undefined,
-    options: PersistReviewStageResultsOptions
+    options: PersistInspectionStageResultsOptions
   ): Promise<void>;
   rollbackPendingPublishVersion(slug: string, version: string): Promise<void>;
   stagePendingPublishSnapshot(
@@ -293,15 +293,15 @@ export interface RegistryStore {
   loadStoredSnapshot(slug: string, version: string): Promise<SkillSnapshot | undefined>;
   publishSnapshot(
     snapshot: SkillSnapshot,
-    review: ReviewReport,
+    inspection: InspectionReport,
     evaluation?: FunctionalEvaluationReport,
     options?: PublishSnapshotOptions
   ): Promise<RegistryVersion>;
-  upsertReview(
+  upsertInspection(
     slug: string,
     version: string,
-    review: ReviewReport,
-    options?: UpsertReviewOptions
+    inspection: InspectionReport,
+    options?: UpsertInspectionOptions
   ): Promise<RegistryVersion>;
   upsertEvaluation(slug: string, version: string, evaluation: FunctionalEvaluationReport): Promise<RegistryVersion>;
   addContributor(slug: string, contributor: Omit<RegistryContributor, "id" | "addedAt">): Promise<RegistryContributor>;
@@ -313,7 +313,7 @@ export interface RegistryStore {
   listAuditSkills(query?: string): Promise<SkillSearchResult[]>;
   listUnpublishedSkillsForOwner(ownerUserId: string): Promise<SkillSearchResult[]>;
   listRejectedSkillsForOwner(ownerUserId: string): Promise<SkillSearchResult[]>;
-  listReviewPendingSkillsForOwner(ownerUserId: string): Promise<SkillSearchResult[]>;
+  listInspectionPendingSkillsForOwner(ownerUserId: string): Promise<SkillSearchResult[]>;
   getSkill(slug: string): Promise<RegistrySkill | undefined>;
   getSkillSlugAvailability(slug: string): Promise<SkillSlugAvailability>;
   getVersion(slug: string, version?: string): Promise<RegistryVersion | undefined>;
@@ -332,14 +332,14 @@ export interface RegistryStore {
   listBookmarkedSkills(userId: string): Promise<SkillSearchResult[]>;
   isSkillBookmarked(userId: string, slug: string): Promise<boolean>;
   purgeExpiredRecycleBinSkills(): Promise<number>;
-  recoverStaleReviewingSkills(options?: RecoverStaleReviewingSkillsOptions): Promise<number>;
+  recoverStaleInspectingSkills(options?: RecoverStaleInspectingSkillsOptions): Promise<number>;
   purgeAccountData(userId: string): Promise<void>;
-  reviewAll(
+  inspectAll(
     pipelineFn: (
       snapshot: SkillSnapshot,
       version: string
     ) =>
-      | { review: ReviewReport; evaluation: FunctionalEvaluationReport }
-      | Promise<{ review: ReviewReport; evaluation: FunctionalEvaluationReport }>
+      | { inspection: InspectionReport; evaluation: FunctionalEvaluationReport }
+      | Promise<{ inspection: InspectionReport; evaluation: FunctionalEvaluationReport }>
   ): Promise<RegistryVersion[]>;
 }

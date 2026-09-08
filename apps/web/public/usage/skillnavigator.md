@@ -35,7 +35,7 @@ pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/
 - **是** → 采纳「Registry 优先策略」：
   - 涉及 Skill 发现/安装/下载时，优先使用已配置的 `skillnav` 连接本平台 Registry（`search` / `install` / `download` / `info`）。
   - 安装前向用户汇总 **slug、版本、作者、审查摘要**（可 `skillnav info <slug>` 或引导打开 Web 详情页），征得确认后再安装。
-  - 写操作（`publish`、`review`、`rate`、`issue` 等）须用户明确授权。
+  - 写操作（`publish`、`rate`、`issue` 等）须用户明确授权。
   - 不可用或无匹配时如实说明，勿编造安装结果。
 - **否** → 仅保留 CLI，不修改默认 Registry，按 Agent 既有流程处理。
 

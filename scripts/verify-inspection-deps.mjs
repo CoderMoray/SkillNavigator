@@ -3,7 +3,7 @@
  * Preflight check for the review providers (SkillSpector / HaluCatch /
  * VirusTotal) plus the Python runtimes they depend on.
  *
- * Run via `npm run verify:review-deps`. setup.sh runs this before seeding in
+ * Run via `npm run verify:inspection-deps`. setup.sh runs this before seeding in
  * production (ON_DEV=false) and fails fast when a required provider is not
  * ready; a provider explicitly disabled with `*_ENABLED=false` is skipped and
  * reported as OK. Pass `--strict` (or set REVIEW_DEPS_STRICT=true) to treat
@@ -221,7 +221,7 @@ function run() {
   if (errors > 0) {
     console.log("");
     console.log(`Preflight FAILED: ${errors} required provider(s) are not ready.`);
-    console.log("Fix the issues above (or disable the provider with *_ENABLED=false) and re-run `npm run verify:review-deps`.");
+    console.log("Fix the issues above (or disable the provider with *_ENABLED=false) and re-run `npm run verify:inspection-deps`.");
     process.exit(1);
   }
   console.log("");

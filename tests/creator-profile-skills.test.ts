@@ -11,7 +11,7 @@ function skill(overrides: Partial<SkillSearchResult> & Pick<SkillSearchResult, "
   return {
     name: overrides.slug,
     description: "",
-    reviewStatus: "completed",
+    inspectionStatus: "completed",
     latestVersion: "1.0.0",
     status: "published",
     scores: { qualityScore: 0, securityScore: 0, reliabilityScore: 0 },
@@ -47,7 +47,7 @@ describe("owner profile skill merges", () => {
   test("mergeOwnerUnpublishedSkills and mergeOwnerRejectedSkills compose for owner-only lists", () => {
     const creator = createEmptyCreatorSummary("alice");
     const withUnpublished = mergeOwnerUnpublishedSkills(creator, [
-      skill({ slug: "draft", published: false, status: "needs-review" })
+      skill({ slug: "draft", published: false, status: "needs-inspection" })
     ]);
     const withRejected = mergeOwnerRejectedSkills(withUnpublished, [
       skill({ slug: "blocked", status: "rejected", updatedAt: "2026-03-01T00:00:00.000Z" })

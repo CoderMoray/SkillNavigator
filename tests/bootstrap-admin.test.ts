@@ -44,11 +44,11 @@ class FakeRegistryStore {
     throw new Error(`Skill not in recycle bin: ${slug}`);
   }
 
-  async publishSnapshot(snapshot, review, _evaluation, options) {
+  async publishSnapshot(snapshot, inspection, _evaluation, options) {
     const slug = snapshot.manifest.slug;
-    this.publishes.push({ owner: options.owner, version: review.version });
-    this.skills.set(slug, { slug, ownerUserId: options.owner.userId, latestVersion: review.version });
-    return { version: review.version };
+    this.publishes.push({ owner: options.owner, version: inspection.version });
+    this.skills.set(slug, { slug, ownerUserId: options.owner.userId, latestVersion: inspection.version });
+    return { version: inspection.version };
   }
 }
 
@@ -58,7 +58,7 @@ const fakeSnapshot = () => ({
   files: [],
 });
 
-const fakeReview = () => ({ version: "1.0.0", verdict: "approved", findings: [] });
+const fakeInspection = () => ({ version: "1.0.0", verdict: "approved", findings: [] });
 
 async function emptyAuthStore() {
   const dir = mkdtempSync(path.join(tmpdir(), "skillnav-bootstrap-"));
@@ -104,7 +104,7 @@ describe("runBootstrap (auth store = FileAuthStore)", () => {
     authStore: auth,
     registryStore: registry,
     readPackage: async () => fakeSnapshot(),
-    reviewSnapshot: async () => fakeReview(),
+    inspectSnapshot: async () => fakeInspection(),
   });
 
   const aliceConfig = { username: "alice", email: "alice@example.com", displayName: "Alice Admin" };

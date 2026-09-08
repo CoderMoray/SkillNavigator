@@ -1,4 +1,4 @@
-import { parseThreatVerdict, resolveVirusTotalEngineTotal, type VirusTotalScanSummary } from "@skill-platform/review-engine";
+import { parseThreatVerdict, resolveVirusTotalEngineTotal, type VirusTotalScanSummary } from "@skill-platform/inspection-engine";
 
 export interface VirusTotalReviewColumns {
   virustotalProvider: string | null;
@@ -14,7 +14,7 @@ export interface VirusTotalReviewColumns {
   virustotalThreatVerdict: string | null;
 }
 
-export function virusTotalReviewColumns(
+export function virusTotalInspectionColumns(
   summary: VirusTotalScanSummary | undefined
 ): VirusTotalReviewColumns {
   if (!summary) {
@@ -48,7 +48,7 @@ export function virusTotalReviewColumns(
   };
 }
 
-export function parseVirusTotalReviewRow(row: {
+export function parseVirusTotalInspectionRow(row: {
   virustotalProvider?: string | null;
   virustotalSha256?: string | null;
   virustotalStatus?: string | null;

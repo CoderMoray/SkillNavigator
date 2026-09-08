@@ -69,7 +69,7 @@ npx drizzle-kit migrate    # 执行迁移
 
 ## HaluCatch 可靠性评估
 
-发布、`POST /evaluations/run`、`POST /reviews/run` 和 Worker 重审都会调用
+发布、`POST /evaluations/run`、`POST /inspections/run` 和 Worker 重审都会调用
 `packages/halucatch-1.8.8`。平台先将上传快照写入临时目录，再仅运行 HaluCatch
 自身的静态扫描器；**不会执行 Skill 包中的任何脚本**，也不会将 HaluCatch 报告写回
 Skill artifact。
@@ -84,7 +84,7 @@ Skill artifact。
 
 ```bash
 npm run typecheck      # 全包 TypeScript 编译检查
-npm run test           # Vitest：API 烟雾 + 单元测试（review-engine、auth、VT 等）
+npm run test           # Vitest：API 烟雾 + 单元测试（inspection-engine、auth、VT 等）
 npm run test:watch     # watch 模式，改代码自动重跑
 npm run skillnav:test  # skillnav CLI pytest（tests/skillnav/，集成测试需本地 API）
 npm run test:e2e       # Playwright 浏览器端到端测试（e2e/site.e2e.ts，3 个串行用例）
@@ -117,7 +117,7 @@ npm run test:e2e       # Playwright 浏览器端到端测试（e2e/site.e2e.ts�
 - `docs/rules/review-rubric.md`：审查与评分规则。
 - `packages/skill-spec`：Skill 解析、校验、快照、安装。
 - `packages/evaluator`：HaluCatch 五维可靠性评估，及任务集回退评估。
-- `packages/review-engine`：审查规则引擎（含 SkillSpector、VirusTotal）。
+- `packages/inspection-engine`：审查规则引擎（含 SkillSpector、VirusTotal）。
 - `packages/storage`：注册表存储（PostgreSQL + Drizzle ORM），支持 MinIO artifact。
 - `apps/api`：HTTP API。
 - `apps/cli`：内部 TypeScript CLI（逐步由 skillnav 取代）。
@@ -136,7 +136,7 @@ npm run test:e2e       # Playwright 浏览器端到端测试（e2e/site.e2e.ts�
 - `GET /auth/api-keys`、`POST /auth/api-keys`、`DELETE /auth/api-keys/:keyId`
 - `GET /skills?query=demo`
 - `POST /skills/publish`（`Authorization: Bearer <token>` 或 API 密钥，可传 `archiveBase64`）
-- `POST /reviews/run`、`POST /evaluations/run`、`POST /reviews/rebuild`
+- `POST /inspections/run`、`POST /evaluations/run`、`POST /inspections/rebuild`
 - `GET /leaderboard?sort=reliability`
 - `GET /creators`、`GET /creators/:username`
 - `GET /skills/:slug`

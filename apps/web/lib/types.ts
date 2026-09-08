@@ -1,13 +1,13 @@
-export type ReviewVerdict = "published" | "needs-review" | "rejected";
-export type SkillReviewStatus = "reviewing" | "completed" | "failed";
-export type SkillReviewStage = "skillspector" | "virustotal" | "halucatch";
+export type InspectionVerdict = "published" | "needs-inspection" | "rejected";
+export type SkillInspectionStatus = "inspecting" | "completed" | "failed";
+export type SkillInspectionStage = "skillspector" | "virustotal" | "halucatch";
 
-export interface SkillReviewFailureInfo {
-  stages: SkillReviewStage[];
+export interface SkillInspectionFailureInfo {
+  stages: SkillInspectionStage[];
   message: string;
 }
-export type ReviewSeverity = "low" | "medium" | "high" | "critical";
-export type ReviewCategory =
+export type InspectionSeverity = "low" | "medium" | "high" | "critical";
+export type InspectionCategory =
   | "compliance"
   | "quality"
   | "leakage"
@@ -16,16 +16,16 @@ export type ReviewCategory =
   | "reliability";
 export type EvaluationStatus = "passed" | "partial" | "failed" | "not-configured";
 
-export interface ReviewScores {
+export interface InspectionScores {
   qualityScore: number;
   securityScore: number;
   reliabilityScore: number;
 }
 
-export interface ReviewFinding {
+export interface InspectionFinding {
   id: string;
-  category: ReviewCategory;
-  severity: ReviewSeverity;
+  category: InspectionCategory;
+  severity: InspectionSeverity;
   title: string;
   message: string;
   path?: string;
@@ -34,15 +34,15 @@ export interface ReviewFinding {
   confidence?: number;
 }
 
-export interface ReviewReport {
+export interface InspectionReport {
   id: string;
   skillSlug: string;
   skillName: string;
   version: string;
   contentHash: string;
-  verdict: ReviewVerdict;
-  scores: ReviewScores;
-  findings: ReviewFinding[];
+  verdict: InspectionVerdict;
+  scores: InspectionScores;
+  findings: InspectionFinding[];
   skillSpector?: SkillSpectorScanSummary;
   virusTotal?: VirusTotalScanSummary;
   createdAt: string;
@@ -163,7 +163,7 @@ export interface RegistryIssue {
   id: string;
   type: "bug" | "security" | "compatibility" | "feature" | "docs";
   status: "open" | "triaged" | "closed";
-  severity: ReviewSeverity;
+  severity: InspectionSeverity;
   title: string;
   body?: string;
   createdBy?: string;
@@ -185,19 +185,19 @@ export interface RegistryVersion {
   manifest: SkillManifest;
   contentHash: string;
   snapshot: SkillSnapshot;
-  review: ReviewReport;
+  inspection: InspectionReport;
   evaluation?: FunctionalEvaluationReport;
-  status: ReviewVerdict;
+  status: InspectionVerdict;
   releaseTags: string[];
   changelog?: string;
   downloads: number;
   published?: boolean;
   uploadedAt?: string;
-  reviewStartedAt?: string;
-  reviewEndedAt?: string;
-  reviewStatus?: SkillReviewStatus;
-  reviewFailure?: SkillReviewFailureInfo;
-  reviewCompletedStages?: SkillReviewStage[];
+  inspectionStartedAt?: string;
+  inspectionEndedAt?: string;
+  inspectionStatus?: SkillInspectionStatus;
+  inspectionFailure?: SkillInspectionFailureInfo;
+  inspectionCompletedStages?: SkillInspectionStage[];
   createdAt: string;
   updatedAt: string;
 }
@@ -208,12 +208,12 @@ export interface RegistrySkill {
   description: string;
   ownerUserId?: string;
   latestVersion: string;
-  reviewStatus: SkillReviewStatus;
-  reviewFailure?: SkillReviewFailureInfo;
+  inspectionStatus: SkillInspectionStatus;
+  inspectionFailure?: SkillInspectionFailureInfo;
   uploadedAt?: string;
-  reviewStartedAt?: string;
-  reviewEndedAt?: string;
-  reviewCompletedStages?: SkillReviewStage[];
+  inspectionStartedAt?: string;
+  inspectionEndedAt?: string;
+  inspectionCompletedStages?: SkillInspectionStage[];
   hasStoredPackage?: boolean;
   versions: Record<string, RegistryVersion>;
   contributors: RegistryContributor[];
@@ -232,13 +232,13 @@ export interface SkillSearchResult {
   name: string;
   description: string;
   latestVersion: string;
-  reviewStatus: SkillReviewStatus;
-  reviewFailure?: SkillReviewFailureInfo;
+  inspectionStatus: SkillInspectionStatus;
+  inspectionFailure?: SkillInspectionFailureInfo;
   uploadedAt?: string;
-  reviewStartedAt?: string;
-  reviewEndedAt?: string;
-  status: ReviewVerdict;
-  scores: ReviewScores;
+  inspectionStartedAt?: string;
+  inspectionEndedAt?: string;
+  status: InspectionVerdict;
+  scores: InspectionScores;
   categories: string[];
   averageRating: number;
   ratingCount: number;

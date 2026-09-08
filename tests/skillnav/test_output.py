@@ -8,8 +8,8 @@ from skillnav.output import (
     filter_skill_body_version,
     find_version_entry,
     print_report_version,
-    print_review,
-    print_review_result,
+    print_inspection,
+    print_inspection_result,
     print_skill_info,
     print_skill_status,
     print_virustotal_summary,
@@ -21,7 +21,7 @@ SAMPLE_SKILL = {
     "name": "Demo Skill",
     "description": "A demo skill for testing.",
     "latestVersion": "1.0.1",
-    "reviewStatus": "completed",
+    "inspectionStatus": "completed",
     "published": True,
     "averageRating": 4.5,
     "ratingCount": 12,
@@ -43,7 +43,7 @@ SAMPLE_SKILL = {
             "contentHash": "abc123def4567890",
             "downloads": 10,
             "manifest": {"categories": ["demo", "tutorial"]},
-            "review": {
+            "inspection": {
                 "verdict": "published",
                 "virusTotal": {
                     "status": "completed",
@@ -59,7 +59,7 @@ SAMPLE_SKILL = {
             "contentHash": "fedcba9876543210",
             "downloads": 42,
             "manifest": {"categories": ["demo", "tutorial"]},
-            "review": {
+            "inspection": {
                 "verdict": "published",
                 "virusTotal": {
                     "status": "completed",
@@ -93,28 +93,28 @@ def test_print_skill_status(capsys) -> None:
     print_skill_status(SAMPLE_SKILL)
     out = capsys.readouterr().out
     assert out.startswith("demo-skill@1.0.1 (latest)")
-    assert "Review status: review completed" in out
+    assert "Inspection status: inspection completed" in out
     assert "Verdict: published" in out
     assert "Published: yes" in out
     assert "Visibility: public" in out
     assert "Content hash:" in out
     assert "VirusTotal: 0/1" in out
     assert "Versions:" not in out
-    assert "1.0.0  review=" not in out
+    assert "1.0.0  inspection=" not in out
     assert "Tip: skillnav report demo-skill --version 1.0.1" in out
     assert "Description:" not in out
 
 
-def test_print_skill_status_reviewing(capsys) -> None:
+def test_print_skill_status_inspecting(capsys) -> None:
     skill = {
         **SAMPLE_SKILL,
-        "reviewStatus": "reviewing",
+        "inspectionStatus": "inspecting",
         "published": False,
-        "reviewCompletedStages": ["halucatch"],
+        "inspectionCompletedStages": ["halucatch"],
         "versions": {
             "1.0.1": {
                 "version": "1.0.1",
-                "status": "needs-review",
+                "status": "needs-inspection",
                 "published": False,
                 "contentHash": "fedcba9876543210",
             }
@@ -123,8 +123,8 @@ def test_print_skill_status_reviewing(capsys) -> None:
     print_skill_status(skill)
     out = capsys.readouterr().out
     assert out.startswith("demo-skill@1.0.1 (latest)")
-    assert "Review status: in review" in out
-    assert "Review progress:" in out
+    assert "Inspection status: inspecting" in out
+    assert "Inspection progress:" in out
     assert "HaluCatch: done" in out
     assert "SkillSpector: pending" in out
     assert "Verdict: pending" in out
@@ -136,10 +136,10 @@ def test_print_skill_status_reviewing(capsys) -> None:
 def test_print_skill_status_failed(capsys) -> None:
     skill = {
         **SAMPLE_SKILL,
-        "reviewStatus": "failed",
+        "inspectionStatus": "failed",
         "published": False,
-        "reviewCompletedStages": ["halucatch"],
-        "reviewFailure": {
+        "inspectionCompletedStages": ["halucatch"],
+        "inspectionFailure": {
             "stages": ["virustotal"],
             "message": "VirusTotal scan timed out",
         },
@@ -156,9 +156,9 @@ def test_print_skill_status_failed(capsys) -> None:
     print_skill_status(skill)
     out = capsys.readouterr().out
     assert out.startswith("demo-skill@1.0.2 (latest)")
-    assert "Review status: review failed" in out
+    assert "Inspection status: inspection failed" in out
     assert "VirusTotal: failed" in out
-    assert "Review failure: VirusTotal: VirusTotal scan timed out" in out
+    assert "Inspection failure: VirusTotal: VirusTotal scan timed out" in out
     assert "Verdict: pending" in out
     assert "Versions:" not in out
     assert "Tip: skillnav retry-publish demo-skill" in out
@@ -167,9 +167,9 @@ def test_print_skill_status_failed(capsys) -> None:
 def test_print_skill_status_defaults_to_latest_version(capsys) -> None:
     skill = {
         **SAMPLE_SKILL,
-        "reviewStatus": "reviewing",
+        "inspectionStatus": "inspecting",
         "published": False,
-        "reviewCompletedStages": ["halucatch"],
+        "inspectionCompletedStages": ["halucatch"],
         "latestVersion": "1.0.2",
         "versions": {
             "1.0.0": SAMPLE_SKILL["versions"]["1.0.0"],
@@ -178,12 +178,12 @@ def test_print_skill_status_defaults_to_latest_version(capsys) -> None:
                 "status": "rejected",
                 "published": False,
                 "contentHash": "aaa111",
-                "reviewEndedAt": "2026-08-15T00:00:00.000Z",
-                "review": {"verdict": "rejected"},
+                "inspectionEndedAt": "2026-08-15T00:00:00.000Z",
+                "inspection": {"verdict": "rejected"},
             },
             "1.0.2": {
                 "version": "1.0.2",
-                "status": "needs-review",
+                "status": "needs-inspection",
                 "published": False,
                 "contentHash": "bbb222",
             },
@@ -192,9 +192,9 @@ def test_print_skill_status_defaults_to_latest_version(capsys) -> None:
     print_skill_status(skill)
     out = capsys.readouterr().out
     assert out.startswith("demo-skill@1.0.2 (latest)")
-    assert "Review status: in review" in out
-    assert "1.0.0  review=" not in out
-    assert "1.0.1  review=" not in out
+    assert "Inspection status: inspecting" in out
+    assert "1.0.0  inspection=" not in out
+    assert "1.0.1  inspection=" not in out
     assert "Versions:" not in out
 
 
@@ -202,7 +202,7 @@ def test_print_skill_status_single_version(capsys) -> None:
     print_skill_status(SAMPLE_SKILL, version="1.0.0")
     out = capsys.readouterr().out
     assert out.startswith("demo-skill@1.0.0")
-    assert "Review status: review completed" in out
+    assert "Inspection status: inspection completed" in out
     assert "Verdict: published" in out
     assert "Published: yes" in out
     assert "Content hash:" in out
@@ -249,9 +249,9 @@ def test_unwrap_resource_id_missing() -> None:
     assert unwrap_resource_id({}, "issue") == "?"
 
 
-def test_print_review_result_includes_sections(capsys) -> None:
+def test_print_inspection_result_includes_sections(capsys) -> None:
     payload = {
-        "review": {
+        "inspection": {
             "skillName": "Demo Skill",
             "version": "0.1.0",
             "verdict": "published",
@@ -286,9 +286,9 @@ def test_print_review_result_includes_sections(capsys) -> None:
         },
         "failedStages": [{"stage": "halucatch", "message": "adapter timeout"}],
     }
-    print_review_result(payload)
+    print_inspection_result(payload)
     out = capsys.readouterr().out
-    assert "Review: Demo Skill@0.1.0" in out
+    assert "Inspection: Demo Skill@0.1.0" in out
     assert "=== SkillSpector（Security）===" in out
     assert "=== VirusTotal（Security）===" in out
     assert "Detections: 0 malicious, 0 suspicious" in out
@@ -298,12 +298,12 @@ def test_print_review_result_includes_sections(capsys) -> None:
     assert "halucatch: adapter timeout" in out
 
 
-def test_print_review_partitions_skillspector_findings(capsys) -> None:
-    print_review(
+def test_print_inspection_partitions_skillspector_findings(capsys) -> None:
+    print_inspection(
         {
             "skillName": "Demo Skill",
             "version": "0.1.0",
-            "verdict": "needs_review",
+            "verdict": "needs_inspection",
             "scores": {"qualityScore": 80, "securityScore": 90, "reliabilityScore": 85},
             "findings": [
                 {
@@ -317,7 +317,7 @@ def test_print_review_partitions_skillspector_findings(capsys) -> None:
         }
     )
     out = capsys.readouterr().out
-    assert "Review: Demo Skill@0.1.0" in out
+    assert "Inspection: Demo Skill@0.1.0" in out
     assert "=== SkillSpector（Security）===" in out
     assert "SkillSpector note" in out
     assert "=== HaluCatch" not in out
@@ -327,7 +327,7 @@ def test_print_report_version_includes_virustotal(capsys) -> None:
     body = {
         "slug": "demo-skill",
         "version": "1.0.0",
-        "review": {
+        "inspection": {
             "verdict": "approved",
             "scores": {
                 "qualityScore": 90,
@@ -414,7 +414,7 @@ def test_resolve_report_slug_from_cli_argument() -> None:
 def test_print_report_version_virustotal_findings_none(capsys) -> None:
     body = {
         "version": "1.0.0",
-        "review": {
+        "inspection": {
             "verdict": "published",
             "scores": {},
             "findings": [],

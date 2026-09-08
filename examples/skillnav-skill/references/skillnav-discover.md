@@ -39,7 +39,7 @@ skillnav info my-skill
 skillnav info my-skill --json
 ```
 
-展示名称、描述、分类、贡献者、评分、Issue 数、下载量、可见性等。**不**展开 review findings；审查摘要见 `status`，完整报告见 `report`。
+展示名称、描述、分类、贡献者、评分、Issue 数、下载量、可见性等。**不**展开 inspection findings；审查摘要见 `status`，完整报告见 `report`。
 
 ---
 

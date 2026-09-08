@@ -20,7 +20,7 @@ apps/
   web/       Next.js Web UI（端口 3001）
 packages/
   skill-spec/     SKILL.md 解析、校验、快照与 ZIP
-  review-engine/  静态风险审查与评分
+  inspection-engine/  静态风险审查与评分
   evaluator/      tests/*.json 功能性评估 + HaluCatch 适配
   storage/        PostgreSQL 注册表 + MinIO artifact
 cli-py/      对外 Python CLI skillnav（PyPI 分发）
@@ -51,7 +51,7 @@ flowchart TB
 
   subgraph core [Core Packages]
     SkillSpec[skill-spec]
-    ReviewEngine[review-engine]
+    ReviewEngine[inspection-engine]
     Evaluator[evaluator]
     Storage[storage]
   end
@@ -97,7 +97,7 @@ flowchart TB
   → skill-spec 读取（Web 发布时可 loose 解析 SKILL.md frontmatter）
   → 合并表单 metadata（name、description、slug 等）到 manifest
   → 生成 SkillSnapshot（contentHash、文件树）
-  → review-engine 审查 + 评估
+  → inspection-engine 审查 + 评估
   → 可选：完整 artifact ZIP 写入 MinIO
   → storage 写入 PostgreSQL（Skill、Version、Review、Evaluation、artifact descriptor）
        MinIO 启用时 skill_version_files 只保存路径、大小和 SHA-256
@@ -108,7 +108,7 @@ Web 发布路径会在审查前补全缺失或不完整的 frontmatter，避免�
 
 ### 4.2 审查流水线
 
-发布时平台 **先暂存包**，再运行审查（Web / CLI 默认 **异步**，后台执行）。审查顺序（`runReviewPipeline`）：
+发布时平台 **先暂存包**，再运行审查（Web / CLI 默认 **异步**，后台执行）。审查顺序（`runInspectionPipeline`）：
 
 ```text
 1. 格式校验（validateSkillSnapshot）→ compliance findings
@@ -119,12 +119,12 @@ Web 发布路径会在审查前补全缺失或不完整的 frontmatter，避免�
 4. 汇总 findings → verdict + 三维度评分
 ```
 
-**审查失败**（任一已启用环节未成功完成）：`reviewStatus: failed`，包通常 **已暂存**；通过 `POST /skills/:slug/retry-publish` 或 CLI `retry-publish` **增量重试**失败/未完成环节。
+**审查失败**（任一已启用环节未成功完成）：`inspectionStatus: failed`，包通常 **已暂存**；通过 `POST /skills/:slug/retry-publish` 或 CLI `retry-publish` **增量重试**失败/未完成环节。
 
-**Verdict 规则**（`calculateReviewVerdict`，仅 SkillSpector / VirusTotal 触发自动拒绝）：
+**Verdict 规则**（`calculateInspectionVerdict`，仅 SkillSpector / VirusTotal 触发自动拒绝）：
 
 - **rejected**：SkillSpector 任意 `high` / `critical`；或 SkillSpector `medium` 且置信度 ≥ 90%；或 VirusTotal 任意 `high` / `critical`（如 malicious 类别合并 finding）
-- **needs-review**：存在其他 finding（含 suspicious VT、平台合规/质量规则等）
+- **needs-inspection**：存在其他 finding（含 suspicious VT、平台合规/质量规则等）
 - **published**：无任何 finding
 
 **公开发现**：`search()` / 榜单排除最新版本 verdict 为 `rejected` 的 Skill；拥有者个人中心通过 `listRejectedSkillsForOwner` 合并展示。
@@ -136,7 +136,7 @@ Web 发布路径会在审查前补全缺失或不完整的 frontmatter，避免�
 ```text
 GET /skills、/skills/:slug → PostgreSQL 元数据；有 MinIO artifact 时从 MinIO 读取文件内容
 GET /skills/:slug/download → MinIO artifact 或 PostgreSQL 文件内容重建 ZIP
-Worker POST /reviews/rerun → 对注册表 Skill 重跑审查
+Worker POST /inspections/rerun → 对注册表 Skill 重跑审查
 ```
 
 
@@ -159,7 +159,7 @@ Worker POST /reviews/rerun → 对注册表 Skill 重跑审查
 
 
 
-### 5.2 review-engine
+### 5.2 inspection-engine
 
 
 | 组件           | 说明                                                                       |
@@ -167,7 +167,7 @@ Worker POST /reviews/rerun → 对注册表 Skill 重跑审查
 | 平台规则         | 合规、泄露、隐私、混淆代码等静态模式                                                       |
 | SkillSpector | 调用 Python SkillSpector，解析 per-finding 结果与 summary                        |
 | VirusTotal   | SHA256 查 hash；可选 upload-on-miss；**按 category 合并** malicious / suspicious findings（每类一条） |
-| 评分/裁决        | `calculateScores`、`calculateReviewVerdict`                                     |
+| 评分/裁决        | `calculateScores`、`calculateInspectionVerdict`                                     |
 
 
 SkillSpector 与 VirusTotal **并行**执行（`Promise.all`），互不阻塞。
@@ -195,7 +195,7 @@ SkillSpector 与 VirusTotal **并行**执行（`Promise.all`），互不阻塞�
 - **malicious** / **suspicious** 各至多一条 security finding
 - **message**：列出该类别下全部 AV 厂家名称（逗号分隔）
 - **evidence**：共享 SHA-256、Category、Report；汇总 Result / Method / Engine update（无单独 Engine 行）
-- 原始 `last_analysis_results` 仍解析为 `engineResults` 写入 `skill_reviews` 扩展字段
+- 原始 `last_analysis_results` 仍解析为 `engineResults` 写入 `skill_inspections` 扩展字段
 
 ### 5.4 evaluator
 
@@ -216,7 +216,7 @@ SkillSpector 与 VirusTotal **并行**执行（`Promise.all`），互不阻塞�
 
 - ORM：Drizzle（`packages/storage/src/schema/*.ts`）
 - 迁移：`packages/storage/drizzle/*.sql`，API 首次启动自动执行
-- 主要表：`skills`、`skill_versions`、`skill_reviews`、`users`、`skill_bookmarks`、`skill_recycle_bin` 等
+- 主要表：`skills`、`skill_versions`、`skill_inspections`、`users`、`skill_bookmarks`、`skill_recycle_bin` 等
 - `MINIO_ENABLED=true` 时，新版本的 `skill_version_files.content` 为 `NULL`；该表保留
   path、size、sha256 元数据，读取内容时通过 `skill_versions` 中的 artifact descriptor 获取 ZIP。
 
@@ -251,7 +251,7 @@ Review 扩展列（近期）：
 | `/skills/:slug/contributors`、`/issues`、`/ratings` | 社区协作 |
 | `/leaderboard`、`/creators`                  | 榜单、创作者主页        |
 | `/users/me/recycle-bin`                     | 回收站列表           |
-| `/reviews/run`、`/reviews/rebuild`           | Worker 重审 / 重建审查 |
+| `/inspections/run`、`/inspections/rebuild`           | Worker 重审 / 重建审查 |
 
 
 
@@ -261,7 +261,7 @@ Review 扩展列（近期）：
 - 首页搜索、Skill 详情（审查 findings、SkillSpector/VirusTotal 摘要、HaluCatch 雷达图；**rejected Skill 不出现在搜索/榜单**）
 - 发布页（Description 字段、ZIP 上传、metadata 自动补全）
 - 创作者主页、榜单、审查列表
-- 站内文档（skill-format、security-scan、halucatch-review 等）
+- 站内文档（skill-format、security-scan、halucatch-inspection 等）
 - 通过 `NEXT_PUBLIC_API_URL` 访问 API，不直连数据库
 
 

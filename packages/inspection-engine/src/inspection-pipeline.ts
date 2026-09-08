@@ -9,13 +9,13 @@ import {
   type FunctionalEvaluationReport,
 } from "@skill-platform/evaluator";
 import type {
-  ReviewAndEvaluationResult,
-  ReviewFinding,
-  ReviewReport,
-  ReviewStage,
-  ReviewStageFailure,
+  InspectionAndEvaluationResult,
+  InspectionFinding,
+  InspectionReport,
+  InspectionStage,
+  InspectionStageFailure,
 } from "./index.js";
-import { calculateReviewVerdict } from "./review-verdict.js";
+import { calculateInspectionVerdict } from "./inspection-verdict.js";
 import { isSkillSpectorEnabled, runSkillSpectorSecurityScan } from "./skillspector.js";
 import {
   formatVirusTotalError,
@@ -23,30 +23,30 @@ import {
   runVirusTotalScan,
 } from "./virustotal.js";
 
-export interface ReviewPipelineState {
-  findings: ReviewFinding[];
-  skillSpector?: ReviewReport["skillSpector"];
+export interface InspectionPipelineState {
+  findings: InspectionFinding[];
+  skillSpector?: InspectionReport["skillSpector"];
   skillSpectorAvailable: boolean;
-  virusTotal?: ReviewReport["virusTotal"];
+  virusTotal?: InspectionReport["virusTotal"];
   evaluation?: FunctionalEvaluationReport;
-  failedStages: ReviewStageFailure[];
-  completedStages: ReviewStage[];
+  failedStages: InspectionStageFailure[];
+  completedStages: InspectionStage[];
 }
 
-export interface ReviewStageCompleteEvent {
-  stage: ReviewStage;
-  state: ReviewPipelineState;
-  review: ReviewReport;
+export interface InspectionStageCompleteEvent {
+  stage: InspectionStage;
+  state: InspectionPipelineState;
+  inspection: InspectionReport;
   evaluation?: FunctionalEvaluationReport;
 }
 
-export interface RunReviewPipelineOptions {
-  skipStages?: ReviewStage[];
-  initialState?: Partial<ReviewPipelineState>;
-  onStageComplete?: (event: ReviewStageCompleteEvent) => Promise<void>;
+export interface RunInspectionPipelineOptions {
+  skipStages?: InspectionStage[];
+  initialState?: Partial<InspectionPipelineState>;
+  onStageComplete?: (event: InspectionStageCompleteEvent) => Promise<void>;
 }
 
-function createInitialPipelineState(initial?: Partial<ReviewPipelineState>): ReviewPipelineState {
+function createInitialPipelineState(initial?: Partial<InspectionPipelineState>): InspectionPipelineState {
   return {
     findings: initial?.findings ?? [],
     skillSpector: initial?.skillSpector,
@@ -58,11 +58,11 @@ function createInitialPipelineState(initial?: Partial<ReviewPipelineState>): Rev
   };
 }
 
-function shouldSkipStage(stage: ReviewStage, skipStages: ReviewStage[] | undefined): boolean {
+function shouldSkipStage(stage: InspectionStage, skipStages: InspectionStage[] | undefined): boolean {
   return skipStages?.includes(stage) ?? false;
 }
 
-function specValidationFindings(snapshot: SkillSnapshot): ReviewFinding[] {
+function specValidationFindings(snapshot: SkillSnapshot): InspectionFinding[] {
   return validateSkillSnapshot(snapshot).map((issue) => ({
     id: `spec-${issue.code}`,
     category: "compliance" as const,
@@ -74,18 +74,18 @@ function specValidationFindings(snapshot: SkillSnapshot): ReviewFinding[] {
   }));
 }
 
-function buildReviewFromState(
+function buildInspectionFromState(
   snapshot: SkillSnapshot,
   version: string,
-  state: ReviewPipelineState
-): ReviewReport {
+  state: InspectionPipelineState
+): InspectionReport {
   return {
-    id: `review_${snapshot.contentHash.slice(0, 16)}_${Date.now()}`,
+    id: `inspection_${snapshot.contentHash.slice(0, 16)}_${Date.now()}`,
     skillSlug: getSkillSlug(snapshot.manifest),
     skillName: snapshot.manifest.name,
     version,
     contentHash: snapshot.contentHash,
-    verdict: calculateReviewVerdict(state.findings),
+    verdict: calculateInspectionVerdict(state.findings),
     scores: {
       qualityScore: 100,
       securityScore: 100,
@@ -101,9 +101,9 @@ function buildReviewFromState(
 async function emitStageComplete(
   snapshot: SkillSnapshot,
   version: string,
-  state: ReviewPipelineState,
-  stage: ReviewStage,
-  onStageComplete: RunReviewPipelineOptions["onStageComplete"]
+  state: InspectionPipelineState,
+  stage: InspectionStage,
+  onStageComplete: RunInspectionPipelineOptions["onStageComplete"]
 ): Promise<void> {
   if (!onStageComplete) {
     return;
@@ -111,7 +111,7 @@ async function emitStageComplete(
   await onStageComplete({
     stage,
     state,
-    review: buildReviewFromState(snapshot, version, state),
+    inspection: buildInspectionFromState(snapshot, version, state),
     evaluation: state.evaluation,
   });
 }
@@ -119,8 +119,8 @@ async function emitStageComplete(
 async function runSkillSpectorStage(
   snapshot: SkillSnapshot,
   version: string,
-  state: ReviewPipelineState,
-  onStageComplete: RunReviewPipelineOptions["onStageComplete"]
+  state: InspectionPipelineState,
+  onStageComplete: RunInspectionPipelineOptions["onStageComplete"]
 ): Promise<void> {
   if (!isSkillSpectorEnabled()) {
     state.skillSpectorAvailable = false;
@@ -148,8 +148,8 @@ async function runSkillSpectorStage(
 async function runVirusTotalStage(
   snapshot: SkillSnapshot,
   version: string,
-  state: ReviewPipelineState,
-  onStageComplete: RunReviewPipelineOptions["onStageComplete"]
+  state: InspectionPipelineState,
+  onStageComplete: RunInspectionPipelineOptions["onStageComplete"]
 ): Promise<void> {
   if (!isVirusTotalEnabled()) {
     return;
@@ -178,8 +178,8 @@ function isHaluCatchEnabled(): boolean {
 async function runHaluCatchStage(
   snapshot: SkillSnapshot,
   version: string,
-  state: ReviewPipelineState,
-  onStageComplete: RunReviewPipelineOptions["onStageComplete"]
+  state: InspectionPipelineState,
+  onStageComplete: RunInspectionPipelineOptions["onStageComplete"]
 ): Promise<void> {
   if (!isHaluCatchEnabled()) {
     return;
@@ -191,7 +191,7 @@ async function runHaluCatchStage(
   } catch (error) {
     // Environment problem (Python / vendored runtime) → stage failure. Use the
     // static taskset evaluator only as a placeholder report; never fabricate a
-    // "review-halucatch-unavailable" finding.
+    // "inspection-halucatch-unavailable" finding.
     evaluation = evaluateStaticTaskSet(snapshot);
     state.failedStages.push({ stage: "halucatch", message: truncateError(error) });
   }
@@ -203,11 +203,11 @@ async function runHaluCatchStage(
   await emitStageComplete(snapshot, version, state, "halucatch", onStageComplete);
 }
 
-export async function runReviewPipeline(
+export async function runInspectionPipeline(
   snapshot: SkillSnapshot,
   versionOverride?: string,
-  options: RunReviewPipelineOptions = {}
-): Promise<ReviewAndEvaluationResult> {
+  options: RunInspectionPipelineOptions = {}
+): Promise<InspectionAndEvaluationResult> {
   const version = versionOverride ?? snapshot.manifest.version ?? "0.1.0";
   const skipStages = options.skipStages ?? [];
   const state = createInitialPipelineState(options.initialState);
@@ -234,11 +234,11 @@ export async function runReviewPipeline(
     await runHaluCatchStage(snapshot, version, state, options.onStageComplete);
   }
 
-  const review = buildReviewFromState(snapshot, version, state);
+  const inspection = buildInspectionFromState(snapshot, version, state);
   const evaluation = state.evaluation ?? (await evaluateSkillSnapshot(snapshot));
 
   return {
-    review,
+    inspection,
     evaluation,
     failedStages: state.failedStages,
   };
@@ -260,12 +260,12 @@ function truncateError(error: unknown): string {
   return message.length <= 300 ? message : `${message.slice(0, 297)}...`;
 }
 
-export function resolveReviewStagesToRun(input: {
-  configuredStages: ReviewStage[];
-  completedStages: ReviewStage[];
-  failedStages: ReviewStage[];
-  requestedStages?: ReviewStage[];
-}): ReviewStage[] {
+export function resolveInspectionStagesToRun(input: {
+  configuredStages: InspectionStage[];
+  completedStages: InspectionStage[];
+  failedStages: InspectionStage[];
+  requestedStages?: InspectionStage[];
+}): InspectionStage[] {
   const { configuredStages, completedStages, failedStages, requestedStages } = input;
   const completed = new Set(completedStages);
   const failed = new Set(failedStages);
@@ -281,8 +281,8 @@ export function resolveReviewStagesToRun(input: {
   return defaultStages.filter((stage) => requested.has(stage));
 }
 
-export function getConfiguredReviewStages(): ReviewStage[] {
-  const stages: ReviewStage[] = [];
+export function getConfiguredInspectionStages(): InspectionStage[] {
+  const stages: InspectionStage[] = [];
   if (isSkillSpectorEnabled()) {
     stages.push("skillspector");
   }

@@ -31,7 +31,7 @@ export function PublishNoticeToast({ notice, onClose }: PublishNoticeToastProps)
   }, []);
 
   const Icon =
-    notice.verdict === "published" ? CheckCircle2 : notice.verdict === "needs-review" ? AlertCircle : XCircle;
+    notice.verdict === "published" ? CheckCircle2 : notice.verdict === "needs-inspection" ? AlertCircle : XCircle;
 
   useEffect(() => {
     const timer = window.setTimeout(dismiss, AUTO_DISMISS_MS);

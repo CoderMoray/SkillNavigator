@@ -1,6 +1,6 @@
-export type ReviewVerdict = "published" | "needs-review" | "rejected";
+export type InspectionVerdict = "published" | "needs-inspection" | "rejected";
 
-export interface ReviewFinding {
+export interface InspectionFinding {
   id: string;
   category: string;
   severity: "low" | "medium" | "high" | "critical";
@@ -15,26 +15,26 @@ export interface ReviewFinding {
 const SKILLSPECTOR_FINDING_PREFIX = "skillspector-";
 const VIRUSTOTAL_FINDING_PREFIX = "virustotal-";
 const SKILLSPECTOR_UNAVAILABLE_FINDING_ID = "skillspector-unavailable";
-const REVIEW_HALUCATCH_UNAVAILABLE_FINDING_ID = "review-halucatch-unavailable";
+const INSPECTION_HALUCATCH_UNAVAILABLE_FINDING_ID = "inspection-halucatch-unavailable";
 const MEDIUM_CONFIDENCE_REJECT_PERCENT = 90;
 
-export function isSkillSpectorReviewFinding(finding: ReviewFinding): boolean {
+export function isSkillSpectorInspectionFinding(finding: InspectionFinding): boolean {
   return (
     finding.id.startsWith(SKILLSPECTOR_FINDING_PREFIX) &&
     finding.id !== SKILLSPECTOR_UNAVAILABLE_FINDING_ID
   );
 }
 
-export function isVirusTotalReviewFinding(finding: ReviewFinding): boolean {
+export function isVirusTotalInspectionFinding(finding: InspectionFinding): boolean {
   return finding.id.startsWith(VIRUSTOTAL_FINDING_PREFIX);
 }
 
-export function shouldRejectSkillSpectorFinding(finding: ReviewFinding): boolean {
+export function shouldRejectSkillSpectorFinding(finding: InspectionFinding): boolean {
   if (finding.id === SKILLSPECTOR_UNAVAILABLE_FINDING_ID) {
     return finding.severity === "critical" || finding.severity === "high";
   }
 
-  if (!isSkillSpectorReviewFinding(finding)) {
+  if (!isSkillSpectorInspectionFinding(finding)) {
     return false;
   }
 
@@ -50,28 +50,28 @@ export function shouldRejectSkillSpectorFinding(finding: ReviewFinding): boolean
   return false;
 }
 
-export function shouldRejectVirusTotalFinding(finding: ReviewFinding): boolean {
-  return isVirusTotalReviewFinding(finding) && (finding.severity === "critical" || finding.severity === "high");
+export function shouldRejectVirusTotalFinding(finding: InspectionFinding): boolean {
+  return isVirusTotalInspectionFinding(finding) && (finding.severity === "critical" || finding.severity === "high");
 }
 
-export function shouldRejectReviewInfrastructureFinding(finding: ReviewFinding): boolean {
+export function shouldRejectInspectionInfrastructureFinding(finding: InspectionFinding): boolean {
   return (
-    finding.id === REVIEW_HALUCATCH_UNAVAILABLE_FINDING_ID &&
+    finding.id === INSPECTION_HALUCATCH_UNAVAILABLE_FINDING_ID &&
     (finding.severity === "critical" || finding.severity === "high")
   );
 }
 
-export function calculateReviewVerdict(findings: ReviewFinding[]): ReviewVerdict {
+export function calculateInspectionVerdict(findings: InspectionFinding[]): InspectionVerdict {
   if (
     findings.some(shouldRejectSkillSpectorFinding) ||
     findings.some(shouldRejectVirusTotalFinding) ||
-    findings.some(shouldRejectReviewInfrastructureFinding)
+    findings.some(shouldRejectInspectionInfrastructureFinding)
   ) {
     return "rejected";
   }
 
   if (findings.length > 0) {
-    return "needs-review";
+    return "needs-inspection";
   }
 
   return "published";

@@ -78,7 +78,7 @@ SkillSpector 对每条 finding 按 **严重度** 与 **置信度** 贡献分数�
 
 平台 **verdict** 在审查流水线 **全部成功完成** 后，由 finding 综合判定。**自动拒绝** 仅看 SkillSpector / VirusTotal 的特定安全 finding（见下表）。
 
-| 来源 | 已拒绝（rejected） | 需复核（needs-review） |
+| 来源 | 已拒绝（rejected） | 需复核（needs-inspection） |
 | --- | --- | --- |
 | **SkillSpector**（已启用） | `high` / `critical`；或 `medium` 且置信度 **≥ 90%** | 其余 SkillSpector finding |
 | **VirusTotal**（已启用） | `high` / `critical`（如 malicious 检出） | 其余（如 suspicious 检出） |
@@ -86,7 +86,7 @@ SkillSpector 对每条 finding 按 **严重度** 与 **置信度** 贡献分数�
 | **平台规则等** | 不自动拒绝 | 存在任意 finding 时为需复核 |
 | **无任何 finding 且各启用步骤均成功** | — | **已发布（published）** |
 
-**审查流水线未完成或失败**（如 VirusTotal 分析超时、SkillSpector/HaluCatch 运行时不可用、审查中断）时，Skill 标记为 **审查失败**（`reviewStatus: failed`）；**包通常已暂存在服务端**，但 **不会公开**。在 Skill 详情页或 CLI 使用 **重试失败环节 / `skillnav retry-publish`** 重新跑审查（默认只重试失败或未完成的环节）。这与「审查已全部完成但 verdict 为 **已拒绝**」不同（见 [发布流程](./publish-workflow.md)）。
+**审查流水线未完成或失败**（如 VirusTotal 分析超时、SkillSpector/HaluCatch 运行时不可用、审查中断）时，Skill 标记为 **审查失败**（`inspectionStatus: failed`）；**包通常已暂存在服务端**，但 **不会公开**。在 Skill 详情页或 CLI 使用 **重试失败环节 / `skillnav retry-publish`** 重新跑审查（默认只重试失败或未完成的环节）。这与「审查已全部完成但 verdict 为 **已拒绝**」不同（见 [发布流程](./publish-workflow.md)）。
 
 SkillSpector 的「不建议安装」是 **包级安全建议**，与页面「已拒绝 / 需复核」徽章相关但不完全等同。
 
@@ -266,4 +266,4 @@ GET /files/{zipSha256}  → 404
 ## 相关文档
 
 - [Skill 格式](./skill-format.md) — 避免 frontmatter 触发误报  
-- [质量审查](./halucatch-review.md) — 质量维度与安全互补
+- [质量审查](./halucatch-inspection.md) — 质量维度与安全互补

@@ -1253,7 +1253,7 @@ button {
   line-height: 1.55;
 }
 
-.skill-row .skill-review-failure {
+.skill-row .skill-inspection-failure {
   display: block;
   margin-top: 6px;
   overflow: hidden;
@@ -2141,12 +2141,24 @@ button {
   color: var(--green);
 }
 
-.badge.needs-review,
+.badge.needs-inspection,
 .badge.partial,
 .badge.medium {
   border-color: rgba(176, 96, 0, 0.18);
   background: var(--amber-soft);
   color: var(--amber);
+}
+
+.badge.inspection-inspecting {
+  border-color: rgba(37, 99, 235, 0.18);
+  background: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+}
+
+:root[data-theme="dark"] .badge.inspection-inspecting {
+  border-color: rgba(96, 165, 250, 0.35);
+  background: rgba(37, 99, 235, 0.18);
+  color: #93c5fd;
 }
 
 .badge.rejected,
@@ -2356,13 +2368,13 @@ button {
   background: rgba(251, 146, 60, 0.14);
 }
 
-.skill-review-progress {
+.skill-inspection-progress {
   display: grid;
   gap: 10px;
   margin-top: 12px;
 }
 
-.skill-review-progress-label {
+.skill-inspection-progress-label {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -2370,13 +2382,13 @@ button {
   color: var(--muted-strong);
 }
 
-.skill-review-progress-stages {
+.skill-inspection-progress-stages {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.skill-review-stage {
+.skill-inspection-stage {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2390,66 +2402,66 @@ button {
   white-space: nowrap;
 }
 
-.skill-review-stage-name {
+.skill-inspection-stage-name {
   color: var(--foreground);
 }
 
-.skill-review-stage-status {
+.skill-inspection-stage-status {
   padding-left: 6px;
   border-left: 1px solid var(--border);
   color: var(--muted-strong);
   font-weight: 600;
 }
 
-.skill-review-stage--completed {
+.skill-inspection-stage--completed {
   border-color: rgba(24, 128, 56, 0.22);
   background: var(--green-soft);
   color: var(--green);
 }
 
-.skill-review-stage--completed .skill-review-stage-name,
-.skill-review-stage--completed .skill-review-stage-status {
+.skill-inspection-stage--completed .skill-inspection-stage-name,
+.skill-inspection-stage--completed .skill-inspection-stage-status {
   color: inherit;
   border-left-color: rgba(24, 128, 56, 0.18);
 }
 
-.skill-review-stage--failed {
+.skill-inspection-stage--failed {
   border-color: rgba(217, 48, 37, 0.22);
   background: var(--red-soft);
   color: var(--red);
 }
 
-.skill-review-stage--failed .skill-review-stage-name,
-.skill-review-stage--failed .skill-review-stage-status {
+.skill-inspection-stage--failed .skill-inspection-stage-name,
+.skill-inspection-stage--failed .skill-inspection-stage-status {
   color: inherit;
   border-left-color: rgba(217, 48, 37, 0.18);
 }
 
-.skill-review-stage--pending {
+.skill-inspection-stage--pending {
   border-color: rgba(176, 96, 0, 0.2);
   background: var(--amber-soft);
   color: var(--amber);
 }
 
-.skill-review-stage--pending .skill-review-stage-name,
-.skill-review-stage--pending .skill-review-stage-status {
+.skill-inspection-stage--pending .skill-inspection-stage-name,
+.skill-inspection-stage--pending .skill-inspection-stage-status {
   color: inherit;
   border-left-color: rgba(176, 96, 0, 0.18);
 }
 
-:root[data-theme="dark"] .skill-review-stage {
+:root[data-theme="dark"] .skill-inspection-stage {
   background: rgba(24, 26, 36, 0.78);
 }
 
-:root[data-theme="dark"] .skill-review-stage--completed {
+:root[data-theme="dark"] .skill-inspection-stage--completed {
   background: rgba(24, 128, 56, 0.16);
 }
 
-:root[data-theme="dark"] .skill-review-stage--failed {
+:root[data-theme="dark"] .skill-inspection-stage--failed {
   background: rgba(217, 48, 37, 0.16);
 }
 
-:root[data-theme="dark"] .skill-review-stage--pending {
+:root[data-theme="dark"] .skill-inspection-stage--pending {
   background: rgba(176, 96, 0, 0.16);
 }
 
@@ -3111,7 +3123,7 @@ button {
   margin-top: 14px;
 }
 
-.review-score-card {
+.inspection-score-card {
   margin-bottom: 18px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -3297,7 +3309,7 @@ button {
 :root[data-theme="dark"] .version-entry-head,
 :root[data-theme="dark"] .changelog-content,
 :root[data-theme="dark"] .requirement-card,
-:root[data-theme="dark"] .review-score-card,
+:root[data-theme="dark"] .inspection-score-card,
 :root[data-theme="dark"] .evaluation-summary > div,
 :root[data-theme="dark"] .halucatch-report-content,
 :root[data-theme="dark"] .halucatch-report-summary {
@@ -3486,7 +3498,7 @@ button {
   border-color: rgba(24, 128, 56, 0.22);
 }
 
-.publish-notice-toast.needs-review {
+.publish-notice-toast.needs-inspection {
   border-color: rgba(234, 134, 0, 0.24);
 }
 
@@ -3505,7 +3517,7 @@ button {
   color: var(--green);
 }
 
-.publish-notice-toast.needs-review .publish-notice-toast-icon {
+.publish-notice-toast.needs-inspection .publish-notice-toast-icon {
   color: #b06000;
 }
 

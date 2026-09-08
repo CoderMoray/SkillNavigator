@@ -34,7 +34,7 @@
 | --- | --- |
 | 快照与文件列表 | 用于详情页展示与 hash 校验 |
 | ZIP 制品 | 供下载与 MinIO（若启用）存储 |
-| 审查记录 | finding 列表、verdict、SkillSpector 包级风险摘要、VirusTotal 检出摘要（若扫描成功） |
+| 审查记录 | `inspection` 对象：finding 列表、verdict、SkillSpector 包级风险摘要、VirusTotal 检出摘要（若扫描成功） |
 | 评估记录 | HaluCatch 五维结果与 Markdown 报告（若评估成功） |
 
 **审查尚未完成或流程失败** 时：包通常 **已暂存** 于服务端，但尚未获得最终 verdict，也不会公开出现在 Skill 广场。
@@ -45,16 +45,16 @@
 
 | 概念 | 字段 / 展示 | 含义 |
 | --- | --- | --- |
-| **审查状态** | `reviewStatus`：审查中 / 审查失败 / 审查完成 | Skill **最新版本** 的流水线是否跑完 |
+| **审查状态** | `inspectionStatus`：审查中 / 审查失败 / 审查完成 | Skill **最新版本** 的流水线是否跑完 |
 | **版本 verdict** | 徽章：已发布 / 需复核 / 已拒绝 | 某版本审查 **成功结束** 后，根据 finding 给出的结论 |
 
 | verdict | 含义 |
 | --- | --- |
 | **已发布（published）** | 审查流水线 **无任何 finding** |
-| **需复核（needs-review）** | 存在 finding，但未触发自动拒绝规则；版本已入库，建议人工确认后再推广 |
+| **需复核（needs-inspection）** | 存在 finding，但未触发自动拒绝规则；版本已入库，建议人工确认后再推广 |
 | **已拒绝（rejected）** | 审查流水线已全部完成，但触发 SkillSpector 或 VirusTotal 的 **自动拒绝** 规则（见下）；版本 **已入库** |
 
-### 审查失败（reviewStatus: failed）
+### 审查失败（inspectionStatus: failed）
 
 若 VirusTotal 分析超时、SkillSpector/HaluCatch 运行时不可用、服务重启导致审查中断等，使 **任一已启用环节未成功完成**：
 
@@ -62,7 +62,7 @@
 - Skill 标记为 **审查失败**，**不会公开**；拥有者在详情页看到 **已下架（审查失败）** 与阶段进度
 - 在详情页点击 **重新发布** 或 **重试失败环节**（或 CLI：`skillnav retry-publish <slug>`）**重新跑审查**，**无需重新上传**；默认 **只重试失败或未完成的环节**
 - 若暂存包已丢失，需重新上传；同版本再次 `publish` 可能返回 `pending_publish_use_retry`，应改用 `retry-publish`
-- 使用 CLI **`publish --wait`** 同步等待时，失败会返回 `review_pipeline_incomplete`（503），同样应 **`retry-publish`**，而不是重复上传
+- 使用 CLI **`publish --wait`** 同步等待时，失败会返回 `inspection_pipeline_incomplete`（503），同样应 **`retry-publish`**，而不是重复上传
 
 典型场景：首次 upload 已成功但 VT 仍在分析，平台在超时前结束；重试时 hash 已命中，平台会轮询直至引擎统计就绪（见 [安全检测](./security-scan.md) 路径 A2）。
 
@@ -76,7 +76,7 @@
 | **VirusTotal**（已启用） | 存在 **malicious** 类别检出（合并为一条 high 级 finding） |
 | **HaluCatch**（已启用） | 评估成功但结果触发拒绝规则（见质量文档） |
 
-SkillSpector / VirusTotal **扫描步骤本身失败**（超时、网络错误、运行时不可用）属于 **审查失败（reviewStatus: failed）**，不会以「已完成审查的 rejected verdict」入库，见上一节。
+SkillSpector / VirusTotal **扫描步骤本身失败**（超时、网络错误、运行时不可用）属于 **审查失败（inspectionStatus: failed）**，不会以「已完成审查的 rejected verdict」入库，见上一节。
 
 **平台合规/质量** finding（如 tags 缺失、description 不规范、内置降级规则命中等）**不会**单独导致 rejected，但会使 verdict 为 **需复核**。
 
@@ -89,7 +89,7 @@ Skill 是否出现在 **首页、Skill 列表 / 搜索、榜单** 以及 **其�
 | 情况 | 公开搜索 / 榜单 | 拥有者 / contributor 个人中心 | 直接打开详情页 |
 | --- | --- | --- | --- |
 | 正常公开（verdict 非 rejected，审查完成，且未手动下架） | ✅ | ✅ | ✅ |
-| **审查中（reviewing）** | ❌ | ✅ | ✅（owner / contributor） |
+| **审查中（inspecting）** | ❌ | ✅ | ✅（owner / contributor） |
 | **审查失败（failed）** | ❌ | ✅ | ✅（owner / contributor） |
 | **已拒绝（rejected，审查已完成）** | ❌ | ✅ | ✅（便于查看 finding 与修复） |
 | **已下架（手动 unpublish）** | ❌ | ✅（仅 Skill 拥有者本人） | ✅（拥有者可访问；他人通常 404） |
@@ -135,11 +135,11 @@ CLI 与 Web 共用同一 API 与审查逻辑；Web 发布额外校验分类等�
 
 - **slug 冲突或版本已存在**：更换 slug 或提高 version。
 - **frontmatter 缺字段或 SemVer 不合法**：对照 [Skill 格式](./skill-format.md) 修改。
-- **审查失败（reviewStatus: failed / review_pipeline_incomplete）**：包 **通常已暂存**。修复环境后使用详情页 **重试失败环节** 或 `skillnav retry-publish <slug>`；勿对同版本重复 `publish`（可能 `pending_publish_use_retry`）。详见 [安全检测](./security-scan.md)。
+- **审查失败（inspectionStatus: failed / inspection_pipeline_incomplete）**：包 **通常已暂存**。修复环境后使用详情页 **重试失败环节** 或 `skillnav retry-publish <slug>`；勿对同版本重复 `publish`（可能 `pending_publish_use_retry`）。详见 [安全检测](./security-scan.md)。
 - **审查 rejected（verdict，审查已完成）**：版本已入库但 **不会出现在搜索页**；打开 Skill 详情 →「审查与评估」，处理 finding 后 **发新版本**。
 - **需复核**：版本已保存，可在修复非阻断 finding 后发新版本，或由管理员人工确认后推广。
 
 ## 相关文档
 
 - [安全检测](./security-scan.md)
-- [质量审查](./halucatch-review.md)
+- [质量审查](./halucatch-inspection.md)

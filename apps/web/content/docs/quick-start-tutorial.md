@@ -145,7 +145,7 @@
 3. **查看安全审查**：SkillSpector 摘要给出安全分、包级风险、安装建议和扫描模式；下方 finding 会给出严重度、置信度、证据和修复建议。
 4. **查看 VirusTotal 摘要（如已配置）**：确认扫描状态、恶意/可疑检出数、参与引擎数和报告链接。
 
-安全分和 HaluCatch 质量结果分别服务于不同目的，不能简单相加为“总分”。完整解释见[安全检测](./security-scan.md)和[质量审查](./halucatch-review.md)。
+安全分和 HaluCatch 质量结果分别服务于不同目的，不能简单相加为“总分”。完整解释见[安全检测](./security-scan.md)和[质量审查](./halucatch-inspection.md)。
 
 ![图 09：质量审查](../../public/docs/tutorial/09-quality-review.png)
 *图 09：质量审查*
@@ -317,4 +317,4 @@ Skill 所有者或 contributor 可在详情页右侧点击 **发布新版本**�
 - 准备合规的包结构：[Skill 格式](./skill-format.md)
 - 深入理解发布结果：[发布流程](./publish-workflow.md)
 - 阅读安全 finding 与 VirusTotal 说明：[安全检测](./security-scan.md)
-- 阅读 HaluCatch 五维报告：[质量审查](./halucatch-review.md)
+- 阅读 HaluCatch 五维报告：[质量审查](./halucatch-inspection.md)

@@ -22,13 +22,13 @@ import {
 import {
   isVirusTotalEnabled,
   isVirusTotalUploadOnMissEnabled,
-  reviewAndEvaluateSkillSnapshot,
+  inspectAndEvaluateSkillSnapshot,
   runVirusTotalScan
-} from "@skill-platform/review-engine";
+} from "@skill-platform/inspection-engine";
 import {
   isSkillSpectorEnabled,
   runSkillSpectorSecurityScan
-} from "../packages/review-engine/src/skillspector.js";
+} from "../packages/inspection-engine/src/skillspector.js";
 import { evaluateSkillSnapshot } from "@skill-platform/evaluator";
 import {
   buildBenchmarkSkillSnapshot,
@@ -206,9 +206,9 @@ async function benchmarkPackage(
   let findingCount: number | undefined;
   let failedStages: string[] | undefined;
   try {
-    const result = await reviewAndEvaluateSkillSnapshot(pipelineParsed);
-    verdict = result.review.verdict;
-    findingCount = result.review.findings.length;
+    const result = await inspectAndEvaluateSkillSnapshot(pipelineParsed);
+    verdict = result.inspection.verdict;
+    findingCount = result.inspection.findings.length;
     failedStages = result.failedStages.map((failure) => failure.stage);
   } catch (error) {
     failedStages = [error instanceof Error ? error.message : String(error)];
@@ -295,7 +295,7 @@ function writeJsonReport(
   const outputDir = resolve("tmp");
   mkdirSync(outputDir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const outputPath = resolve(outputDir, `review-benchmark-${stamp}.json`);
+  const outputPath = resolve(outputDir, `inspection-benchmark-${stamp}.json`);
   writeFileSync(
     outputPath,
     JSON.stringify(

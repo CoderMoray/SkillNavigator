@@ -22,37 +22,37 @@ import {
   type VirusTotalScanSummary
 } from "./virustotal.js";
 import { collectSkillLicenseFindings, isSkillLicenseValidationEnabled } from "./license-compliance.js";
-import { calculateReviewVerdict } from "./review-verdict.js";
+import { calculateInspectionVerdict } from "./inspection-verdict.js";
 
 export {
   collectSkillLicenseFindings,
   isSkillLicenseValidationEnabled
 } from "./license-compliance.js";
 
-export type ReviewCategory =
+export type InspectionCategory =
   | "compliance"
   | "quality"
   | "leakage"
   | "privacy"
   | "security"
   | "reliability";
-export type ReviewSeverity = "low" | "medium" | "high" | "critical";
-export type ReviewVerdict = "published" | "needs-review" | "rejected";
-export type ReviewStage = "skillspector" | "virustotal" | "halucatch";
+export type InspectionSeverity = "low" | "medium" | "high" | "critical";
+export type InspectionVerdict = "published" | "needs-inspection" | "rejected";
+export type InspectionStage = "skillspector" | "virustotal" | "halucatch";
 
 /**
  * A configured review integration could not complete. These are operational
  * failures, not security or quality findings from a successfully completed scan.
  */
-export interface ReviewStageFailure {
-  stage: ReviewStage;
+export interface InspectionStageFailure {
+  stage: InspectionStage;
   message: string;
 }
 
-export interface ReviewFinding {
+export interface InspectionFinding {
   id: string;
-  category: ReviewCategory;
-  severity: ReviewSeverity;
+  category: InspectionCategory;
+  severity: InspectionSeverity;
   title: string;
   message: string;
   path?: string;
@@ -62,30 +62,30 @@ export interface ReviewFinding {
   confidence?: number;
 }
 
-export interface ReviewScores {
+export interface InspectionScores {
   qualityScore: number;
   securityScore: number;
   reliabilityScore: number;
 }
 
-export interface ReviewReport {
+export interface InspectionReport {
   id: string;
   skillSlug: string;
   skillName: string;
   version: string;
   contentHash: string;
-  verdict: ReviewVerdict;
-  scores: ReviewScores;
-  findings: ReviewFinding[];
+  verdict: InspectionVerdict;
+  scores: InspectionScores;
+  findings: InspectionFinding[];
   skillSpector?: SkillSpectorScanSummary;
   virusTotal?: VirusTotalScanSummary;
   createdAt: string;
 }
 
-export interface ReviewAndEvaluationResult {
-  review: ReviewReport;
+export interface InspectionAndEvaluationResult {
+  inspection: InspectionReport;
   evaluation: FunctionalEvaluationReport;
-  failedStages: ReviewStageFailure[];
+  failedStages: InspectionStageFailure[];
 }
 
 export type { SkillSpectorScanSummary } from "./skillspector.js";
@@ -104,8 +104,8 @@ export {
 
 interface PatternRule {
   id: string;
-  category: ReviewCategory;
-  severity: ReviewSeverity;
+  category: InspectionCategory;
+  severity: InspectionSeverity;
   title: string;
   pattern: RegExp;
   recommendation: string;
@@ -188,12 +188,12 @@ const contentRules: PatternRule[] = [
   }
 ];
 
-export async function reviewAndEvaluateSkillSnapshot(
+export async function inspectAndEvaluateSkillSnapshot(
   snapshot: SkillSnapshot,
   versionOverride?: string,
   evaluationOverride?: FunctionalEvaluationReport
-): Promise<ReviewAndEvaluationResult> {
-  const findings: ReviewFinding[] = [];
+): Promise<InspectionAndEvaluationResult> {
+  const findings: InspectionFinding[] = [];
   const version = versionOverride ?? snapshot.manifest.version ?? "0.1.0";
 
   for (const issue of validateSkillSnapshot(snapshot)) {
@@ -209,11 +209,11 @@ export async function reviewAndEvaluateSkillSnapshot(
   }
 
   let skillSpectorAvailable = false;
-  const failedStages: ReviewStageFailure[] = [];
+  const failedStages: InspectionStageFailure[] = [];
 
   const [skillSpectorResult, virusTotalResult] = await Promise.all([
-    runSkillSpectorReviewStep(snapshot),
-    runVirusTotalReviewStep(snapshot)
+    runSkillSpectorInspectionStep(snapshot),
+    runVirusTotalInspectionStep(snapshot)
   ]);
 
   const skillSpector = skillSpectorResult.skillSpector;
@@ -233,7 +233,7 @@ export async function reviewAndEvaluateSkillSnapshot(
     } catch (error) {
       // Environment problem (Python / vendored runtime) — never masquerade it
       // as a review finding; record a stage failure so callers can retry after
-      // fixing the environment (npm run verify:review-deps).
+      // fixing the environment (npm run verify:inspection-deps).
       failedStages.push({ stage: "halucatch", message: truncateError(error) });
       evaluation = evaluateStaticTaskSet(snapshot);
     }
@@ -244,14 +244,14 @@ export async function reviewAndEvaluateSkillSnapshot(
 
   const shouldRunPlatformRules = !haluCatchAvailable || !skillSpectorAvailable;
   if (shouldRunPlatformRules) {
-    runPlatformRulesReview(snapshot, findings, { includeContentRules: !skillSpectorAvailable });
+    runPlatformRulesInspection(snapshot, findings, { includeContentRules: !skillSpectorAvailable });
   }
 
   const scores = calculateScores(findings, evaluation, skillSpector);
-  const verdict = calculateReviewVerdict(findings);
+  const verdict = calculateInspectionVerdict(findings);
 
-  const review: ReviewReport = {
-    id: `review_${snapshot.contentHash.slice(0, 16)}_${Date.now()}`,
+  const inspection: InspectionReport = {
+    id: `inspection_${snapshot.contentHash.slice(0, 16)}_${Date.now()}`,
     skillSlug: getSkillSlug(snapshot.manifest),
     skillName: snapshot.manifest.name,
     version,
@@ -264,31 +264,31 @@ export async function reviewAndEvaluateSkillSnapshot(
     createdAt: new Date().toISOString()
   };
 
-  return { review, evaluation, failedStages };
+  return { inspection, evaluation, failedStages };
 }
 
-export async function reviewSkillSnapshot(
+export async function inspectSkillSnapshot(
   snapshot: SkillSnapshot,
   versionOverride?: string,
   evaluationOverride?: FunctionalEvaluationReport
-): Promise<ReviewReport> {
-  const { review } = await reviewAndEvaluateSkillSnapshot(snapshot, versionOverride, evaluationOverride);
-  return review;
+): Promise<InspectionReport> {
+  const { inspection } = await inspectAndEvaluateSkillSnapshot(snapshot, versionOverride, evaluationOverride);
+  return inspection;
 }
 
-function runPlatformRulesReview(
+function runPlatformRulesInspection(
   snapshot: SkillSnapshot,
-  findings: ReviewFinding[],
+  findings: InspectionFinding[],
   options: { includeContentRules: boolean }
 ): void {
-  reviewManifest(snapshot, findings);
-  reviewQualityEvidence(snapshot, findings);
+  inspectManifest(snapshot, findings);
+  inspectQualityEvidence(snapshot, findings);
   if (options.includeContentRules) {
-    reviewContent(snapshot, findings);
+    inspectContent(snapshot, findings);
   }
 }
 
-function reviewManifest(snapshot: SkillSnapshot, findings: ReviewFinding[]): void {
+function inspectManifest(snapshot: SkillSnapshot, findings: InspectionFinding[]): void {
   const { manifest, readme } = snapshot;
   const description = (manifest.description ?? "").trim();
 
@@ -360,7 +360,7 @@ function reviewManifest(snapshot: SkillSnapshot, findings: ReviewFinding[]): voi
   }
 }
 
-function reviewContent(snapshot: SkillSnapshot, findings: ReviewFinding[]): void {
+function inspectContent(snapshot: SkillSnapshot, findings: InspectionFinding[]): void {
   for (const file of snapshot.files) {
     for (const rule of contentRules) {
       const match = rule.pattern.exec(file.content);
@@ -382,7 +382,7 @@ function reviewContent(snapshot: SkillSnapshot, findings: ReviewFinding[]): void
   }
 }
 
-function reviewQualityEvidence(snapshot: SkillSnapshot, findings: ReviewFinding[]): void {
+function inspectQualityEvidence(snapshot: SkillSnapshot, findings: InspectionFinding[]): void {
   const hasTests = snapshot.files.some((file) => file.path.startsWith("tests/"));
   const hasExamples = snapshot.files.some((file) => file.path.startsWith("examples/"));
   const hasAcceptanceLanguage = snapshot.files.some((file) =>
@@ -424,10 +424,10 @@ function reviewQualityEvidence(snapshot: SkillSnapshot, findings: ReviewFinding[
 }
 
 function calculateScores(
-  _findings: ReviewFinding[],
+  _findings: InspectionFinding[],
   _evaluation: FunctionalEvaluationReport,
   _skillSpector?: SkillSpectorScanSummary
-): ReviewScores {
+): InspectionScores {
   // SkillSpector and VirusTotal run in parallel first; HaluCatch runs afterward.
   return {
     qualityScore: 100,
@@ -437,22 +437,22 @@ function calculateScores(
 }
 
 export {
-  calculateReviewVerdict,
-  isSkillSpectorReviewFinding,
-  isVirusTotalReviewFinding,
-  shouldRejectReviewInfrastructureFinding,
+  calculateInspectionVerdict,
+  isSkillSpectorInspectionFinding,
+  isVirusTotalInspectionFinding,
+  shouldRejectInspectionInfrastructureFinding,
   shouldRejectSkillSpectorFinding,
   shouldRejectVirusTotalFinding,
-} from "./review-verdict.js";
+} from "./inspection-verdict.js";
 
 export {
-  getConfiguredReviewStages,
-  resolveReviewStagesToRun,
-  runReviewPipeline,
-  type ReviewPipelineState,
-  type ReviewStageCompleteEvent,
-  type RunReviewPipelineOptions,
-} from "./review-pipeline.js";
+  getConfiguredInspectionStages,
+  resolveInspectionStagesToRun,
+  runInspectionPipeline,
+  type InspectionPipelineState,
+  type InspectionStageCompleteEvent,
+  type RunInspectionPipelineOptions,
+} from "./inspection-pipeline.js";
 
 function excerpt(content: string, index: number): string {
   const start = Math.max(0, index - 80);
@@ -460,11 +460,11 @@ function excerpt(content: string, index: number): string {
   return content.slice(start, end).replace(/\s+/g, " ").trim();
 }
 
-async function runSkillSpectorReviewStep(snapshot: SkillSnapshot): Promise<{
+async function runSkillSpectorInspectionStep(snapshot: SkillSnapshot): Promise<{
   skillSpector?: SkillSpectorScanSummary;
   skillSpectorAvailable: boolean;
-  findings: ReviewFinding[];
-  failure?: ReviewStageFailure;
+  findings: InspectionFinding[];
+  failure?: InspectionStageFailure;
 }> {
   if (!isSkillSpectorEnabled()) {
     return { skillSpectorAvailable: false, findings: [] };
@@ -480,7 +480,7 @@ async function runSkillSpectorReviewStep(snapshot: SkillSnapshot): Promise<{
   } catch (error) {
     const message = truncateError(error);
     // Environment problem — surface as a stage failure (retryable) instead of a
-    // review finding; the publish path reports review_pipeline_incomplete.
+    // review finding; the publish path reports inspection_pipeline_incomplete.
     return {
       skillSpectorAvailable: false,
       findings: [],
@@ -492,10 +492,10 @@ async function runSkillSpectorReviewStep(snapshot: SkillSnapshot): Promise<{
   }
 }
 
-async function runVirusTotalReviewStep(snapshot: SkillSnapshot): Promise<{
+async function runVirusTotalInspectionStep(snapshot: SkillSnapshot): Promise<{
   virusTotal?: VirusTotalScanSummary;
-  findings: ReviewFinding[];
-  failure?: ReviewStageFailure;
+  findings: InspectionFinding[];
+  failure?: InspectionStageFailure;
 }> {
   if (!isVirusTotalEnabled()) {
     return { findings: [] };

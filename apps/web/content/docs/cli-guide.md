@@ -287,7 +287,7 @@ skillnav status my-first-skill             # 查看审查进度
 
 **默认（无 `--wait`）**：上传成功即返回 **202**，包已暂存；审查在后台进行。用 `skillnav status <slug>` 查看进度。审查失败时 Skill 标记为 `failed`，可用 `skillnav retry-publish <slug>` 重试，无需重新上传。
 
-**使用 `--wait` 时**：仅当所有已启用环节均成功完成，CLI 才以 **201** 返回完整 verdict；任一环节失败会返回 `review_pipeline_incomplete`（503），此时可 `skillnav retry-publish <slug>`。
+**使用 `--wait` 时**：仅当所有已启用环节均成功完成，CLI 才以 **201** 返回完整 verdict；任一环节失败会返回 `inspection_pipeline_incomplete`（503），此时可 `skillnav retry-publish <slug>`。
 
 上传成功后，CLI 会提示 slug 与版本；`author` 字段会自动写入当前登录用户名。
 
@@ -302,7 +302,7 @@ skillnav status my-first-skill
 skillnav status my-first-skill --version 1.0.0
 ```
 
-显示 Skill 级审查状态（审查中 / 审查失败 / 审查完成）、可见性，以及各版本的 **review**、**verdict**、发布与 VirusTotal 摘要。省略 `--version` 时列出全部版本；指定 `--version` 时只展示该版本详情。
+显示 **单个版本**（默认 `latestVersion`）的审查状态：`inspectionStatus`（审查中 / 审查失败 / 审查完成）、`inspection`（含 verdict）、发布与 VirusTotal 摘要。`--version` 可选，省略时与指定 latest 输出格式一致。
 
 ### 7.2 完整报告
 
@@ -340,12 +340,12 @@ skillnav publish ./my-first-skill --json --no-input ...
 | Verdict | 含义 | 建议 |
 | --- | --- | --- |
 | **已发布（published）** | 审查流水线无任何 finding | ✅ 生命周期完成；可分享、下载、推广 |
-| **需复核（needs-review）** | 有 finding，但未触发自动拒绝 | 版本已入库；评估 finding Severity，可接受则完成，或修复后发新版本 |
+| **需复核（needs-inspection）** | 有 finding，但未触发自动拒绝 | 版本已入库；评估 finding Severity，可接受则完成，或修复后发新版本 |
 | **已拒绝（rejected）** | 命中 SkillSpector / VirusTotal 等高置信度拒绝规则 | 版本已入库但 **不会出现在公开搜索**；必须修复后发 **新版本** |
 
-**流水线未完成或审查失败：** 包 **通常已暂存** 于服务端（`reviewStatus: failed`）。使用 **`skillnav retry-publish <slug>`** 重试审查（默认只重跑失败或未完成的环节），**不要**对同版本重复 `publish`（可能得到 `pending_publish_use_retry`）。仅在使用 **`publish --wait`** 同步等待时，失败会以 `review_pipeline_incomplete`（503）返回，处理方式相同。
+**流水线未完成或审查失败：** 包 **通常已暂存** 于服务端（`inspectionStatus: failed`）。使用 **`skillnav retry-publish <slug>`** 重试审查（默认只重跑失败或未完成的环节），**不要**对同版本重复 `publish`（可能得到 `pending_publish_use_retry`）。仅在使用 **`publish --wait`** 同步等待时，失败会以 `inspection_pipeline_incomplete`（503）返回，处理方式相同。
 
-更多规则见 [发布流程](./publish-workflow.md)、[安全检测](./security-scan.md)、[质量审查](./halucatch-review.md)。
+更多规则见 [发布流程](./publish-workflow.md)、[安全检测](./security-scan.md)、[质量审查](./halucatch-inspection.md)。
 
 ---
 
@@ -447,5 +447,5 @@ Registry URL 可带路径前缀；CLI 使用字符串拼接，请传入完整 AP
 - [Skill 格式](./skill-format.md) — 包结构与 frontmatter 详解  
 - [发布流程](./publish-workflow.md) — verdict、可见性与 Web 发布对照  
 - [安全检测](./security-scan.md) — SkillSpector 与 VirusTotal  
-- [质量审查](./halucatch-review.md) — HaluCatch 五维报告  
+- [质量审查](./halucatch-inspection.md) — HaluCatch 五维报告  
 - [新手教程：快速上手](./quick-start-tutorial.md) — Web 界面完整 walkthrough  

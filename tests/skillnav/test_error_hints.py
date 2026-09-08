@@ -82,7 +82,7 @@ def test_enrich_api_error_pending_publish_use_retry() -> None:
 
 
 def test_skillnav_error_from_hint() -> None:
-    hint = enrich_api_error("review_pipeline_incomplete", status=503)
+    hint = enrich_api_error("inspection_pipeline_incomplete", status=503)
     exc = SkillnavError.from_hint(hint)
     assert exc.message == hint.summary
     assert exc.next_steps == hint.next_steps

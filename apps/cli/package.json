@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@skill-platform/evaluator": "0.1.0",
-    "@skill-platform/review-engine": "0.1.0",
+    "@skill-platform/inspection-engine": "0.1.0",
     "@skill-platform/skill-spec": "0.1.0"
   }
 }

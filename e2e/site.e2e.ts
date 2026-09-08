@@ -19,7 +19,7 @@ const DOC_SLUGS = [
   "skill-format",
   "publish-workflow",
   "security-scan",
-  "halucatch-review"
+  "halucatch-inspection"
 ] as const;
 
 interface SkillFixture {
@@ -149,7 +149,7 @@ test.describe.serial("MonoSkillNavigator browser flows", () => {
     await page.getByRole("option", { name: "用户评分" }).click();
     await expect(page.getByRole("button", { name: "排序方式" })).toContainText("用户评分");
 
-    await visit(page, "/reviews");
+    await visit(page, "/inspections");
     await expect(page.getByRole("checkbox", { name: "全选全部 Skill" })).toBeVisible();
     await page.getByRole("checkbox", { name: "全选全部 Skill" }).check();
     await expect(page.getByText(/已选 \d+ 条/)).toBeVisible();
@@ -276,13 +276,13 @@ test.describe.serial("MonoSkillNavigator browser flows", () => {
 
     const failedSkill = {
       ...baseSkill,
-      reviewStatus: "failed",
+      inspectionStatus: "failed",
       published: false,
-      reviewFailure: {
+      inspectionFailure: {
         message: "E2E 模拟审查中断",
         stages: ["virustotal"]
       },
-      reviewCompletedStages: ["skillspector", "virustotal"],
+      inspectionCompletedStages: ["skillspector", "virustotal"],
       hasStoredPackage: true
     };
 
@@ -312,7 +312,7 @@ test.describe.serial("MonoSkillNavigator browser flows", () => {
     await expect(page.getByText("此 Skill 已下架（审查失败）")).toBeVisible();
     await expect(page.getByRole("status", { name: "审查进度" })).toBeVisible();
     await expect(page.getByText("VirusTotal").first()).toBeVisible();
-    await expect(page.locator(".skill-review-failure")).toHaveCount(0);
+    await expect(page.locator(".skill-inspection-failure")).toHaveCount(0);
     await expect(page.getByText(/E2E 模拟审查中断/)).toHaveCount(0);
   });
 

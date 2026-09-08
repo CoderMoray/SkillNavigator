@@ -52,7 +52,7 @@ NEXT_PUBLIC_BASE_PATH=/SkillNavigator npm run build:web
 
 ### 2.2 API：Nginx 反向代理剥前缀（推荐，应用代码零改动）
 
-Fastify 所有路由注册在**根路径**（`/auth/*`、`/skills/*`、`/reviews/*`、`/leaderboard`、`/users/*`、`/health`）。嵌入部署时外部请求带前缀，由反向代理剥掉：
+Fastify 所有路由注册在**根路径**（`/auth/*`、`/skills/*`、`/inspections/*`、`/leaderboard`、`/users/*`、`/health`）。嵌入部署时外部请求带前缀，由反向代理剥掉：
 
 ```nginx
 location /SkillNavigator/api/ {

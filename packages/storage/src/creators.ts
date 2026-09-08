@@ -148,8 +148,8 @@ export function mergeOwnerRejectedSkills(
   return { ...creator, skills };
 }
 
-/** Appends owner-only reviewing/failed skills to a creator profile. */
-export function mergeOwnerReviewPendingSkills(
+/** Appends owner-only inspecting/failed skills to a creator profile. */
+export function mergeOwnerInspectionPendingSkills(
   creator: CreatorSummary,
   pending: SkillSearchResult[]
 ): CreatorSummary {

@@ -63,7 +63,7 @@ def _is_virustotal_finding(finding: dict[str, Any]) -> bool:
     return title.startswith("VirusTotal")
 
 
-def _partition_review_findings(
+def _partition_inspection_findings(
     findings: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     skillspector: list[dict[str, Any]] = []
@@ -134,9 +134,9 @@ def print_virustotal_summary(summary: dict[str, Any]) -> None:
             print(f"  ... and {len(flagged) - 20} more")
 
 
-def _print_review_sections(review: dict[str, Any]) -> None:
+def _print_inspection_sections(review: dict[str, Any]) -> None:
     print(f"Verdict: {review.get('verdict', '?')}")
-    skillspector_findings, virustotal_findings = _partition_review_findings(
+    skillspector_findings, virustotal_findings = _partition_inspection_findings(
         review.get("findings") or []
     )
     print("\n=== SkillSpector（Security）===")
@@ -170,24 +170,32 @@ def _print_failed_stages(failed_stages: Any) -> None:
             print(f"- {failure}")
 
 
-def print_review(report: dict[str, Any]) -> None:
+def print_inspection(report: dict[str, Any]) -> None:
     name = report.get("skillName") or report.get("skill_name") or "?"
     version = report.get("version", "?")
-    print(f"Review: {name}@{version}")
-    _print_review_sections(report)
+    print(f"Inspection: {name}@{version}")
+    _print_inspection_sections(report)
 
 
-def print_review_result(payload: dict[str, Any]) -> None:
-    """Print a /reviews/run (or publish) response with partitioned sections."""
-    review = payload.get("review")
+def _get_inspection_record(payload: dict[str, Any]) -> dict[str, Any]:
+    record = payload.get("inspection")
+    if isinstance(record, dict):
+        return record
+    legacy = payload.get("review")
+    return legacy if isinstance(legacy, dict) else {}
+
+
+def print_inspection_result(payload: dict[str, Any]) -> None:
+    """Print a /inspections/run (or publish) response with partitioned sections."""
+    inspection = _get_inspection_record(payload)
     evaluation = payload.get("evaluation")
-    if review:
-        name = review.get("skillName") or review.get("skill_name") or "?"
-        version = review.get("version", "?")
-        print(f"Review: {name}@{version}")
-        _print_review_sections(review)
+    if inspection:
+        name = inspection.get("skillName") or inspection.get("skill_name") or "?"
+        version = inspection.get("version", "?")
+        print(f"Inspection: {name}@{version}")
+        _print_inspection_sections(inspection)
     elif not evaluation:
-        print("No review or evaluation data.")
+        print("No inspection or evaluation data.")
         return
     if evaluation:
         print("\n=== HaluCatch（Quality）===")
@@ -223,9 +231,9 @@ def _resolve_latest_verdict(body: dict[str, Any]) -> str:
     if latest and isinstance(versions, dict):
         entry = versions.get(latest)
         if isinstance(entry, dict):
-            review = entry.get("review") or {}
-            if review.get("verdict"):
-                return str(review["verdict"])
+            inspection = _get_inspection_record(entry)
+            if inspection.get("verdict"):
+                return str(inspection["verdict"])
             if entry.get("status"):
                 return str(entry["status"])
     if body.get("status"):
@@ -283,36 +291,36 @@ def _hash_prefix(value: Any) -> str:
     return f"{text[:12]}..." if len(text) > 12 else text
 
 
-_REVIEW_STAGE_ORDER = ("skillspector", "virustotal", "halucatch")
+_INSPECTION_STAGE_ORDER = ("skillspector", "virustotal", "halucatch")
 
-_REVIEW_STAGE_LABELS = {
+_INSPECTION_STAGE_LABELS = {
     "halucatch": "HaluCatch",
     "skillspector": "SkillSpector",
     "virustotal": "VirusTotal",
 }
 
-_SKILL_REVIEW_STATUS_LABELS = {
-    "reviewing": "in review",
-    "completed": "review completed",
-    "failed": "review failed",
+_SKILL_INSPECTION_STATUS_LABELS = {
+    "inspecting": "inspecting",
+    "completed": "inspection completed",
+    "failed": "inspection failed",
 }
 
 
-def _skill_review_status_label(status: str | None) -> str:
+def _skill_inspection_status_label(status: str | None) -> str:
     if not status:
-        return _SKILL_REVIEW_STATUS_LABELS["completed"]
-    return _SKILL_REVIEW_STATUS_LABELS.get(status, status)
+        return _SKILL_INSPECTION_STATUS_LABELS["completed"]
+    return _SKILL_INSPECTION_STATUS_LABELS.get(status, status)
 
 
-def _format_review_stage_progress(
+def _format_inspection_stage_progress(
     completed_stages: list[str] | None,
     failed_stages: list[str] | None,
 ) -> str:
     completed = set(completed_stages or [])
     failed = set(failed_stages or [])
     parts: list[str] = []
-    for stage in _REVIEW_STAGE_ORDER:
-        label = _REVIEW_STAGE_LABELS.get(stage, stage)
+    for stage in _INSPECTION_STAGE_ORDER:
+        label = _INSPECTION_STAGE_LABELS.get(stage, stage)
         if stage in failed:
             parts.append(f"{label}: failed")
         elif stage in completed:
@@ -322,50 +330,50 @@ def _format_review_stage_progress(
     return " · ".join(parts)
 
 
-def _review_failure_summary(failure: dict[str, Any] | None) -> str:
+def _inspection_failure_summary(failure: dict[str, Any] | None) -> str:
     if not failure:
         return ""
     stages = failure.get("stages") or []
     message = str(failure.get("message") or "").strip()
     if stages:
-        labels = [_REVIEW_STAGE_LABELS.get(str(stage), str(stage)) for stage in stages]
+        labels = [_INSPECTION_STAGE_LABELS.get(str(stage), str(stage)) for stage in stages]
         stage_text = ", ".join(labels)
         return f"{stage_text}: {message}" if message else stage_text
     return message
 
 
-def _resolve_version_review_info(
+def _resolve_version_inspection_info(
     skill: dict[str, Any],
     version_id: str,
     entry: dict[str, Any],
 ) -> dict[str, Any]:
-    """Derive per-version review status, verdict, and optional stage progress."""
+    """Derive per-version inspection status, verdict, and optional stage progress."""
     latest = skill.get("latestVersion")
     is_latest = version_id == latest
-    version_review_status = str(entry.get("reviewStatus") or "").strip()
-    if not version_review_status:
-        version_review_status = (
-            str(skill.get("reviewStatus") or "completed") if is_latest else "completed"
+    version_inspection_status = str(entry.get("inspectionStatus") or "").strip()
+    if not version_inspection_status:
+        version_inspection_status = (
+            str(skill.get("inspectionStatus") or "completed") if is_latest else "completed"
         )
 
-    if version_review_status in {"reviewing", "failed", "completed"}:
-        failure = entry.get("reviewFailure") if version_review_status == "failed" else None
-        if not failure and version_review_status == "failed" and is_latest:
-            failure = skill.get("reviewFailure")
+    if version_inspection_status in {"inspecting", "failed", "completed"}:
+        failure = entry.get("inspectionFailure") if version_inspection_status == "failed" else None
+        if not failure and version_inspection_status == "failed" and is_latest:
+            failure = skill.get("inspectionFailure")
         failed_stages = (failure or {}).get("stages") or []
-        completed_stages = entry.get("reviewCompletedStages") or (
-            skill.get("reviewCompletedStages") if is_latest else []
+        completed_stages = entry.get("inspectionCompletedStages") or (
+            skill.get("inspectionCompletedStages") if is_latest else []
         ) or []
-        if version_review_status == "completed":
-            review = entry.get("review") or {}
-            verdict = str(review.get("verdict") or entry.get("status") or "?")
-            completed = entry.get("reviewCompletedStages") or (
-                skill.get("reviewCompletedStages") if is_latest else []
+        if version_inspection_status == "completed":
+            inspection = _get_inspection_record(entry)
+            verdict = str(inspection.get("verdict") or entry.get("status") or "?")
+            completed = entry.get("inspectionCompletedStages") or (
+                skill.get("inspectionCompletedStages") if is_latest else []
             ) or []
-            if not completed and (review.get("verdict") or review.get("findings") is not None):
-                completed = list(_REVIEW_STAGE_ORDER)
+            if not completed and (inspection.get("verdict") or inspection.get("findings") is not None):
+                completed = list(_INSPECTION_STAGE_ORDER)
             return {
-                "review_status": _skill_review_status_label("completed"),
+                "inspection_status": _skill_inspection_status_label("completed"),
                 "verdict": verdict,
                 "completed_stages": completed,
                 "failed_stages": [],
@@ -373,29 +381,29 @@ def _resolve_version_review_info(
                 "show_progress": False,
             }
         return {
-            "review_status": _skill_review_status_label(version_review_status),
+            "inspection_status": _skill_inspection_status_label(version_inspection_status),
             "verdict": "pending",
             "completed_stages": completed_stages,
             "failed_stages": failed_stages,
-            "failure_summary": _review_failure_summary(failure) if isinstance(failure, dict) else "",
+            "failure_summary": _inspection_failure_summary(failure) if isinstance(failure, dict) else "",
             "show_progress": True,
         }
 
-    review = entry.get("review") or {}
-    verdict = str(review.get("verdict") or entry.get("status") or "?")
-    has_review_record = bool(review.get("verdict") or review.get("findings") is not None)
-    review_finished = bool(
-        entry.get("reviewEndedAt")
-        or has_review_record
-        or entry.get("status") in {"published", "rejected", "needs-review"}
+    inspection = _get_inspection_record(entry)
+    verdict = str(inspection.get("verdict") or entry.get("status") or "?")
+    has_inspection_record = bool(inspection.get("verdict") or inspection.get("findings") is not None)
+    inspection_finished = bool(
+        entry.get("inspectionEndedAt")
+        or has_inspection_record
+        or entry.get("status") in {"published", "rejected", "needs-inspection"}
     )
 
-    if review_finished:
-        completed = entry.get("reviewCompletedStages") or []
-        if not completed and has_review_record:
-            completed = list(_REVIEW_STAGE_ORDER)
+    if inspection_finished:
+        completed = entry.get("inspectionCompletedStages") or []
+        if not completed and has_inspection_record:
+            completed = list(_INSPECTION_STAGE_ORDER)
         return {
-            "review_status": _skill_review_status_label("completed"),
+            "inspection_status": _skill_inspection_status_label("completed"),
             "verdict": verdict,
             "completed_stages": completed,
             "failed_stages": [],
@@ -403,10 +411,10 @@ def _resolve_version_review_info(
             "show_progress": False,
         }
 
-    completed = entry.get("reviewCompletedStages") or []
+    completed = entry.get("inspectionCompletedStages") or []
     if completed:
         return {
-            "review_status": _skill_review_status_label("reviewing"),
+            "inspection_status": _skill_inspection_status_label("inspecting"),
             "verdict": "pending",
             "completed_stages": completed,
             "failed_stages": [],
@@ -415,7 +423,7 @@ def _resolve_version_review_info(
         }
 
     return {
-        "review_status": "review pending",
+        "inspection_status": "inspection pending",
         "verdict": "pending",
         "completed_stages": [],
         "failed_stages": [],
@@ -429,23 +437,23 @@ def _print_version_status_row(
     version_id: str,
     entry: dict[str, Any],
 ) -> None:
-    review_info = _resolve_version_review_info(skill, version_id, entry)
-    review = entry.get("review") or {}
+    inspection_info = _resolve_version_inspection_info(skill, version_id, entry)
+    inspection = _get_inspection_record(entry)
     published = "yes" if entry.get("published") is not False else "no"
     hash_prefix = _hash_prefix(entry.get("contentHash"))
-    vt = _virustotal_one_liner(review)
+    vt = _virustotal_one_liner(inspection)
     latest_marker = " (latest)" if version_id == skill.get("latestVersion") else ""
     print(
-        f"  {version_id}{latest_marker}  review={review_info['review_status']}  "
-        f"verdict={review_info['verdict']}  published={published}  "
+        f"  {version_id}{latest_marker}  inspection={inspection_info['inspection_status']}  "
+        f"verdict={inspection_info['verdict']}  published={published}  "
         f"hash={hash_prefix}  VT={vt}"
     )
-    if review_info["show_progress"]:
+    if inspection_info["show_progress"]:
         print(
             "    progress: "
-            f"{_format_review_stage_progress(review_info['completed_stages'], review_info['failed_stages'])}"
+            f"{_format_inspection_stage_progress(inspection_info['completed_stages'], inspection_info['failed_stages'])}"
         )
-    failure_summary = review_info.get("failure_summary") or ""
+    failure_summary = inspection_info.get("failure_summary") or ""
     if failure_summary:
         print(f"    failure: {failure_summary}")
 
@@ -455,39 +463,39 @@ def _print_single_version_status(body: dict[str, Any], version: str) -> None:
     version_id, entry = find_version_entry(body, version)
     latest = body.get("latestVersion")
     is_latest = version_id == latest
-    review_info = _resolve_version_review_info(body, version_id, entry)
-    review = entry.get("review") or {}
+    inspection_info = _resolve_version_inspection_info(body, version_id, entry)
+    inspection = _get_inspection_record(entry)
 
     print(f"{slug}@{version_id}" + (" (latest)" if is_latest else ""))
-    print(f"Review status: {review_info['review_status']}")
-    if review_info["show_progress"]:
+    print(f"Inspection status: {inspection_info['inspection_status']}")
+    if inspection_info["show_progress"]:
         print(
-            "Review progress: "
-            f"{_format_review_stage_progress(review_info['completed_stages'], review_info['failed_stages'])}"
+            "Inspection progress: "
+            f"{_format_inspection_stage_progress(inspection_info['completed_stages'], inspection_info['failed_stages'])}"
         )
-    failure_summary = review_info.get("failure_summary") or ""
+    failure_summary = inspection_info.get("failure_summary") or ""
     if failure_summary:
-        print(f"Review failure: {failure_summary}")
-    print(f"Verdict: {review_info['verdict']}")
+        print(f"Inspection failure: {failure_summary}")
+    print(f"Verdict: {inspection_info['verdict']}")
     published = "yes" if entry.get("published") is not False else "no"
     print(f"Published: {published}")
     print(f"Visibility: {_format_visibility(body.get('published'))}")
     print(f"Content hash: {_hash_prefix(entry.get('contentHash'))}")
-    print(f"VirusTotal: {_virustotal_one_liner(review)}")
-    if entry.get("reviewStartedAt"):
-        print(f"Review started: {entry['reviewStartedAt']}")
-    if entry.get("reviewEndedAt"):
-        print(f"Review ended: {entry['reviewEndedAt']}")
+    print(f"VirusTotal: {_virustotal_one_liner(inspection)}")
+    if entry.get("inspectionStartedAt"):
+        print(f"Inspection started: {entry['inspectionStartedAt']}")
+    if entry.get("inspectionEndedAt"):
+        print(f"Inspection ended: {entry['inspectionEndedAt']}")
 
     if is_latest:
-        version_review_status = str(
-            entry.get("reviewStatus") or body.get("reviewStatus") or ""
+        version_inspection_status = str(
+            entry.get("inspectionStatus") or body.get("inspectionStatus") or ""
         ).strip()
-        if version_review_status == "failed":
-            print(f"\nTip: skillnav retry-publish {slug} to re-run review on the stored package")
+        if version_inspection_status == "failed":
+            print(f"\nTip: skillnav retry-publish {slug} to re-run inspection on the stored package")
             return
 
-    print(f"\nTip: skillnav report {slug} --version {version_id} for full review")
+    print(f"\nTip: skillnav report {slug} --version {version_id} for full inspection")
 
 
 def _virustotal_one_liner(review: dict[str, Any]) -> str:
@@ -603,12 +611,12 @@ def print_skill_info(body: dict[str, Any]) -> None:
 
 
 def print_skill_status(body: dict[str, Any], *, version: str | None = None) -> None:
-    """Human-readable publish and review status for a single version."""
+    """Human-readable publish and inspection status for a single version."""
     target = version or body.get("latestVersion")
     slug = body.get("slug", "?")
     if not target:
         print(f"{slug}@?")
-        print("Review status: unknown")
+        print("Inspection status: unknown")
         return
     _print_single_version_status(body, str(target))
 
@@ -652,15 +660,15 @@ def _resolve_report_slug(body: dict[str, Any], slug: str | None = None) -> str:
 
 
 def print_report_version(body: dict[str, Any], *, slug: str | None = None) -> None:
-    review = body.get("review")
+    inspection = _get_inspection_record(body)
     evaluation = body.get("evaluation")
     resolved_slug = _resolve_report_slug(body, slug)
     version = body.get("version", "?")
     print(f"Report: {resolved_slug}@{version}")
-    if review:
-        _print_review_sections(review)
+    if inspection:
+        _print_inspection_sections(inspection)
     if evaluation:
         print("\n=== HaluCatch（Quality）===")
         print_evaluation(evaluation)
-    if not review and not evaluation:
-        print("No review or evaluation data for this version.")
+    if not inspection and not evaluation:
+        print("No inspection or evaluation data for this version.")

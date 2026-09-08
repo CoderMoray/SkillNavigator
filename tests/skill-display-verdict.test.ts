@@ -8,12 +8,12 @@ describe("resolveSkillDisplayVerdict", () => {
   });
 
   it("in-flight review must not display as published", () => {
-    expect(resolveSkillDisplayVerdict("reviewing", "published", false)).toBe("needs-review");
-    expect(resolveSkillDisplayVerdict("reviewing", "needs-review", false)).toBe("needs-review");
+    expect(resolveSkillDisplayVerdict("inspecting", "published", false)).toBe("needs-inspection");
+    expect(resolveSkillDisplayVerdict("inspecting", "needs-inspection", false)).toBe("needs-inspection");
   });
 
   it("completed unpublished version must not display as published", () => {
-    expect(resolveSkillDisplayVerdict("completed", "published", false)).toBe("needs-review");
+    expect(resolveSkillDisplayVerdict("completed", "published", false)).toBe("needs-inspection");
     expect(resolveSkillDisplayVerdict("completed", "published", true)).toBe("published");
   });
 

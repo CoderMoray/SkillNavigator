@@ -3,7 +3,7 @@ import path from "node:path";
 import { writeFile } from "node:fs/promises";
 import { Command } from "commander";
 import { evaluateSkillSnapshot, type FunctionalEvaluationReport } from "@skill-platform/evaluator";
-import { reviewAndEvaluateSkillSnapshot, type ReviewReport } from "@skill-platform/review-engine";
+import { inspectAndEvaluateSkillSnapshot, type InspectionReport } from "@skill-platform/inspection-engine";
 import {
   getSkillSlug,
   readSkillPackage,
@@ -39,21 +39,21 @@ program
   .version("0.1.0");
 
 program
-  .command("review")
+  .command("inspect")
   .description("Review a local skill directory or zip package")
   .argument("<package>", "Skill directory or .zip package")
   .option("--version <version>", "Version used in the review report")
   .option("--json", "Print raw JSON report")
   .action(async (input: string, options: { version?: string; json?: boolean }) => {
     const snapshot = await readSkillPackage(resolveUserPath(input));
-    const { review: report, failedStages } = await reviewAndEvaluateSkillSnapshot(snapshot, options.version);
+    const { inspection: report, failedStages } = await inspectAndEvaluateSkillSnapshot(snapshot, options.version);
 
     if (failedStages.length > 0) {
       console.error("Review could not complete — environment problem:");
       for (const failure of failedStages) {
         console.error(`  [${failure.stage}] ${failure.message}`);
       }
-      console.error("Fix the providers (npm run verify:review-deps) or disable them with *_ENABLED=false, then retry.");
+      console.error("Fix the providers (npm run verify:inspection-deps) or disable them with *_ENABLED=false, then retry.");
       process.exitCode = 1;
       return;
     }
@@ -63,7 +63,7 @@ program
       return;
     }
 
-    printReview(report);
+    printInspection(report);
   });
 
 program
@@ -79,10 +79,10 @@ program
       slug: string;
       name: string;
       version: string;
-      reviewStatus?: string;
+      inspectionStatus?: string;
       status?: string;
       contentHash?: string;
-      review?: ReviewReport;
+      inspection?: InspectionReport;
       evaluation?: FunctionalEvaluationReport;
     }>(`${options.registry}/skills/publish`, {
       archiveBase64: archive.toString("base64"),
@@ -96,17 +96,17 @@ program
       return;
     }
 
-    if (response.status === 202 || response.body.reviewStatus === "reviewing") {
+    if (response.status === 202 || response.body.inspectionStatus === "inspecting") {
       console.log(`Uploaded ${response.body.name} (${response.body.slug})@${response.body.version}`);
-      console.log("Review started in the background (reviewStatus: reviewing).");
+      console.log("Review started in the background (inspectionStatus: inspecting).");
       return;
     }
 
     console.log(`Published ${response.body.name} (${response.body.slug})@${response.body.version}`);
     console.log(`Status: ${response.body.status}`);
     console.log(`Hash: ${response.body.contentHash}`);
-    if (response.body.review) {
-      printReview(response.body.review);
+    if (response.body.inspection) {
+      printInspection(response.body.inspection);
     }
     if (response.body.evaluation) {
       printEvaluation(response.body.evaluation);
@@ -375,7 +375,7 @@ program
   });
 
 program
-  .command("review-remote")
+  .command("inspect-remote")
   .description("Ask the API to review a local skill snapshot without publishing it")
   .argument("<package>", "Skill directory or .zip package")
   .option("--version <version>", "Version used in the review report")
@@ -383,11 +383,11 @@ program
   .option("--token <token>", "Bearer token, defaults to SKILL_AUTH_TOKEN")
   .action(async (input: string, options: { version?: string; registry: string; token?: string }) => {
     const archive = await readSkillPackageZipBuffer(resolveUserPath(input));
-    const response = await postJson<{ review: ReviewReport; evaluation?: FunctionalEvaluationReport }>(`${options.registry}/reviews/run`, {
+    const response = await postJson<{ inspection: InspectionReport; evaluation?: FunctionalEvaluationReport }>(`${options.registry}/inspections/run`, {
       archiveBase64: archive.toString("base64"),
       version: options.version
     }, requireAuthToken(options.token));
-    printReview(response.body.review);
+    printInspection(response.body.inspection);
     if (response.body.evaluation) {
       printEvaluation(response.body.evaluation);
     }
@@ -483,8 +483,8 @@ async function deleteJson<T>(url: string, token?: string): Promise<ApiResponse<T
   };
 }
 
-function printReview(report: ReviewReport): void {
-  console.log(`Review: ${report.skillName}@${report.version}`);
+function printInspection(report: InspectionReport): void {
+  console.log(`Inspection: ${report.skillName}@${report.version}`);
   console.log(`Verdict: ${report.verdict}`);
   console.log(
     `Scores: quality=${report.scores.qualityScore}, security=${report.scores.securityScore}, reliability=${report.scores.reliabilityScore}`

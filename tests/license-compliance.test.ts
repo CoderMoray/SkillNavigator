@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   collectSkillLicenseFindings,
   isSkillLicenseValidationEnabled
-} from "@skill-platform/review-engine";
+} from "@skill-platform/inspection-engine";
 
 describe("skill license validation", () => {
   test("is disabled by default on this platform", () => {

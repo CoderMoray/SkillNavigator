@@ -1,7 +1,7 @@
 import { saveBlobAsFile } from "./api";
 import { formatDateTime, verdictLabel } from "./format";
 import { toSkillSpectorSafetyScore } from "./skillspector-summary";
-import type { FunctionalEvaluationReport, RegistrySkill, ReviewVerdict } from "./types";
+import type { FunctionalEvaluationReport, RegistrySkill, InspectionVerdict } from "./types";
 
 export interface AuditRow {
   slug: string;
@@ -9,7 +9,7 @@ export interface AuditRow {
   creatorLabel: string;
   creatorHandle?: string;
   version: string;
-  status: ReviewVerdict;
+  status: InspectionVerdict;
   publishDate: string;
   skillSpectorSafetyScore: number | null;
   haluCatchScore: number | null;
@@ -57,8 +57,8 @@ export function buildAuditRows(skills: RegistrySkill[]): AuditRow[] {
       version: latest.version,
       status: latest.status,
       publishDate: latest.createdAt,
-      skillSpectorSafetyScore: latest.review.skillSpector
-        ? toSkillSpectorSafetyScore(latest.review.skillSpector.riskScore)
+      skillSpectorSafetyScore: latest.inspection.skillSpector
+        ? toSkillSpectorSafetyScore(latest.inspection.skillSpector.riskScore)
         : null,
       haluCatchScore: resolveHaluCatchScore(latest.evaluation)
     });

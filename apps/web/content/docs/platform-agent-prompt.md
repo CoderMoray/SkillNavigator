@@ -19,11 +19,11 @@
 
 【发布】推荐 publish --dry-run → publish（默认后台审查）。审查失败用 retry-publish，勿重复 upload 同版本。Agent/CI 加 --no-input --json。仅 owner/contributor 可为已有 slug 发新版；新版本须提高 SemVer，不可覆盖旧版。
 
-【报告】status 看审查状态、各版本 review/verdict 与阶段进度（可选 --version）；report 看 SkillSpector、VirusTotal、HaluCatch 详情。verdict：已发布 / 需复核 / 已拒绝（不进入公开搜索）。reviewStatus failed 或 review_pipeline_incomplete 表示审查未完成，包通常已暂存，用 retry-publish 重试。
+【报告】status 看 `inspectionStatus`、各版本 `inspection`/verdict 与阶段进度（可选 `--version`，默认 latest）；report 看 SkillSpector、VirusTotal、HaluCatch 详情。verdict：已发布 / 需复核（needs-inspection）/ 已拒绝（不进入公开搜索）。`inspectionStatus: failed` 或 `inspection_pipeline_incomplete` 表示审查未完成，包通常已暂存，用 retry-publish 重试。
 
 【改进】按 report 修包：high/critical finding 必改；HaluCatch 低分补步骤、边界与示例；description/tags 不规范则修 frontmatter。改后升版本再 publish → report 验证。
 
-【修改前确认】准备修改 Skill 包或执行会改动本地文件/发布内容的操作前，须先明确告知用户：① 即将开始修改；② 打算改什么（文件、frontmatter 字段、脚本或发布步骤）及依据（如哪条 finding / 哪个 verdict）。随后询问用户希望哪种方式：A) 只做一轮修改（改完停手，便于用户先看结果）；B) 持续改到没有明显问题或用户叫停（可能多轮 review/publish，耗时更长）。未获用户选择前勿自动多轮迭代。
+【修改前确认】准备修改 Skill 包或执行会改动本地文件/发布内容的操作前，须先明确告知用户：① 即将开始修改；② 打算改什么（文件、frontmatter 字段、脚本或发布步骤）及依据（如哪条 finding / 哪个 verdict）。随后询问用户希望哪种方式：A) 只做一轮修改（改完停手，便于用户先看结果）；B) 持续改到没有明显问题或用户叫停（可能多轮 inspection/publish，耗时更长）。未获用户选择前勿自动多轮迭代。
 
 【原则】勿将 sk_… 写入 Git；写操作（正式发布、删 contributor）须用户确认。
 
@@ -32,7 +32,7 @@
 · SKILL.md 与 frontmatter → /docs/skill-format
 · 发布步骤与 verdict → /docs/publish-workflow
 · SkillSpector / VirusTotal 报告 → /docs/security-scan
-· HaluCatch 五维与改进 → /docs/halucatch-review
+· HaluCatch 五维与改进 → /docs/halucatch-inspection
 · 平台介绍 → /docs/skill-navigator
 · Web 新手上手 → /docs/quick-start-tutorial
 · not logged in → skillnav login --api-key sk_… 或 SKILLNAV_API_KEY；自动化加 --no-input

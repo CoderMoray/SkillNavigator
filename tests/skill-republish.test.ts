@@ -19,8 +19,8 @@ function version(overrides: Partial<RegistryVersion> = {}): RegistryVersion {
     published: true,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
-    review: {
-      id: "review_1",
+    inspection: {
+      id: "inspection_1",
       version: "1.0.0",
       contentHash: "hash",
       verdict: "published",
@@ -38,7 +38,7 @@ function skill(overrides: Partial<RegistrySkill> = {}): RegistrySkill {
     name: "Demo",
     description: "Demo skill",
     latestVersion: "1.0.0",
-    reviewStatus: "completed",
+    inspectionStatus: "completed",
     versions: {
       "1.0.0": version(),
     },
@@ -59,25 +59,25 @@ describe("skill republish policy", () => {
     const rejected = skill({
       published: true,
       versions: {
-        "1.0.0": version({ status: "rejected", review: { ...version().review!, verdict: "rejected" } }),
+        "1.0.0": version({ status: "rejected", inspection: { ...version().inspection!, verdict: "rejected" } }),
       },
     });
 
     expect(isSkillUnlisted(rejected)).toBe(true);
-    expect(getSkillRepublishBlockReason(rejected)).toBe("review_rejected");
-    expect(() => assertSkillRepublishAllowed(rejected)).toThrow("skill_republish_blocked_review_rejected");
+    expect(getSkillRepublishBlockReason(rejected)).toBe("inspection_rejected");
+    expect(() => assertSkillRepublishAllowed(rejected)).toThrow("skill_republish_blocked_inspection_rejected");
   });
 
   it("treats failed review as unlisted and blocks republish", () => {
     const failed = skill({
-      reviewStatus: "failed",
+      inspectionStatus: "failed",
       published: false,
       versions: {
-        "1.0.0": version({ reviewStatus: "failed", published: false }),
+        "1.0.0": version({ inspectionStatus: "failed", published: false }),
       },
     });
     expect(isSkillUnlisted(failed)).toBe(true);
-    expect(() => assertSkillRepublishAllowed(failed)).toThrow("skill_republish_blocked_review_failed");
+    expect(() => assertSkillRepublishAllowed(failed)).toThrow("skill_republish_blocked_inspection_failed");
   });
 
   it("allows republish for manually unpublished completed skills", () => {
@@ -90,11 +90,11 @@ describe("skill republish policy", () => {
   it("only allows retry review on latest failed version", () => {
     const multiVersion = skill({
       latestVersion: "1.1.0",
-      reviewStatus: "failed",
+      inspectionStatus: "failed",
       published: false,
       versions: {
-        "1.0.0": version({ version: "1.0.0", reviewStatus: "failed", published: false }),
-        "1.1.0": version({ version: "1.1.0", reviewStatus: "failed", published: false }),
+        "1.0.0": version({ version: "1.0.0", inspectionStatus: "failed", published: false }),
+        "1.1.0": version({ version: "1.1.0", inspectionStatus: "failed", published: false }),
       },
     });
 
@@ -112,7 +112,7 @@ describe("skill republish policy", () => {
     });
 
     expect(() => assertSkillVersionRepublishAllowed(rejectedVersion, "1.0.0")).toThrow(
-      "skill_republish_blocked_review_rejected"
+      "skill_republish_blocked_inspection_rejected"
     );
     expect(() => assertSkillVersionRepublishAllowed(rejectedVersion, "0.9.0")).not.toThrow();
   });

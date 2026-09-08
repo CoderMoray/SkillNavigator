@@ -1,13 +1,13 @@
 import type { FunctionalEvaluationReport } from "@skill-platform/evaluator";
-import type { ReviewReport } from "@skill-platform/review-engine";
+import type { InspectionReport } from "@skill-platform/inspection-engine";
 import { getSkillSlug, type SkillSnapshot } from "@skill-platform/skill-spec";
 import { assertPublishPreflight } from "../publish-preflight.js";
 import {
-  REVIEW_INTERRUPTED_MESSAGE,
-  REVIEW_STALE_MESSAGE,
-  REVIEW_SUPERSEDED_MESSAGE,
-  readReviewStaleMs,
-} from "../review-status.js";
+  INSPECTION_INTERRUPTED_MESSAGE,
+  INSPECTION_STALE_MESSAGE,
+  INSPECTION_SUPERSEDED_MESSAGE,
+  readInspectionStaleMs,
+} from "../inspection-status.js";
 import type {
   ArtifactStore,
   CreateIssueInput,
@@ -15,11 +15,11 @@ import type {
   IssueStatus,
   LeaderboardSort,
   PublishSnapshotOptions,
-  CommitReviewResultsOptions,
-  PersistReviewStageResultsOptions,
+  CommitInspectionResultsOptions,
+  PersistInspectionStageResultsOptions,
   StagePendingPublishSnapshotOptions,
-  RecoverStaleReviewingSkillsOptions,
-  MarkSkillReviewStatusOptions,
+  RecoverStaleInspectingSkillsOptions,
+  MarkSkillInspectionStatusOptions,
   RegistryContributor,
   RegistryData,
   RegistryIssue,
@@ -27,7 +27,7 @@ import type {
   RegistrySkill,
   RegistryVersion,
   RegistryStore,
-  SkillReviewStatus,
+  SkillInspectionStatus,
   SkillSearchResult,
   RecycleBinSkill,
   SkillSlugAvailability,
@@ -44,7 +44,7 @@ import {
   assertSkillVersionRepublishAllowed,
   normalizeReleaseTags,
   resolveVersionReference,
-  resolveVersionReviewStatus,
+  resolveVersionInspectionStatus,
   skillMatchesCategoryFilters,
   compareIsoTimestampsDesc,
   getRecentSortTimestamp,
@@ -53,35 +53,35 @@ import {
 } from "../utils";
 
 function resolveMarkReviewTargetVersion(
-  options: MarkSkillReviewStatusOptions | undefined,
+  options: MarkSkillInspectionStatusOptions | undefined,
   existingLatestVersion: string | undefined
 ): string | undefined {
   return options?.version ?? options?.latestVersion ?? options?.setLatestVersion ?? existingLatestVersion;
 }
 
 function resolveMarkReviewLatestPointer(
-  options: MarkSkillReviewStatusOptions | undefined
+  options: MarkSkillInspectionStatusOptions | undefined
 ): string | undefined {
   return options?.setLatestVersion ?? options?.latestVersion;
 }
 
-function syncSkillReviewDenormFromLatest(skill: RegistrySkill): void {
+function syncSkillInspectionDenormFromLatest(skill: RegistrySkill): void {
   const latest = skill.versions[skill.latestVersion];
   if (!latest) {
     return;
   }
 
-  const reviewStatus = resolveVersionReviewStatus(latest);
-  skill.reviewStatus = reviewStatus;
-  skill.reviewFailure =
-    reviewStatus === "failed"
-      ? (latest.reviewFailure ?? { stages: [], message: "审查流程未完成" })
+  const inspectionStatus = resolveVersionInspectionStatus(latest);
+  skill.inspectionStatus = inspectionStatus;
+  skill.inspectionFailure =
+    inspectionStatus === "failed"
+      ? (latest.inspectionFailure ?? { stages: [], message: "审查流程未完成" })
       : undefined;
-  skill.reviewCompletedStages = latest.reviewCompletedStages;
-  skill.reviewStartedAt = latest.reviewStartedAt;
-  skill.reviewEndedAt = latest.reviewEndedAt;
+  skill.inspectionCompletedStages = latest.inspectionCompletedStages;
+  skill.inspectionStartedAt = latest.inspectionStartedAt;
+  skill.inspectionEndedAt = latest.inspectionEndedAt;
   skill.uploadedAt = latest.uploadedAt ?? skill.uploadedAt;
-  if (reviewStatus === "failed") {
+  if (inspectionStatus === "failed") {
     skill.published = false;
   }
 }
@@ -89,10 +89,10 @@ function syncSkillReviewDenormFromLatest(skill: RegistrySkill): void {
 export abstract class JsonRegistryStore implements RegistryStore {
   protected constructor(protected readonly artifactStore?: ArtifactStore) {}
 
-  async markSkillReviewStatus(
+  async markSkillInspectionStatus(
     slug: string,
-    reviewStatus: SkillReviewStatus,
-    options?: MarkSkillReviewStatusOptions
+    inspectionStatus: SkillInspectionStatus,
+    options?: MarkSkillInspectionStatusOptions
   ): Promise<void> {
     const data = await this.load();
     const existing = data.skills[slug];
@@ -100,7 +100,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
     const targetVersion = resolveMarkReviewTargetVersion(options, existing?.latestVersion);
     const latestPointer = resolveMarkReviewLatestPointer(options);
     const failure =
-      reviewStatus === "failed"
+      inspectionStatus === "failed"
         ? (options?.failure ?? { stages: [], message: "审查流程未完成" })
         : undefined;
 
@@ -132,23 +132,23 @@ export abstract class JsonRegistryStore implements RegistryStore {
       if (targetVersion) {
         const version = existing.versions[targetVersion];
         if (version) {
-          version.reviewStatus = reviewStatus;
-          version.reviewFailure = reviewStatus === "failed" ? failure : undefined;
-          if (reviewStatus === "reviewing") {
-            version.reviewStartedAt = now;
-            version.reviewEndedAt = undefined;
-            version.reviewCompletedStages = [];
-          } else if (reviewStatus === "completed" || reviewStatus === "failed") {
-            version.reviewEndedAt = now;
+          version.inspectionStatus = inspectionStatus;
+          version.inspectionFailure = inspectionStatus === "failed" ? failure : undefined;
+          if (inspectionStatus === "inspecting") {
+            version.inspectionStartedAt = now;
+            version.inspectionEndedAt = undefined;
+            version.inspectionCompletedStages = [];
+          } else if (inspectionStatus === "completed" || inspectionStatus === "failed") {
+            version.inspectionEndedAt = now;
           }
-          if (reviewStatus === "failed") {
+          if (inspectionStatus === "failed") {
             version.status = "rejected";
           }
           version.updatedAt = now;
         }
       }
 
-      syncSkillReviewDenormFromLatest(existing);
+      syncSkillInspectionDenormFromLatest(existing);
       await this.save(data);
       return;
     }
@@ -163,8 +163,8 @@ export abstract class JsonRegistryStore implements RegistryStore {
       description: options.description,
       ownerUserId: options.ownerUserId,
       latestVersion: latestPointer,
-      reviewStatus,
-      reviewFailure: reviewStatus === "failed" ? failure : undefined,
+      inspectionStatus,
+      inspectionFailure: inspectionStatus === "failed" ? failure : undefined,
       versions: {},
       contributors:
         options.ownerUserId && options.ownerUsername
@@ -190,15 +190,15 @@ export abstract class JsonRegistryStore implements RegistryStore {
     await this.save(data);
   }
 
-  async commitReviewResultsBeforePublish(
+  async commitInspectionResultsBeforePublish(
     snapshot: SkillSnapshot,
-    review: ReviewReport,
+    inspection: InspectionReport,
     evaluation?: FunctionalEvaluationReport,
-    options: CommitReviewResultsOptions = {}
+    options: CommitInspectionResultsOptions = {}
   ): Promise<void> {
     const data = await this.load();
     const slug = getSkillSlug(snapshot.manifest);
-    const version = review.version;
+    const version = inspection.version;
     const releaseTags = normalizeReleaseTags(
       options.releaseTags ?? snapshot.manifest["release-tags"] ?? ["latest"]
     );
@@ -208,7 +208,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
       version,
       releaseTags,
       existingSkill,
-      allowReviewInProgress: true,
+      allowInspectionInProgress: true,
     });
 
     if (!existingSkill?.versions[version]) {
@@ -221,9 +221,9 @@ export abstract class JsonRegistryStore implements RegistryStore {
         manifest: snapshot.manifest,
         contentHash: snapshot.contentHash,
         snapshot,
-        review,
+        inspection,
         evaluation,
-        status: review.verdict,
+        status: inspection.verdict,
         releaseTags,
         downloads: 0,
         published: false,
@@ -231,17 +231,17 @@ export abstract class JsonRegistryStore implements RegistryStore {
         updatedAt: now,
       };
     } else {
-      data.skills[slug]!.versions[version]!.review = review;
+      data.skills[slug]!.versions[version]!.inspection = inspection;
       data.skills[slug]!.versions[version]!.evaluation = evaluation;
-      data.skills[slug]!.versions[version]!.status = review.verdict;
+      data.skills[slug]!.versions[version]!.status = inspection.verdict;
       data.skills[slug]!.versions[version]!.updatedAt = new Date().toISOString();
     }
 
     const skill = data.skills[slug]!;
     const registryVersion = skill.versions[version]!;
-    registryVersion.reviewStatus = "completed";
-    registryVersion.reviewFailure = undefined;
-    syncSkillReviewDenormFromLatest(skill);
+    registryVersion.inspectionStatus = "completed";
+    registryVersion.inspectionFailure = undefined;
+    syncSkillInspectionDenormFromLatest(skill);
     skill.updatedAt = new Date().toISOString();
     await this.save(data);
   }
@@ -273,7 +273,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
       name: snapshot.manifest.name,
       description: snapshot.manifest.description ?? "",
       latestVersion: version,
-      reviewStatus: "reviewing" as const,
+      inspectionStatus: "inspecting" as const,
       versions: {},
       contributors: [],
       issues: [],
@@ -289,17 +289,17 @@ export abstract class JsonRegistryStore implements RegistryStore {
       manifest: snapshot.manifest,
       snapshot,
       contentHash: snapshot.contentHash,
-      status: "needs-review",
+      status: "needs-inspection",
       releaseTags: options.releaseTags ?? ["latest"],
       changelog: options.changelog,
       downloads: 0,
       published: false,
-      review: {} as RegistryVersion["review"],
-      reviewStatus: "reviewing",
-      reviewCompletedStages: [],
+      inspection: {} as RegistryVersion["inspection"],
+      inspectionStatus: "inspecting",
+      inspectionCompletedStages: [],
       uploadedAt: now,
-      reviewStartedAt: now,
-      reviewEndedAt: undefined,
+      inspectionStartedAt: now,
+      inspectionEndedAt: undefined,
       createdAt: now,
       updatedAt: now,
     };
@@ -307,18 +307,18 @@ export abstract class JsonRegistryStore implements RegistryStore {
     for (const [existingVersion, entry] of Object.entries(skill.versions)) {
       if (
         existingVersion !== version &&
-        resolveVersionReviewStatus(entry) === "reviewing"
+        resolveVersionInspectionStatus(entry) === "inspecting"
       ) {
-        entry.reviewStatus = "failed";
-        entry.reviewFailure = { stages: [], message: REVIEW_SUPERSEDED_MESSAGE };
+        entry.inspectionStatus = "failed";
+        entry.inspectionFailure = { stages: [], message: INSPECTION_SUPERSEDED_MESSAGE };
         entry.status = "rejected";
-        entry.reviewEndedAt = now;
+        entry.inspectionEndedAt = now;
         entry.updatedAt = now;
       }
     }
     skill.latestVersion = version;
     skill.updatedAt = now;
-    syncSkillReviewDenormFromLatest(skill);
+    syncSkillInspectionDenormFromLatest(skill);
     if (options.ownerUserId && options.ownerUsername) {
       const hasOwner = skill.contributors.some((item) => item.role === "owner");
       if (!hasOwner) {
@@ -345,14 +345,14 @@ export abstract class JsonRegistryStore implements RegistryStore {
 
   async publishSnapshot(
     snapshot: SkillSnapshot,
-    review: ReviewReport,
+    inspection: InspectionReport,
     evaluation?: FunctionalEvaluationReport,
     options: PublishSnapshotOptions = {}
   ): Promise<RegistryVersion> {
     const data = await this.load();
     const slug = getSkillSlug(snapshot.manifest);
     snapshot = { ...snapshot, manifest: { ...snapshot.manifest, slug } };
-    const version = review.version;
+    const version = inspection.version;
     const now = new Date().toISOString();
     const existingSkill = data.skills[slug];
     const releaseTags = normalizeReleaseTags(
@@ -364,26 +364,26 @@ export abstract class JsonRegistryStore implements RegistryStore {
       version,
       releaseTags,
       existingSkill,
-      allowReviewInProgress: options.reviewAlreadyCommitted ?? false,
+      allowInspectionInProgress: options.inspectionAlreadyCommitted ?? false,
     });
 
     const artifact = await this.artifactStore?.putSnapshot(slug, version, snapshot);
-    const publiclyListed = review.verdict !== "rejected";
+    const publiclyListed = inspection.verdict !== "rejected";
     const registryVersion: RegistryVersion = {
       version,
       manifest: snapshot.manifest,
       contentHash: snapshot.contentHash,
       snapshot,
       artifact,
-      review,
+      inspection,
       evaluation,
-      status: review.verdict,
+      status: inspection.verdict,
       releaseTags,
       changelog: options.changelog,
       downloads: 0,
       published: publiclyListed,
-      reviewStatus: "completed",
-      reviewFailure: undefined,
+      inspectionStatus: "completed",
+      inspectionFailure: undefined,
       createdAt: now,
       updatedAt: now,
     };
@@ -408,7 +408,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
       description: snapshot.manifest.description,
       ownerUserId: existingSkill?.ownerUserId ?? options.owner?.userId,
       latestVersion: releaseTags.includes("latest") ? version : (existingSkill?.latestVersion ?? version),
-      reviewStatus: "completed",
+      inspectionStatus: "completed",
       versions: { ...versions, [version]: registryVersion },
       contributors,
       issues: existingSkill?.issues ?? [],
@@ -419,45 +419,45 @@ export abstract class JsonRegistryStore implements RegistryStore {
       createdAt: existingSkill?.createdAt ?? now,
       updatedAt: now,
     };
-    syncSkillReviewDenormFromLatest(skillRecord);
+    syncSkillInspectionDenormFromLatest(skillRecord);
     data.skills[slug] = skillRecord;
 
     await this.save(data);
     return registryVersion;
   }
 
-  async upsertReview(
+  async upsertInspection(
     slug: string,
     version: string,
-    review: ReviewReport,
+    inspection: InspectionReport,
     options: { finalize?: boolean } = {}
   ): Promise<RegistryVersion> {
     const data = await this.load();
     const registryVersion = data.skills[slug]?.versions[version];
     if (!registryVersion) throw new Error(`Version not found: ${slug}@${version}`);
-    registryVersion.review = review;
+    registryVersion.inspection = inspection;
     if (options.finalize !== false) {
-      registryVersion.status = review.verdict;
+      registryVersion.status = inspection.verdict;
     }
     registryVersion.updatedAt = new Date().toISOString();
     if (options.finalize !== false) {
-      registryVersion.reviewStatus = "completed";
-      registryVersion.reviewFailure = undefined;
-      syncSkillReviewDenormFromLatest(data.skills[slug]!);
+      registryVersion.inspectionStatus = "completed";
+      registryVersion.inspectionFailure = undefined;
+      syncSkillInspectionDenormFromLatest(data.skills[slug]!);
     }
     data.skills[slug]!.updatedAt = registryVersion.updatedAt;
     await this.save(data);
     return registryVersion;
   }
 
-  async persistReviewStageResults(
+  async persistInspectionStageResults(
     slug: string,
     version: string,
-    review: ReviewReport,
+    inspection: InspectionReport,
     evaluation: FunctionalEvaluationReport | undefined,
-    options: PersistReviewStageResultsOptions
+    options: PersistInspectionStageResultsOptions
   ): Promise<void> {
-    await this.upsertReview(slug, version, review, { finalize: options.finalize ?? false });
+    await this.upsertInspection(slug, version, inspection, { finalize: options.finalize ?? false });
     if (evaluation) {
       await this.upsertEvaluation(slug, version, evaluation);
     }
@@ -470,12 +470,12 @@ export abstract class JsonRegistryStore implements RegistryStore {
     if (!registryVersion) {
       return;
     }
-    registryVersion.reviewCompletedStages = [...new Set(options.completedStages)];
+    registryVersion.inspectionCompletedStages = [...new Set(options.completedStages)];
     if (options.finalize) {
-      registryVersion.reviewStatus = "completed";
-      registryVersion.reviewFailure = undefined;
+      registryVersion.inspectionStatus = "completed";
+      registryVersion.inspectionFailure = undefined;
     }
-    syncSkillReviewDenormFromLatest(skill);
+    syncSkillInspectionDenormFromLatest(skill);
     skill.updatedAt = new Date().toISOString();
     await this.save(data);
   }
@@ -625,7 +625,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
-  async listReviewPendingSkillsForOwner(_ownerUserId: string): Promise<SkillSearchResult[]> {
+  async listInspectionPendingSkillsForOwner(_ownerUserId: string): Promise<SkillSearchResult[]> {
     return [];
   }
 
@@ -870,10 +870,10 @@ export abstract class JsonRegistryStore implements RegistryStore {
     return purged;
   }
 
-  async recoverStaleReviewingSkills(options: RecoverStaleReviewingSkillsOptions = {}): Promise<number> {
+  async recoverStaleInspectingSkills(options: RecoverStaleInspectingSkillsOptions = {}): Promise<number> {
     const data = await this.load();
     const recoverAll = options.recoverAll ?? false;
-    const olderThanMs = options.olderThanMs ?? readReviewStaleMs();
+    const olderThanMs = options.olderThanMs ?? readInspectionStaleMs();
     const cutoff = Date.now() - olderThanMs;
     let recovered = 0;
 
@@ -883,20 +883,20 @@ export abstract class JsonRegistryStore implements RegistryStore {
       }
 
       for (const version of Object.values(skill.versions)) {
-        if (resolveVersionReviewStatus(version) !== "reviewing") {
+        if (resolveVersionInspectionStatus(version) !== "inspecting") {
           continue;
         }
 
         const isLatest = version.version === skill.latestVersion;
         if (!isLatest) {
-          version.reviewStatus = "failed";
-          version.reviewFailure = {
+          version.inspectionStatus = "failed";
+          version.inspectionFailure = {
             stages: [],
-            message: REVIEW_SUPERSEDED_MESSAGE,
+            message: INSPECTION_SUPERSEDED_MESSAGE,
           };
           version.status = "rejected";
-          version.reviewEndedAt = new Date().toISOString();
-          version.updatedAt = version.reviewEndedAt;
+          version.inspectionEndedAt = new Date().toISOString();
+          version.updatedAt = version.inspectionEndedAt;
           recovered += 1;
           continue;
         }
@@ -905,18 +905,18 @@ export abstract class JsonRegistryStore implements RegistryStore {
           continue;
         }
 
-        version.reviewStatus = "failed";
-        version.reviewFailure = {
+        version.inspectionStatus = "failed";
+        version.inspectionFailure = {
           stages: [],
-          message: recoverAll ? REVIEW_INTERRUPTED_MESSAGE : REVIEW_STALE_MESSAGE,
+          message: recoverAll ? INSPECTION_INTERRUPTED_MESSAGE : INSPECTION_STALE_MESSAGE,
         };
         version.status = "rejected";
-        version.reviewEndedAt = new Date().toISOString();
-        version.updatedAt = version.reviewEndedAt;
+        version.inspectionEndedAt = new Date().toISOString();
+        version.updatedAt = version.inspectionEndedAt;
         recovered += 1;
       }
 
-      syncSkillReviewDenormFromLatest(skill);
+      syncSkillInspectionDenormFromLatest(skill);
       skill.updatedAt = new Date().toISOString();
     }
 
@@ -971,11 +971,11 @@ export abstract class JsonRegistryStore implements RegistryStore {
     await this.save(data);
   }
 
-  async reviewAll(
+  async inspectAll(
     pipelineFn: (
       snapshot: SkillSnapshot,
       version: string
-    ) => Promise<{ review: ReviewReport; evaluation: FunctionalEvaluationReport }>
+    ) => Promise<{ inspection: InspectionReport; evaluation: FunctionalEvaluationReport }>
   ): Promise<RegistryVersion[]> {
     const data = await this.load();
     const reviewed: RegistryVersion[] = [];
@@ -988,10 +988,10 @@ export abstract class JsonRegistryStore implements RegistryStore {
           ? await this.artifactStore.getSnapshot(rv.artifact)
           : rv.snapshot;
         rv.snapshot = snapshot;
-        const { review, evaluation } = await pipelineFn(snapshot, rv.version);
-        rv.review = review;
+        const { inspection, evaluation } = await pipelineFn(snapshot, rv.version);
+        rv.inspection = inspection;
         rv.evaluation = evaluation;
-        rv.status = rv.review.verdict;
+        rv.status = rv.inspection.verdict;
         rv.updatedAt = new Date().toISOString();
         reviewed.push(rv);
       }

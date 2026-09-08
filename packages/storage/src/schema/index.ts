@@ -1,5 +1,5 @@
 export { skills, skillVersions, skillVersionTags, skillVersionManifestProperties, skillVersionFiles } from "./skills";
-export { skillReviews, skillReviewFindings } from "./reviews";
+export { skillInspections, skillInspectionFindings } from "./inspections";
 export { skillEvaluations, skillEvaluationReportFindings, skillEvaluationTasks, skillEvaluationTaskFindings } from "./evaluations";
 export { skillContributors, skillIssues, skillRatings, skillBookmarks } from "./community";
 export { platformUsers, authSessions, apiKeys } from "./auth";

@@ -21,15 +21,15 @@
   - 扫描 **未完成**（超时、依赖缺失等）：`rejected`。
   - `high` / `critical` finding：`rejected`。
   - `medium` 且置信度 ≥ 90%：`rejected`。
-  - 其余 SkillSpector finding：允许入库，标记 `needs-review`（需复核）。
+  - 其余 SkillSpector finding：允许入库，标记 `needs-inspection`（需复核）。
 - **VirusTotal**（已配置 API 且未关闭时）
   - 扫描 **未完成**（超时、网络错误、分析失败等）：`rejected`。
   - `high` / `critical` finding（如 malicious 检出）：`rejected`。
-  - 其余 VirusTotal finding（如 suspicious）：允许入库，标记 `needs-review`。
+  - 其余 VirusTotal finding（如 suspicious）：允许入库，标记 `needs-inspection`。
 - **HaluCatch**（`HALUCATCH_ENABLED` 未关闭时）
   - 评估 **未完成**（Python/运行时不可用或未返回 `halucatch-adapter` 报告）：`rejected`。
-  - 评估成功后的维度 warn/fail 等：按现有质量 finding 规则，通常为 `needs-review`（不单独自动拒绝，除非另有 high 级平台规则）。
-- **平台规则与其他 finding**（格式、质量、降级静态规则等）：不自动拒绝；存在任意 finding 时标记 `needs-review`，**且**上述扫描/评估均已成功完成、无任何 finding 时为 `published`。
+  - 评估成功后的维度 warn/fail 等：按现有质量 finding 规则，通常为 `needs-inspection`（不单独自动拒绝，除非另有 high 级平台规则）。
+- **平台规则与其他 finding**（格式、质量、降级静态规则等）：不自动拒绝；存在任意 finding 时标记 `needs-inspection`，**且**上述扫描/评估均已成功完成、无任何 finding 时为 `published`。
 
 ## 质量审查（合规 + 质量）
 

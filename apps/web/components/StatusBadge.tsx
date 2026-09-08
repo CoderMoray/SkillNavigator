@@ -1,7 +1,7 @@
-import type { EvaluationStatus, ReviewSeverity, ReviewVerdict, SkillReviewStatus } from "../lib/types";
-import { severityLabel, skillReviewStatusLabel, verdictLabel } from "../lib/format";
+import type { EvaluationStatus, InspectionSeverity, InspectionVerdict, SkillInspectionStatus } from "../lib/types";
+import { severityLabel, skillInspectionStatusLabel, verdictLabel } from "../lib/format";
 
-export function VerdictBadge({ verdict, title }: { verdict: ReviewVerdict; title?: string }) {
+export function VerdictBadge({ verdict, title }: { verdict: InspectionVerdict; title?: string }) {
   return (
     <span className={`badge ${verdict}`} title={title}>
       {verdictLabel(verdict)}
@@ -9,11 +9,11 @@ export function VerdictBadge({ verdict, title }: { verdict: ReviewVerdict; title
   );
 }
 
-export function SkillReviewStatusBadge({
+export function SkillInspectionStatusBadge({
   status,
   title
 }: {
-  status: SkillReviewStatus;
+  status: SkillInspectionStatus;
   title?: string;
 }) {
   if (status === "completed") {
@@ -25,8 +25,8 @@ export function SkillReviewStatusBadge({
   }
 
   return (
-    <span className={`badge review-${status}`} title={title}>
-      {skillReviewStatusLabel(status)}
+    <span className={`badge inspection-${status}`} title={title}>
+      {skillInspectionStatusLabel(status)}
     </span>
   );
 }
@@ -42,6 +42,6 @@ export function EvaluationBadge({ status }: { status: EvaluationStatus }) {
   return <span className={`badge ${status}`}>{labels[status]}</span>;
 }
 
-export function SeverityBadge({ severity }: { severity: ReviewSeverity }) {
+export function SeverityBadge({ severity }: { severity: InspectionSeverity }) {
   return <span className={`badge ${severity}`}>{severityLabel(severity)}</span>;
 }

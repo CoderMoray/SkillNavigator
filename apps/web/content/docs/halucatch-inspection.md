@@ -50,7 +50,7 @@ Skill 详情 → **审查与评估** → **HaluCatch 质量评估**（当 provid
 
 ## HaluCatch 不可用时的表现
 
-审查记录中可能出现 HaluCatch 相关提示；运维需保证：
+`inspection` 记录中可能出现 HaluCatch 相关提示；运维需保证：
 
 - Python 3.8+ 可用（Windows 常见为 `python`，Unix 常见为 `python3`）
 - 仓库内 `packages/halucatch-1.8.8` 存在  

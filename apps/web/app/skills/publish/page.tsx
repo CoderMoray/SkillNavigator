@@ -12,14 +12,14 @@ import {
   ApiRequestError,
   checkSkillSlugAvailability,
   getCurrentUser,
-  getRetryableReviewFailure,
+  getRetryableInspectionFailure,
   getSkill,
   previewSkillArchive,
   publishSkillArchive,
   type PublishSkillFrontmatter,
   type PublishSkillMetadata,
-  type ReviewPipelineIncompleteResponse,
-  type ReviewStage,
+  type InspectionPipelineIncompleteResponse,
+  type InspectionStage,
   type SkillSlugAvailabilityResponse
 } from "../../../lib/api";
 import { saveFlashToast } from "../../../lib/flash-toast";
@@ -37,7 +37,7 @@ import {
 } from "../../../lib/build-skill-zip";
 import type { PublicUser, RegistrySkill } from "../../../lib/types";
 import { compareSemver, SKILL_ENTRY_BASENAMES, validatePublishMetadataInput } from "@skill-platform/skill-spec/skill-format";
-import { canRepublishFailedVersion, canRetryStoredReview, hasStoredPendingPackage } from "../../../lib/publish-helpers";
+import { canRepublishFailedVersion, canRetryStoredInspection, hasStoredPendingPackage } from "../../../lib/publish-helpers";
 import { isSkillContributor } from "../../../lib/skill-contributors";
 import { SKILL_CATEGORY_OPTIONS } from "../../../lib/skill-categories";
 
@@ -84,7 +84,7 @@ function PublishSkillPageContent() {
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errorToast, setErrorToast] = useState<string | null>(null);
-  const [reviewFailure, setReviewFailure] = useState<ReviewPipelineIncompleteResponse | null>(null);
+  const [inspectionFailure, setInspectionFailure] = useState<InspectionPipelineIncompleteResponse | null>(null);
   const [archiveHint, setArchiveHint] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [parsingArchive, setParsingArchive] = useState(false);
@@ -335,13 +335,13 @@ function PublishSkillPageContent() {
       slugAvailability.viewerCanPublish
     ) {
       if (
-        slugAvailability.reviewStatus === "failed" &&
+        slugAvailability.inspectionStatus === "failed" &&
         slugAvailability.hasStoredPackage
       ) {
         return `该 Slug 对应 Skill 已保存完整包文件，请前往详情页使用「重新发布」直接重新审查，无需重复上传。`;
       }
       if (
-        slugAvailability.reviewStatus === "failed" &&
+        slugAvailability.inspectionStatus === "failed" &&
         slugAvailability.needsPackageReupload
       ) {
         return `该 Slug 对应 Skill 审查未通过且未保留包文件，请重新上传 v${slugAvailability.latestVersion} 进行审查。`;
@@ -425,7 +425,7 @@ function PublishSkillPageContent() {
 
   async function applyArchiveFile(fileToUpload: File) {
     setErrorToast(null);
-    setReviewFailure(null);
+    setInspectionFailure(null);
     setArchiveHint(null);
     setSuccessToast(null);
     setFile(fileToUpload);
@@ -473,7 +473,7 @@ function PublishSkillPageContent() {
     }
 
     setErrorToast(null);
-    setReviewFailure(null);
+    setInspectionFailure(null);
     setArchiveHint(null);
     setSuccessToast(null);
 
@@ -597,7 +597,7 @@ function PublishSkillPageContent() {
     }
 
     setErrorToast(null);
-    setReviewFailure(null);
+    setInspectionFailure(null);
     setIsDraggingFile(false);
 
     if (publishBlockReason) {
@@ -665,12 +665,12 @@ function PublishSkillPageContent() {
         { async: true }
       );
 
-      if (published.reviewStatus === "completed") {
+      if (published.inspectionStatus === "completed") {
         savePublishNotice({
           slug: published.slug,
           name: published.name,
           version: published.version,
-          verdict: published.review.verdict,
+          verdict: published.inspection.verdict,
           isNewVersion
         });
         router.push(user ? creatorProfilePath(user.username) : "/account");
@@ -685,12 +685,12 @@ function PublishSkillPageContent() {
       router.push(creatorProfilePath(user.username));
       return;
     } catch (err) {
-      const retryableFailure = getRetryableReviewFailure(err);
+      const retryableFailure = getRetryableInspectionFailure(err);
       if (retryableFailure) {
-        setReviewFailure(retryableFailure);
+        setInspectionFailure(retryableFailure);
         return;
       }
-      if (err instanceof ApiRequestError && err.response?.error === "skill_review_in_progress") {
+      if (err instanceof ApiRequestError && err.response?.error === "skill_inspection_in_progress") {
         setErrorToast("该 Skill 正在审查中，请稍后在个人中心查看进度。");
         return;
       }
@@ -951,7 +951,7 @@ function PublishSkillPageContent() {
                     />
                         <small>
                           {isNewVersion && sourceSkill
-                            ? canRetryStoredReview(sourceSkill, sourceSkill.latestVersion, sourceSkill.hasStoredPackage)
+                            ? canRetryStoredInspection(sourceSkill, sourceSkill.latestVersion, sourceSkill.hasStoredPackage)
                               ? `该 Skill 已保存完整包文件，请返回详情页使用「重新发布」直接重新审查。`
                               : canRepublishFailedVersion(sourceSkill, sourceSkill.latestVersion)
                                 ? `审查未通过，请重新上传 v${sourceSkill.latestVersion} 进行审查。`
@@ -991,14 +991,14 @@ function PublishSkillPageContent() {
                   <ArrowRight size={16} />
                 </button>
 
-                    {reviewFailure ? (
+                    {inspectionFailure ? (
                       <div className="error compact-error publish-form-feedback" role="alert">
                         <strong>审查流程未完成，Skill 尚未保存。</strong>
                         <span>请恢复以下审查服务后，使用当前上传包重新运行完整审查：</span>
                         <ul>
-                          {reviewFailure.failedStages.map((failure) => (
+                          {inspectionFailure.failedStages.map((failure) => (
                             <li key={failure.stage}>
-                              <strong>{reviewStageLabel(failure.stage)}：</strong> {failure.message}
+                              <strong>{inspectionStageLabel(failure.stage)}：</strong> {failure.message}
                             </li>
                           ))}
                         </ul>
@@ -1108,7 +1108,7 @@ function formatPublishError(message: string): string {
   return message;
 }
 
-function reviewStageLabel(stage: ReviewStage): string {
+function inspectionStageLabel(stage: InspectionStage): string {
   switch (stage) {
     case "skillspector":
       return "SkillSpector 安全审查";

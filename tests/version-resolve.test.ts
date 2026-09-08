@@ -17,8 +17,8 @@ function version(overrides: Partial<RegistryVersion> & Pick<RegistryVersion, "ve
     readme: "",
     files: [],
     contentHash: "hash",
-    review: {
-      id: "review_1",
+    inspection: {
+      id: "inspection_1",
       version: "1.0",
       contentHash: "hash",
       verdict: overrides.status,
@@ -50,7 +50,7 @@ function skill(versions: Record<string, RegistryVersion>, latestVersion: string)
     name: "Demo",
     description: "Demo",
     latestVersion,
-    reviewStatus: "completed",
+    inspectionStatus: "completed",
     versions,
     contributors: [],
     issues: [],
@@ -69,7 +69,7 @@ describe("resolveLatestApprovedVersion", () => {
       {
         "1.0.0": version({ version: "1.0.0", status: "published", createdAt: "2026-01-01T00:00:00.000Z" }),
         "1.1.0": version({ version: "1.1.0", status: "rejected", createdAt: "2026-02-01T00:00:00.000Z" }),
-        "1.0.1": version({ version: "1.0.1", status: "needs-review", createdAt: "2026-01-15T00:00:00.000Z" }),
+        "1.0.1": version({ version: "1.0.1", status: "needs-inspection", createdAt: "2026-01-15T00:00:00.000Z" }),
       },
       "1.1.0"
     );

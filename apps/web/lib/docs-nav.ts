@@ -61,11 +61,11 @@ const DOC_NAV_BASE: DocNavItem[] = [
     filename: "security-scan.md"
   },
   {
-    slug: "halucatch-review",
+    slug: "halucatch-inspection",
     title: "质量审查",
     sidebarTitle: "质量审查",
-    href: "/docs/halucatch-review",
-    filename: "halucatch-review.md"
+    href: "/docs/halucatch-inspection",
+    filename: "halucatch-inspection.md"
   }
 ];
 

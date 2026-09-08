@@ -7,18 +7,18 @@ import { MarkdownContent } from "../../../components/MarkdownContent";
 import type { LucideIcon } from "lucide-react";
 import { compareSemver, isSkillEntryPath } from "@skill-platform/skill-spec/skill-format";
 import {
-  canRetryStoredReview,
+  canRetryStoredInspection,
   getSkillRepublishBlockReason,
   getVersionRepublishBlockReason,
   isSkillUnlisted,
   resolveVersionDisplayVerdict,
-  resolveVersionReviewCompletedStages,
-  resolveVersionReviewFailure,
-  resolveVersionReviewStatus,
+  resolveVersionInspectionCompletedStages,
+  resolveVersionInspectionFailure,
+  resolveVersionInspectionStatus,
   skillRepublishBlockedMessage,
   skillUnlistedNotice,
 } from "../../../lib/publish-helpers";
-import { SkillReviewProgress } from "../../../components/SkillReviewProgress";
+import { SkillInspectionProgress } from "../../../components/SkillInspectionProgress";
 import {
   ArrowLeft,
   BookOpen,
@@ -52,7 +52,7 @@ import { UsernameSuggestInput } from "../../../components/UsernameSuggestInput";
 import { HaluCatchRadar } from "../../../components/HaluCatchRadar";
 import { FindingConfidenceBadge } from "../../../components/FindingConfidenceBadge";
 import { SkillCategoryLabel } from "../../../components/SkillCategoryIcon";
-import { EvaluationBadge, SeverityBadge, SkillReviewStatusBadge, VerdictBadge } from "../../../components/StatusBadge";
+import { EvaluationBadge, SeverityBadge, SkillInspectionStatusBadge, VerdictBadge } from "../../../components/StatusBadge";
 import { findSkillContributorByHandle, isSkillContributor, isSkillOwner } from "../../../lib/skill-contributors";
 import { buildSkillInstallPrompt } from "../../../lib/skill-install-prompt";
 import { skillnavInstallExample } from "../../../lib/cli-examples";
@@ -68,7 +68,7 @@ import {
   getCurrentUser,
   getSkill,
   getSkills,
-  retrySkillPublishReview,
+  retrySkillPublishInspection,
   republishSkill,
   republishSkillVersion,
   removeSkillContributor,
@@ -79,9 +79,9 @@ import {
 } from "../../../lib/api";
 import { getAuthToken } from "../../../lib/auth-token";
 import { creatorProfilePath } from "../../../lib/creators";
-import { formatDateTime, formatFileSize, formatNumber, formatSkillReviewFailureSummary } from "../../../lib/format";
+import { formatDateTime, formatFileSize, formatNumber, formatSkillInspectionFailureSummary } from "../../../lib/format";
 import { buildHaluCatchReportPath, extractHaluCatchSummary } from "../../../lib/halucatch-report";
-import { localizeSkillSpectorFinding } from "@skill-platform/review-engine/skillspector-i18n";
+import { localizeSkillSpectorFinding } from "@skill-platform/inspection-engine/skillspector-i18n";
 import {
   formatSkillSpectorRecommendation,
   formatSkillSpectorRiskSeverity,
@@ -173,13 +173,13 @@ function formatVersionManageError(message: string): string {
   if (message === "version_unpublished") {
     return "该版本已下架，无法下载。";
   }
-  if (message === "skill_republish_blocked_review_rejected") {
+  if (message === "skill_republish_blocked_inspection_rejected") {
     return "该版本在审查后被拒绝发布，无法直接上架。请修改内容后发布新版本。";
   }
-  if (message === "skill_republish_blocked_review_failed") {
+  if (message === "skill_republish_blocked_inspection_failed") {
     return "该 Skill 审查流程未完成或失败，无法直接上架。请完成审查后再尝试。";
   }
-  if (message === "skill_republish_blocked_review_in_progress") {
+  if (message === "skill_republish_blocked_inspection_in_progress") {
     return "该 Skill 仍在审查中，请等待审查完成后再尝试上架。";
   }
   return message;
@@ -223,7 +223,7 @@ export default function SkillDetailPage() {
   const [ratingModalOpen, setRatingModalOpen] = useState(false);
   const [downloadingVersion, setDownloadingVersion] = useState<string | null>(null);
   const [unpublishModalOpen, setUnpublishModalOpen] = useState(false);
-  const [retryingPublishReview, setRetryingPublishReview] = useState(false);
+  const [retryingPublishInspection, setRetryingPublishInspection] = useState(false);
   const [republishModalOpen, setRepublishModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [unpublishingSkill, setUnpublishingSkill] = useState(false);
@@ -366,7 +366,7 @@ export default function SkillDetailPage() {
     [skill?.contributors]
   );
 
-  async function handleRetryPublishReview() {
+  async function handleRetryPublishInspection() {
     setErrorToast(null);
 
     const token = getAuthToken();
@@ -383,13 +383,13 @@ export default function SkillDetailPage() {
       return;
     }
 
-    setRetryingPublishReview(true);
+    setRetryingPublishInspection(true);
     try {
-      await retrySkillPublishReview(token, skill.slug, {
+      await retrySkillPublishInspection(token, skill.slug, {
         async: true,
-        stages: resolveVersionReviewFailure(skill.versions[skill.latestVersion], skill)?.stages,
+        stages: resolveVersionInspectionFailure(skill.versions[skill.latestVersion], skill)?.stages,
       });
-      const latestFailure = resolveVersionReviewFailure(skill.versions[skill.latestVersion], skill);
+      const latestFailure = resolveVersionInspectionFailure(skill.versions[skill.latestVersion], skill);
       const retryLabel =
         latestFailure?.stages?.length
           ? `已重新提交失败环节（${latestFailure.stages.join("、")}），请稍后在个人中心查看进度。`
@@ -401,13 +401,13 @@ export default function SkillDetailPage() {
       if (message === "pending_publish_snapshot_missing") {
         setErrorToast("未找到已保存的 Skill 包，请通过发布页重新上传。");
         router.push(`/skills/publish?skill=${encodeURIComponent(skill.slug)}`);
-      } else if (message === "skill_review_in_progress") {
+      } else if (message === "skill_inspection_in_progress") {
         setErrorToast("该 Skill 正在审查中，请稍后再试。");
       } else {
         setErrorToast(message);
       }
     } finally {
-      setRetryingPublishReview(false);
+      setRetryingPublishInspection(false);
     }
   }
 
@@ -431,25 +431,25 @@ export default function SkillDetailPage() {
     );
   }
 
-  const isReviewPending =
-    resolveVersionReviewStatus(currentVersion, skill) === "reviewing" ||
-    resolveVersionReviewStatus(currentVersion, skill) === "failed";
-  const displayReviewStatus = resolveVersionReviewStatus(currentVersion, skill);
-  const displayReviewFailure = resolveVersionReviewFailure(currentVersion, skill);
-  const displayReviewCompletedStages = resolveVersionReviewCompletedStages(currentVersion, skill);
+  const isInspectionPending =
+    resolveVersionInspectionStatus(currentVersion, skill) === "inspecting" ||
+    resolveVersionInspectionStatus(currentVersion, skill) === "failed";
+  const displayInspectionStatus = resolveVersionInspectionStatus(currentVersion, skill);
+  const displayInspectionFailure = resolveVersionInspectionFailure(currentVersion, skill);
+  const displayInspectionCompletedStages = resolveVersionInspectionCompletedStages(currentVersion, skill);
   const isOwner = Boolean(viewer && isSkillOwner(skill, viewer));
   const isContributor = Boolean(viewer && isSkillContributor(skill, viewer));
-  const showReviewFailureDetail =
-    displayReviewStatus === "failed" &&
-    Boolean(displayReviewFailure) &&
-    getVersionRepublishBlockReason(skill, currentVersion?.version ?? skill.latestVersion) !== "review_failed";
+  const showInspectionFailureDetail =
+    displayInspectionStatus === "failed" &&
+    Boolean(displayInspectionFailure) &&
+    getVersionRepublishBlockReason(skill, currentVersion?.version ?? skill.latestVersion) !== "inspection_failed";
   const isUnlisted = isSkillUnlisted(skill);
   const unlistedNotice = skillUnlistedNotice(skill);
-  const reviewProgressSection =
-    displayReviewStatus === "failed" || displayReviewStatus === "reviewing" ? (
-      <SkillReviewProgress
-        completedStages={displayReviewCompletedStages}
-        failedStages={displayReviewFailure?.stages}
+  const inspectionProgressSection =
+    displayInspectionStatus === "failed" || displayInspectionStatus === "inspecting" ? (
+      <SkillInspectionProgress
+        completedStages={displayInspectionCompletedStages}
+        failedStages={displayInspectionFailure?.stages}
       />
     ) : null;
   const ownerUnlistedNoticeSection =
@@ -464,16 +464,16 @@ export default function SkillDetailPage() {
         </div>
       </div>
     ) : null;
-  const canRetryStoredPackage = canRetryStoredReview(skill, skill.latestVersion, skill.hasStoredPackage);
+  const canRetryStoredPackage = canRetryStoredInspection(skill, skill.latestVersion, skill.hasStoredPackage);
   const isViewingLatest = (currentVersion?.version ?? skill.latestVersion) === skill.latestVersion;
-  const showRetryActions = isViewingLatest && displayReviewStatus === "failed" && isContributor;
+  const showRetryActions = isViewingLatest && displayInspectionStatus === "failed" && isContributor;
   const needsPackageReupload =
-    displayReviewStatus === "failed" && isContributor && !canRetryStoredPackage;
-  const canRetryLatestReview =
+    displayInspectionStatus === "failed" && isContributor && !canRetryStoredPackage;
+  const canRetryLatestInspection =
     currentVersion?.version === skill.latestVersion &&
-    canRetryStoredReview(skill, skill.latestVersion, skill.hasStoredPackage);
-  const retryReviewLabel =
-    displayReviewFailure?.stages?.length && canRetryLatestReview
+    canRetryStoredInspection(skill, skill.latestVersion, skill.hasStoredPackage);
+  const retryInspectionLabel =
+    displayInspectionFailure?.stages?.length && canRetryLatestInspection
       ? "重试失败环节"
       : "重新发布";
   const currentVersionDisplayVerdict = currentVersion
@@ -481,7 +481,7 @@ export default function SkillDetailPage() {
     : null;
 
   if (!currentVersion) {
-    if (!isReviewPending) {
+    if (!isInspectionPending) {
       return (
         <AppShell title={skillSlug}>
           <div className="error">Skill 不存在</div>
@@ -501,11 +501,11 @@ export default function SkillDetailPage() {
             <div className="hero-card">
               <div className="card-head">
                 <span className="eyebrow">Skill Detail</span>
-                <SkillReviewStatusBadge
-                  status={displayReviewStatus}
+                <SkillInspectionStatusBadge
+                  status={displayInspectionStatus}
                   title={
-                    showReviewFailureDetail
-                      ? formatSkillReviewFailureSummary(displayReviewFailure!)
+                    showInspectionFailureDetail
+                      ? formatSkillInspectionFailureSummary(displayInspectionFailure!)
                       : undefined
                   }
                 />
@@ -521,14 +521,14 @@ export default function SkillDetailPage() {
                   </span>
                 ) : null}
               </div>
-              {showReviewFailureDetail ? (
-                <p className="description skill-review-failure" style={{ marginTop: 12 }}>
-                  {formatSkillReviewFailureSummary(displayReviewFailure!)}
+              {showInspectionFailureDetail ? (
+                <p className="description skill-inspection-failure" style={{ marginTop: 12 }}>
+                  {formatSkillInspectionFailureSummary(displayInspectionFailure!)}
                 </p>
               ) : null}
               {ownerUnlistedNoticeSection}
-              {reviewProgressSection}
-              {displayReviewStatus === "reviewing" ? (
+              {inspectionProgressSection}
+              {displayInspectionStatus === "inspecting" ? (
                 <p className="description" style={{ marginTop: 12 }}>
                   审查仍在进行中。完成后此页将显示版本、文件与审查结果；请稍后刷新。
                 </p>
@@ -542,11 +542,11 @@ export default function SkillDetailPage() {
                   ) : (
                     <button
                       className="button primary"
-                      disabled={retryingPublishReview}
-                      onClick={() => void handleRetryPublishReview()}
+                      disabled={retryingPublishInspection}
+                      onClick={() => void handleRetryPublishInspection()}
                       type="button"
                     >
-                      <RefreshCw size={16} /> {retryingPublishReview ? "提交中…" : retryReviewLabel}
+                      <RefreshCw size={16} /> {retryingPublishInspection ? "提交中…" : retryInspectionLabel}
                     </button>
                   )}
                 </div>
@@ -568,9 +568,9 @@ export default function SkillDetailPage() {
   const selectedFile = files.find((file) => file.path === selectedFilePath) ?? files[0];
   const categories = currentVersion.manifest.categories ?? [];
   const openIssues = skill.issues.filter((issue) => issue.status !== "closed");
-  const reviewFindings = currentVersion.review?.findings ?? [];
-  const virusTotalLegacyUnavailableFinding = reviewFindings.find((finding) => finding.id === "virustotal-unavailable");
-  const securityFindings = reviewFindings.filter(
+  const inspectionFindings = currentVersion.inspection?.findings ?? [];
+  const virusTotalLegacyUnavailableFinding = inspectionFindings.find((finding) => finding.id === "virustotal-unavailable");
+  const securityFindings = inspectionFindings.filter(
     (finding) =>
       finding.id !== "virustotal-unavailable" &&
       (finding.id === "skillspector-unavailable" ||
@@ -580,8 +580,8 @@ export default function SkillDetailPage() {
         finding.category === "privacy" ||
         finding.category === "leakage")
   );
-  const skillSpectorScan = currentVersion.review?.skillSpector;
-  const virusTotalScan = currentVersion.review?.virusTotal;
+  const skillSpectorScan = currentVersion.inspection?.skillSpector;
+  const virusTotalScan = currentVersion.inspection?.virusTotal;
   const virusTotalScanFailed =
     virusTotalScan?.status === "failed" || Boolean(virusTotalLegacyUnavailableFinding);
   const virusTotalScanError =
@@ -591,7 +591,7 @@ export default function SkillDetailPage() {
     ? virusTotalScan.malicious + virusTotalScan.suspicious
     : 0;
   const virusTotalEngineTotal = virusTotalScan ? resolveVirusTotalEngineTotal(virusTotalScan) : 0;
-  const hiddenPlatformFindingCount = reviewFindings.length - securityFindings.length;
+  const hiddenPlatformFindingCount = inspectionFindings.length - securityFindings.length;
   const isHaluCatchEvaluation = currentVersion.evaluation?.provider === "halucatch-adapter";
   const haluCatchReport = currentVersion.evaluation?.haluCatchReport;
   const haluCatchReportSummary = haluCatchReport ? extractHaluCatchSummary(haluCatchReport.simple) : "";
@@ -1131,12 +1131,12 @@ export default function SkillDetailPage() {
           <div className="hero-card">
             <div className="card-head">
               <span className="eyebrow">Skill Detail</span>
-              {isReviewPending ? (
-                <SkillReviewStatusBadge
-                  status={displayReviewStatus}
+              {isInspectionPending ? (
+                <SkillInspectionStatusBadge
+                  status={displayInspectionStatus}
                   title={
-                    showReviewFailureDetail
-                      ? formatSkillReviewFailureSummary(displayReviewFailure!)
+                    showInspectionFailureDetail
+                      ? formatSkillInspectionFailureSummary(displayInspectionFailure!)
                       : undefined
                   }
                 />
@@ -1215,22 +1215,22 @@ export default function SkillDetailPage() {
                 ) : (
                   <button
                     className="button primary"
-                    disabled={retryingPublishReview}
-                    onClick={() => void handleRetryPublishReview()}
+                    disabled={retryingPublishInspection}
+                    onClick={() => void handleRetryPublishInspection()}
                     type="button"
                   >
-                    <RefreshCw size={16} /> {retryingPublishReview ? "提交中…" : retryReviewLabel}
+                    <RefreshCw size={16} /> {retryingPublishInspection ? "提交中…" : retryInspectionLabel}
                   </button>
                 )
               ) : null}
             </div>
-            {showReviewFailureDetail ? (
-              <p className="description skill-review-failure" style={{ marginTop: 12 }}>
-                {formatSkillReviewFailureSummary(displayReviewFailure!)}
+            {showInspectionFailureDetail ? (
+              <p className="description skill-inspection-failure" style={{ marginTop: 12 }}>
+                {formatSkillInspectionFailureSummary(displayInspectionFailure!)}
               </p>
             ) : null}
             {ownerUnlistedNoticeSection}
-            {reviewProgressSection}
+            {inspectionProgressSection}
           </div>
 
           <aside className="hero-card detail-summary-card">
@@ -1668,7 +1668,7 @@ export default function SkillDetailPage() {
                   <span className="eyebrow">Quality assurance</span>
                   <h2>审查与评估</h2>
                   <p className="description">
-                    静态审查于 {currentVersion.review?.createdAt ? formatDateTime(currentVersion.review.createdAt) : "未知时间"} 完成，
+                    静态审查于 {currentVersion.inspection?.createdAt ? formatDateTime(currentVersion.inspection.createdAt) : "未知时间"} 完成，
                     内容 hash 为 <span className="mono">{currentVersion.contentHash.slice(0, 16)}...</span>
                   </p>
                 </div>
@@ -1707,7 +1707,7 @@ export default function SkillDetailPage() {
                       </div>
                     ) : null}
                   </div>
-                  <div className="review-score-card halucatch-radar-card">
+                  <div className="inspection-score-card halucatch-radar-card">
                     <HaluCatchRadar
                       averageScores={platformAverageHaluCatch}
                       evaluation={currentVersion.evaluation}

@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
-import { reviewSkillSnapshot } from "@skill-platform/review-engine";
+import { inspectSkillSnapshot } from "@skill-platform/inspection-engine";
 import type { FunctionalEvaluationReport } from "@skill-platform/evaluator";
 import { readSkillPackage } from "@skill-platform/skill-spec";
 
@@ -33,7 +33,7 @@ describe("SkillSpector security review adapter", () => {
     "attaches SkillSpector static scan summary and security findings",
     async () => {
       const snapshot = await readSkillPackage(resolve("examples/demo-skill"));
-      const report = await reviewSkillSnapshot(snapshot, undefined, evaluation(80));
+      const report = await inspectSkillSnapshot(snapshot, undefined, evaluation(80));
 
       expect(report.skillSpector).toBeDefined();
       expect(report.skillSpector?.provider).toBe("skillspector-static");

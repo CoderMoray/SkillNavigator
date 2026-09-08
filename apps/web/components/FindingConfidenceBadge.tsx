@@ -1,7 +1,7 @@
-import type { ReviewFinding } from "../lib/types";
+import type { InspectionFinding } from "../lib/types";
 import { formatFindingConfidence } from "../lib/finding-confidence";
 
-export function FindingConfidenceBadge({ finding }: { finding: ReviewFinding }) {
+export function FindingConfidenceBadge({ finding }: { finding: InspectionFinding }) {
   const label = formatFindingConfidence(finding.confidence);
   if (!label) {
     return null;

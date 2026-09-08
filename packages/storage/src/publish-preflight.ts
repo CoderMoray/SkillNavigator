@@ -1,6 +1,6 @@
 import { compareSemver } from "@skill-platform/skill-spec/skill-format";
 import type { RegistrySkill } from "./types.js";
-import { canRepublishFailedVersion, isSkillContributor, resolveVersionReviewStatus } from "./utils.js";
+import { canRepublishFailedVersion, isSkillContributor, resolveVersionInspectionStatus } from "./utils.js";
 
 export class PublishPreflightError extends Error {
   readonly statusCode: number;
@@ -18,41 +18,41 @@ export interface PublishPreflightInput {
   releaseTags: string[];
   existingSkill?: RegistrySkill;
   user?: { id: string; username: string; role?: string };
-  /** Internal publishSnapshot path: completing an in-flight review may persist while status is still reviewing. */
-  allowReviewInProgress?: boolean;
+  /** Internal publishSnapshot path: completing an in-flight review may persist while status is still inspecting. */
+  allowInspectionInProgress?: boolean;
   /** Retry publish for a failed review using the staged pending version. */
-  allowFailedReviewRetry?: boolean;
+  allowFailedInspectionRetry?: boolean;
 }
 
 export function assertPublishPreflight(input: PublishPreflightInput): void {
-  const { slug, version, releaseTags, existingSkill, user, allowReviewInProgress, allowFailedReviewRetry } = input;
+  const { slug, version, releaseTags, existingSkill, user, allowInspectionInProgress, allowFailedInspectionRetry } = input;
 
   if (existingSkill?.deletedAt) {
     throw new PublishPreflightError("skill_in_recycle_bin", 409);
   }
 
   const targetVersion = existingSkill?.versions[version];
-  const targetReviewStatus = targetVersion ? resolveVersionReviewStatus(targetVersion) : null;
+  const targetInspectionStatus = targetVersion ? resolveVersionInspectionStatus(targetVersion) : null;
   const latestEntry = existingSkill?.versions[existingSkill.latestVersion];
-  const latestReviewStatus = latestEntry ? resolveVersionReviewStatus(latestEntry) : null;
+  const latestInspectionStatus = latestEntry ? resolveVersionInspectionStatus(latestEntry) : null;
 
   if (
-    targetReviewStatus === "reviewing" &&
-    !allowReviewInProgress &&
-    !allowFailedReviewRetry
+    targetInspectionStatus === "inspecting" &&
+    !allowInspectionInProgress &&
+    !allowFailedInspectionRetry
   ) {
-    throw new PublishPreflightError("skill_review_in_progress", 409);
+    throw new PublishPreflightError("skill_inspection_in_progress", 409);
   }
 
   if (
     existingSkill &&
-    latestReviewStatus === "reviewing" &&
-    !allowReviewInProgress &&
-    !allowFailedReviewRetry
+    latestInspectionStatus === "inspecting" &&
+    !allowInspectionInProgress &&
+    !allowFailedInspectionRetry
   ) {
     const compared = compareSemver(version, existingSkill.latestVersion);
     if (compared !== null && compared <= 0) {
-      throw new PublishPreflightError("skill_review_in_progress", 409);
+      throw new PublishPreflightError("skill_inspection_in_progress", 409);
     }
   }
 
@@ -65,9 +65,9 @@ export function assertPublishPreflight(input: PublishPreflightInput): void {
     existingSkill !== undefined && canRepublishFailedVersion(existingSkill, version);
   const allowPendingVersion =
     pendingVersion?.published === false &&
-    (allowReviewInProgress ||
+    (allowInspectionInProgress ||
       republishingFailedVersion ||
-      (allowFailedReviewRetry && targetReviewStatus === "failed"));
+      (allowFailedInspectionRetry && targetInspectionStatus === "failed"));
 
   if (existingSkill?.versions[version] && !allowPendingVersion) {
     throw new PublishPreflightError(`Version already exists: ${slug}@${version}`, 409);
@@ -75,10 +75,10 @@ export function assertPublishPreflight(input: PublishPreflightInput): void {
 
   if (existingSkill?.versions[existingSkill.latestVersion]) {
     const finalizingPendingVersion =
-      allowReviewInProgress && pendingVersion?.published === false && version === existingSkill.latestVersion;
+      allowInspectionInProgress && pendingVersion?.published === false && version === existingSkill.latestVersion;
     const retryingFailedVersion =
-      allowFailedReviewRetry &&
-      targetReviewStatus === "failed" &&
+      allowFailedInspectionRetry &&
+      targetInspectionStatus === "failed" &&
       pendingVersion?.published === false &&
       version === existingSkill.latestVersion;
     const compared = compareSemver(version, existingSkill.latestVersion);

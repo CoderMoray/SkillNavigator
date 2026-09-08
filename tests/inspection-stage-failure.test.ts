@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { reviewAndEvaluateSkillSnapshot, type ReviewStageFailure } from "@skill-platform/review-engine";
+import { inspectAndEvaluateSkillSnapshot, type InspectionStageFailure } from "@skill-platform/inspection-engine";
 import type { FunctionalEvaluationReport } from "@skill-platform/evaluator";
 
 afterEach(() => {
@@ -46,32 +46,32 @@ describe("review stage failures do not masquerade as findings", () => {
     vi.stubEnv("SKILLSPECTOR_ENABLED", "true");
     vi.stubEnv("SKILLSPECTOR_PYTHON", "/nonexistent-python-for-test");
 
-    const { review, failedStages } = await reviewAndEvaluateSkillSnapshot(
+    const { inspection, failedStages } = await inspectAndEvaluateSkillSnapshot(
       baseSnapshot(),
       undefined,
       halucatchAdapterEvaluation()
     );
 
-    expect(failedStages.some((failure: ReviewStageFailure) => failure.stage === "skillspector")).toBe(true);
+    expect(failedStages.some((failure: InspectionStageFailure) => failure.stage === "skillspector")).toBe(true);
     expect(
-      review.findings.some((finding) => finding.id === "skillspector-unavailable")
+      inspection.findings.some((finding) => finding.id === "skillspector-unavailable")
     ).toBe(false);
-    expect(review.skillSpector).toBeUndefined();
+    expect(inspection.skillSpector).toBeUndefined();
 
     vi.unstubAllEnvs();
   });
 
-  test("HaluCatch python missing -> failedStages only, no review-halucatch-unavailable finding", async () => {
+  test("HaluCatch python missing -> failedStages only, no inspection-halucatch-unavailable finding", async () => {
     vi.stubEnv("HALUCATCH_ENABLED", "true");
     vi.stubEnv("HALUCATCH_PYTHON", "/nonexistent-python-for-test");
     vi.stubEnv("SKILLSPECTOR_ENABLED", "false");
     vi.stubEnv("VIRUSTOTAL_ENABLED", "false");
 
-    const { review, evaluation, failedStages } = await reviewAndEvaluateSkillSnapshot(baseSnapshot());
+    const { inspection, evaluation, failedStages } = await inspectAndEvaluateSkillSnapshot(baseSnapshot());
 
-    expect(failedStages.some((failure: ReviewStageFailure) => failure.stage === "halucatch")).toBe(true);
+    expect(failedStages.some((failure: InspectionStageFailure) => failure.stage === "halucatch")).toBe(true);
     expect(
-      review.findings.some((finding) => finding.id === "review-halucatch-unavailable")
+      inspection.findings.some((finding) => finding.id === "inspection-halucatch-unavailable")
     ).toBe(false);
     expect(evaluation.provider).toBe("static-taskset"); // placeholder, not a fake adapter result
 

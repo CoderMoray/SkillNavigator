@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { reviewSkillSnapshot } from "@skill-platform/review-engine";
+import { inspectSkillSnapshot } from "@skill-platform/inspection-engine";
 import type { FunctionalEvaluationReport } from "@skill-platform/evaluator";
 import type { SkillSnapshot } from "@skill-platform/skill-spec";
 
@@ -60,9 +60,9 @@ describe("review score dimensions", () => {
     process.env.SKILLSPECTOR_ENABLED = "false";
     process.env.SKILL_LICENSE_VALIDATION_ENABLED = "true";
     try {
-      const lowReliability = await reviewSkillSnapshot(snapshot, undefined, evaluation(62));
-      const highReliability = await reviewSkillSnapshot(snapshot, undefined, evaluation(90));
-      const missingLicenseAndTags = await reviewSkillSnapshot(
+      const lowReliability = await inspectSkillSnapshot(snapshot, undefined, evaluation(62));
+      const highReliability = await inspectSkillSnapshot(snapshot, undefined, evaluation(90));
+      const missingLicenseAndTags = await inspectSkillSnapshot(
         {
           ...snapshot,
           manifest: {
@@ -74,7 +74,7 @@ describe("review score dimensions", () => {
         undefined,
         evaluation(90)
       );
-      const privacyFallback = await reviewSkillSnapshot(
+      const privacyFallback = await inspectSkillSnapshot(
         {
           ...snapshot,
           files: snapshot.files.map((file) =>

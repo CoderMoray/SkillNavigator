@@ -6,19 +6,19 @@ import { fileURLToPath } from "node:url";
 import type { SkillSnapshot } from "@skill-platform/skill-spec";
 import { localizeSkillSpectorFindingByRuleId } from "./skillspector-i18n.js";
 
-type ReviewCategory =
+type InspectionCategory =
   | "compliance"
   | "quality"
   | "leakage"
   | "privacy"
   | "security"
   | "reliability";
-type ReviewSeverity = "low" | "medium" | "high" | "critical";
+type InspectionSeverity = "low" | "medium" | "high" | "critical";
 
-interface ReviewFinding {
+interface InspectionFinding {
   id: string;
-  category: ReviewCategory;
-  severity: ReviewSeverity;
+  category: InspectionCategory;
+  severity: InspectionSeverity;
   title: string;
   message: string;
   path?: string;
@@ -76,7 +76,7 @@ const LEAKAGE_RULE_PREFIXES = ["E1", "E4", "E5", "SSRF"];
 
 export async function runSkillSpectorSecurityScan(
   snapshot: SkillSnapshot
-): Promise<{ summary: SkillSpectorScanSummary; findings: ReviewFinding[] }> {
+): Promise<{ summary: SkillSpectorScanSummary; findings: InspectionFinding[] }> {
   const snapshotDirectory = await mkdtemp(join(tmpdir(), "skill-platform-skillspector-"));
 
   try {
@@ -103,11 +103,11 @@ export function isSkillSpectorEnabled(): boolean {
   return process.env.SKILLSPECTOR_ENABLED?.toLowerCase() !== "false";
 }
 
-export function usesSkillSpectorFindings(findings: ReviewFinding[]): boolean {
+export function usesSkillSpectorFindings(findings: InspectionFinding[]): boolean {
   return findings.some((finding) => finding.id.startsWith("skillspector-"));
 }
 
-function mapSkillSpectorFinding(issue: SkillSpectorIssue, index: number): ReviewFinding {
+function mapSkillSpectorFinding(issue: SkillSpectorIssue, index: number): InspectionFinding {
   const ruleId = (issue.id ?? `issue-${index}`).trim() || `issue-${index}`;
   const file = issue.location?.file?.replace(/\\/g, "/") ?? "SKILL.md";
   const line = issue.location?.start_line;
@@ -137,7 +137,7 @@ function mapSkillSpectorFinding(issue: SkillSpectorIssue, index: number): Review
   );
 }
 
-function mapSkillSpectorCategory(category: string | null | undefined, ruleId: string): ReviewCategory {
+function mapSkillSpectorCategory(category: string | null | undefined, ruleId: string): InspectionCategory {
   const normalizedCategory = category?.trim().toLowerCase() ?? "";
   const rulePrefix = ruleId.toUpperCase().replace(/[^A-Z0-9].*$/, "");
 
@@ -167,7 +167,7 @@ function mapSkillSpectorCategory(category: string | null | undefined, ruleId: st
   return "security";
 }
 
-function mapSkillSpectorSeverity(severity: string | undefined): ReviewSeverity {
+function mapSkillSpectorSeverity(severity: string | undefined): InspectionSeverity {
   switch ((severity ?? "LOW").toUpperCase()) {
     case "CRITICAL":
       return "critical";
@@ -338,7 +338,7 @@ function resolveSnapshotPath(rootDirectory: string, filePath: string): string {
     isAbsolute(normalized) ||
     segments.some((segment) => !segment || segment === "." || segment === "..")
   ) {
-    throw new Error(`Unsafe Skill file path for SkillSpector review: ${filePath}`);
+    throw new Error(`Unsafe Skill file path for SkillSpector inspection: ${filePath}`);
   }
 
   const resolvedPath = resolve(rootDirectory, ...segments);

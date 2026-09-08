@@ -3,15 +3,15 @@ import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
 import { pathToFileURL } from "node:url";
 import { evaluateSkillSnapshot } from "@skill-platform/evaluator";
 import {
-  getConfiguredReviewStages,
-  resolveReviewStagesToRun,
-  reviewAndEvaluateSkillSnapshot,
-  runReviewPipeline,
-  type ReviewAndEvaluationResult,
-  type ReviewPipelineState,
-  type ReviewStage,
-  type ReviewStageFailure,
-} from "@skill-platform/review-engine";
+  getConfiguredInspectionStages,
+  resolveInspectionStagesToRun,
+  inspectAndEvaluateSkillSnapshot,
+  runInspectionPipeline,
+  type InspectionAndEvaluationResult,
+  type InspectionPipelineState,
+  type InspectionStage,
+  type InspectionStageFailure,
+} from "@skill-platform/inspection-engine";
 import { freeDevListenPort } from "./free-port.js";
 import {
   applySkillAuthor,
@@ -42,20 +42,20 @@ import {
   isSessionCredential,
   isSkillContributor,
   isSkillOwner,
-  isReviewPendingSkillStatus,
+  isInspectionPendingSkillStatus,
   listCreators,
   loadDotEnvIfPresent,
   mergeOwnerUnpublishedSkills,
   mergeOwnerRejectedSkills,
-  mergeOwnerReviewPendingSkills,
+  mergeOwnerInspectionPendingSkills,
   normalizeCategoryFilters,
   normalizeHandle,
   PublishPreflightError,
   PublishRateLimiter,
-  buildSkillReviewFailureFromError,
-  buildSkillReviewFailureFromStages,
-  readReviewRecoverAllOnStartup,
-  readReviewStaleMs,
+  buildSkillInspectionFailureFromError,
+  buildSkillInspectionFailureFromStages,
+  readInspectionRecoverAllOnStartup,
+  readInspectionStaleMs,
   VerificationEmailRateLimiter,
   VerificationTokenError,
   getPasswordResetExpiresMs,
@@ -67,7 +67,7 @@ import {
   isRegistrationEmailConfigured,
   sendPasswordResetEmail,
   sendRegistrationVerificationEmail,
-  resolveVersionReviewStatus,
+  resolveVersionInspectionStatus,
   type AuthStore,
   type ContributorRole,
   type IssueSeverity,
@@ -77,7 +77,7 @@ import {
   type PublicUser,
   type RegistrySkill,
   type RegistryStore,
-  type SkillReviewStage,
+  type SkillInspectionStage,
 } from "@skill-platform/storage";
 
 loadDotEnvIfPresent();
@@ -91,7 +91,7 @@ interface PublishBody {
   async?: boolean;
 }
 
-interface ReviewBody {
+interface InspectionBody {
   snapshot?: SkillSnapshot;
   archiveBase64?: string;
   version?: string;
@@ -192,7 +192,7 @@ function filterSkillVersionsForViewer(skill: RegistrySkill, user: PublicUser | u
   if (
     user &&
     (isSkillOwner(skill, user) ||
-      (isReviewPendingSkillStatus(skill.reviewStatus) && isSkillContributor(skill, user)))
+      (isInspectionPendingSkillStatus(skill.inspectionStatus) && isSkillContributor(skill, user)))
   ) {
     return skill;
   }
@@ -216,13 +216,13 @@ function canAccessVersion(
   return canAccessUnpublishedVersion(skill, version, user);
 }
 
-async function resolveFailedReviewStoredPackage(
+async function resolveFailedInspectionStoredPackage(
   store: RegistryStore,
   skill: RegistrySkill
 ): Promise<boolean | undefined> {
   const version = skill.latestVersion;
   const registryVersion = skill.versions[version];
-  if (resolveVersionReviewStatus(registryVersion ?? { reviewStatus: skill.reviewStatus }) !== "failed") {
+  if (resolveVersionInspectionStatus(registryVersion ?? { inspectionStatus: skill.inspectionStatus }) !== "failed") {
     return undefined;
   }
   return Boolean(await store.loadStoredSnapshot(skill.slug, version));
@@ -236,7 +236,7 @@ async function assertPublishDoesNotReplaceStoredRetryPackage(
 ): Promise<void> {
   const registryVersion = existingSkill?.versions[version];
   if (
-    resolveVersionReviewStatus(registryVersion ?? { reviewStatus: existingSkill?.reviewStatus }) !== "failed" ||
+    resolveVersionInspectionStatus(registryVersion ?? { inspectionStatus: existingSkill?.inspectionStatus }) !== "failed" ||
     version !== existingSkill?.latestVersion
   ) {
     return;
@@ -290,19 +290,19 @@ export function buildServer() {
   const recycleBinPurgeTimer = setInterval(runRecycleBinPurge, 6 * 60 * 60 * 1000);
   recycleBinPurgeTimer.unref?.();
 
-  const runReviewRecovery = (recoverAll: boolean) => {
+  const runInspectionRecovery = (recoverAll: boolean) => {
     void store
-      .recoverStaleReviewingSkills({
+      .recoverStaleInspectingSkills({
         recoverAll,
-        olderThanMs: readReviewStaleMs(),
+        olderThanMs: readInspectionStaleMs(),
       })
       .then((count) => {
         if (count > 0) {
           app.log.warn(
             { count, recoverAll },
             recoverAll
-              ? "Marked orphaned reviewing skills as failed after API startup"
-              : "Marked stale reviewing skills as failed after review timeout"
+              ? "Marked orphaned inspecting skills as failed after API startup"
+              : "Marked stale inspecting skills as failed after review timeout"
           );
         }
       })
@@ -310,11 +310,11 @@ export function buildServer() {
         app.log.error({ err: error }, "Review recovery failed");
       });
   };
-  if (readReviewRecoverAllOnStartup()) {
-    runReviewRecovery(true);
+  if (readInspectionRecoverAllOnStartup()) {
+    runInspectionRecovery(true);
   }
-  const reviewRecoveryTimer = setInterval(() => runReviewRecovery(false), 5 * 60 * 1000);
-  reviewRecoveryTimer.unref?.();
+  const inspectionRecoveryTimer = setInterval(() => runInspectionRecovery(false), 5 * 60 * 1000);
+  inspectionRecoveryTimer.unref?.();
 
   const runUnverifiedUserPurge = () => {
     if (!isRegistrationEmailVerificationRequired()) {
@@ -772,17 +772,17 @@ export function buildServer() {
     const isProfileOwner = Boolean(viewer && normalizeHandle(viewer.username) === handle);
     let unpublished: Awaited<ReturnType<typeof store.listUnpublishedSkillsForOwner>> = [];
     let rejected: Awaited<ReturnType<typeof store.listRejectedSkillsForOwner>> = [];
-    let reviewPending: Awaited<ReturnType<typeof store.listReviewPendingSkillsForOwner>> = [];
+    let reviewPending: Awaited<ReturnType<typeof store.listInspectionPendingSkillsForOwner>> = [];
     if (isProfileOwner && viewer) {
       [unpublished, rejected, reviewPending] = await Promise.all([
         store.listUnpublishedSkillsForOwner(viewer.id),
         store.listRejectedSkillsForOwner(viewer.id),
-        store.listReviewPendingSkillsForOwner(viewer.id),
+        store.listInspectionPendingSkillsForOwner(viewer.id),
       ]);
     }
 
     const mergeOwnerOnlySkills = (creator: ReturnType<typeof createEmptyCreatorSummary>) =>
-      mergeOwnerReviewPendingSkills(
+      mergeOwnerInspectionPendingSkills(
         mergeOwnerRejectedSkills(mergeOwnerUnpublishedSkills(creator, unpublished), rejected),
         reviewPending
       );
@@ -890,7 +890,7 @@ export function buildServer() {
         ownerUsername: user.username,
       });
 
-      await store.markSkillReviewStatus(prepared.slug, "reviewing", {
+      await store.markSkillInspectionStatus(prepared.slug, "inspecting", {
         version: prepared.version,
         setLatestVersion: prepared.version,
         name: prepared.snapshot.manifest.name,
@@ -900,7 +900,7 @@ export function buildServer() {
       });
 
       if (request.body.async !== false) {
-        void runBackgroundPublishReview(store, prepared, user.id, user.username, changelog).catch((error) => {
+        void runBackgroundPublishInspection(store, prepared, user.id, user.username, changelog).catch((error) => {
           app.log.error(
             { err: error, slug: prepared.slug, version: prepared.version },
             "Unhandled background publish review rejection"
@@ -910,40 +910,40 @@ export function buildServer() {
           slug: prepared.slug,
           name: prepared.snapshot.manifest.name,
           version: prepared.version,
-          reviewStatus: "reviewing",
+          inspectionStatus: "inspecting",
         });
       }
 
-      let review;
+      let inspection;
       let evaluation;
       let failedStages;
       try {
-        ({ review, evaluation, failedStages } = await executeStagedPublishReview(store, prepared));
+        ({ inspection, evaluation, failedStages } = await executeStagedPublishInspection(store, prepared));
       } catch (error) {
-        if (error instanceof ReviewSupersededError) {
-          return reply.code(409).send({ error: "review_superseded" });
+        if (error instanceof InspectionSupersededError) {
+          return reply.code(409).send({ error: "inspection_superseded" });
         }
-        await markPublishReviewFailed(store, prepared.slug, prepared.version, error);
+        await markPublishInspectionFailed(store, prepared.slug, prepared.version, error);
         throw error;
       }
 
       if (failedStages.length > 0) {
-        await markPublishReviewFailed(store, prepared.slug, prepared.version, failedStages);
+        await markPublishInspectionFailed(store, prepared.slug, prepared.version, failedStages);
         return reply.code(503).send({
-          error: "review_pipeline_incomplete",
+          error: "inspection_pipeline_incomplete",
           retryable: true,
           failedStages,
-          reviewStatus: "failed",
-          reviewFailure: buildSkillReviewFailureFromStages(failedStages),
+          inspectionStatus: "failed",
+          inspectionFailure: buildSkillInspectionFailureFromStages(failedStages),
         });
       }
 
-      await ensureLatestReviewTarget(store, prepared.slug, prepared.version);
+      await ensureLatestInspectionTarget(store, prepared.slug, prepared.version);
 
-      const registryVersion = await publishReviewedSnapshot(
+      const registryVersion = await publishInspectedSnapshot(
         store,
         prepared,
-        review,
+        inspection,
         evaluation,
         { userId: user.id, username: user.username },
         changelog
@@ -955,21 +955,21 @@ export function buildServer() {
         version: registryVersion.version,
         releaseTags: registryVersion.releaseTags,
         status: registryVersion.status,
-        reviewStatus: "completed",
+        inspectionStatus: "completed",
         contentHash: registryVersion.contentHash,
-        review: registryVersion.review,
+        inspection: registryVersion.inspection,
         evaluation: registryVersion.evaluation,
         changelog: registryVersion.changelog
       });
     } catch (error) {
-      if (error instanceof ReviewSupersededError) {
-        return reply.code(409).send({ error: "review_superseded" });
+      if (error instanceof InspectionSupersededError) {
+        return reply.code(409).send({ error: "inspection_superseded" });
       }
       return sendPublishError(reply, error);
     }
   });
 
-  app.post<{ Params: SkillParams; Body: { async?: boolean; stages?: SkillReviewStage[] } }>("/skills/:slug/retry-publish", async (request, reply) => {
+  app.post<{ Params: SkillParams; Body: { async?: boolean; stages?: SkillInspectionStage[] } }>("/skills/:slug/retry-publish", async (request, reply) => {
     const user = await getAuthenticatedUser(request.headers.authorization, authStore);
     if (!user) {
       return reply.code(401).send({ error: "Unauthorized" });
@@ -984,13 +984,13 @@ export function buildServer() {
     }
     const version = skill.latestVersion;
     const registryVersion = skill.versions[version];
-    const versionReviewStatus = resolveVersionReviewStatus(
-      registryVersion ?? { reviewStatus: skill.reviewStatus }
+    const versionInspectionStatus = resolveVersionInspectionStatus(
+      registryVersion ?? { inspectionStatus: skill.inspectionStatus }
     );
-    if (versionReviewStatus === "reviewing") {
-      return reply.code(409).send({ error: "skill_review_in_progress" });
+    if (versionInspectionStatus === "inspecting") {
+      return reply.code(409).send({ error: "skill_inspection_in_progress" });
     }
-    if (versionReviewStatus !== "failed") {
+    if (versionInspectionStatus !== "failed") {
       return reply.code(400).send({ error: "skill_not_retryable" });
     }
 
@@ -1005,7 +1005,7 @@ export function buildServer() {
         releaseTags,
         existingSkill: skill,
         user,
-        allowFailedReviewRetry: true,
+        allowFailedInspectionRetry: true,
       });
     } catch (error) {
       return sendPublishError(reply, error);
@@ -1029,7 +1029,7 @@ export function buildServer() {
 
     publishRateLimiter.recordAttempt(user.id);
 
-    await store.markSkillReviewStatus(skill.slug, "reviewing", {
+    await store.markSkillInspectionStatus(skill.slug, "inspecting", {
       version,
     });
 
@@ -1039,10 +1039,10 @@ export function buildServer() {
       slug: skill.slug,
       releaseTags,
     };
-    const reviewOptions = buildRetryReviewOptions(skill, version, request.body?.stages);
+    const inspectionOptions = buildRetryInspectionOptions(skill, version, request.body?.stages);
 
     if (request.body?.async !== false) {
-      void runBackgroundPublishReview(store, prepared, user.id, user.username, changelog, reviewOptions).catch((error) => {
+      void runBackgroundPublishInspection(store, prepared, user.id, user.username, changelog, inspectionOptions).catch((error) => {
         app.log.error(
           { err: error, slug: prepared.slug, version: prepared.version },
           "Unhandled background publish review rejection"
@@ -1052,45 +1052,45 @@ export function buildServer() {
         slug: skill.slug,
         name: skill.name,
         version,
-        reviewStatus: "reviewing",
+        inspectionStatus: "inspecting",
       });
     }
 
     try {
-      let review;
+      let inspection;
       let evaluation;
       let failedStages;
       try {
-        ({ review, evaluation, failedStages } = await executeStagedPublishReview(
+        ({ inspection, evaluation, failedStages } = await executeStagedPublishInspection(
           store,
           prepared,
-          reviewOptions
+          inspectionOptions
         ));
       } catch (error) {
-        if (error instanceof ReviewSupersededError) {
-          return reply.code(409).send({ error: "review_superseded" });
+        if (error instanceof InspectionSupersededError) {
+          return reply.code(409).send({ error: "inspection_superseded" });
         }
-        await markPublishReviewFailed(store, prepared.slug, prepared.version, error);
+        await markPublishInspectionFailed(store, prepared.slug, prepared.version, error);
         throw error;
       }
 
       if (failedStages.length > 0) {
-        await markPublishReviewFailed(store, prepared.slug, prepared.version, failedStages);
+        await markPublishInspectionFailed(store, prepared.slug, prepared.version, failedStages);
         return reply.code(503).send({
-          error: "review_pipeline_incomplete",
+          error: "inspection_pipeline_incomplete",
           retryable: true,
           failedStages,
-          reviewStatus: "failed",
-          reviewFailure: buildSkillReviewFailureFromStages(failedStages),
+          inspectionStatus: "failed",
+          inspectionFailure: buildSkillInspectionFailureFromStages(failedStages),
         });
       }
 
-      await ensureLatestReviewTarget(store, prepared.slug, prepared.version);
+      await ensureLatestInspectionTarget(store, prepared.slug, prepared.version);
 
-      const registryVersion = await publishReviewedSnapshot(
+      const registryVersion = await publishInspectedSnapshot(
         store,
         prepared,
-        review,
+        inspection,
         evaluation,
         { userId: user.id, username: user.username },
         changelog
@@ -1102,39 +1102,39 @@ export function buildServer() {
         version: registryVersion.version,
         releaseTags: registryVersion.releaseTags,
         status: registryVersion.status,
-        reviewStatus: "completed",
+        inspectionStatus: "completed",
         contentHash: registryVersion.contentHash,
-        review: registryVersion.review,
+        inspection: registryVersion.inspection,
         evaluation: registryVersion.evaluation,
         changelog: registryVersion.changelog
       });
     } catch (error) {
-      if (error instanceof ReviewSupersededError) {
-        return reply.code(409).send({ error: "review_superseded" });
+      if (error instanceof InspectionSupersededError) {
+        return reply.code(409).send({ error: "inspection_superseded" });
       }
       return sendPublishError(reply, error);
     }
   });
 
-  app.post<{ Body: ReviewBody }>("/reviews/run", async (request, reply) => {
+  app.post<{ Body: InspectionBody }>("/inspections/run", async (request, reply) => {
     const user = await requireAuthenticatedUser(request.headers.authorization, authStore, reply);
     if (!user) {
       return;
     }
 
     const { snapshot, version } = readSkillFromBody(request.body);
-    const { review, evaluation, failedStages } = await reviewAndEvaluateSkillSnapshot(snapshot, version);
-    return { review, evaluation, failedStages };
+    const { inspection, evaluation, failedStages } = await inspectAndEvaluateSkillSnapshot(snapshot, version);
+    return { inspection, evaluation, failedStages };
   });
 
-  app.post<{ Body: ReviewBody }>("/evaluations/run", async (request) => {
+  app.post<{ Body: InspectionBody }>("/evaluations/run", async (request) => {
     const { snapshot } = readSkillFromBody(request.body);
     return {
       evaluation: await evaluateSkillSnapshot(snapshot)
     };
   });
 
-  app.post("/reviews/rebuild", async (request, reply) => {
+  app.post("/inspections/rebuild", async (request, reply) => {
     const user = await requireAuthenticatedUser(request.headers.authorization, authStore, reply);
     if (!user) {
       return;
@@ -1146,19 +1146,19 @@ export function buildServer() {
     const pipeline = async (
       snapshot: SkillSnapshot,
       version: string
-    ): Promise<ReviewAndEvaluationResult> => {
-      const result = await reviewAndEvaluateSkillSnapshot(snapshot, version);
+    ): Promise<InspectionAndEvaluationResult> => {
+      const result = await inspectAndEvaluateSkillSnapshot(snapshot, version);
       if (result.failedStages.length > 0) {
         // Do not persist half-complete reviews during a full rebuild: abort so
         // the operator fixes the environment first.
         const summary = result.failedStages
           .map((failure) => `[${failure.stage}] ${failure.message}`)
           .join("; ");
-        throw new Error(`review_pipeline_incomplete: ${summary}`);
+        throw new Error(`inspection_pipeline_incomplete: ${summary}`);
       }
       return result;
     };
-    const reviewed = await store.reviewAll(pipeline);
+    const reviewed = await store.inspectAll(pipeline);
     return {
       reviewed: reviewed.length,
       items: reviewed.map((item) => ({
@@ -1166,7 +1166,7 @@ export function buildServer() {
         name: item.manifest.name,
         version: item.version,
         status: item.status,
-        scores: item.review.scores,
+        scores: item.inspection.scores,
         evaluation: item.evaluation
       }))
     };
@@ -1336,12 +1336,12 @@ export function buildServer() {
     const skill = await store.getSkill(request.params.slug);
     const hasStoredPackage =
       skill && user && isSkillContributor(skill, user)
-        ? await resolveFailedReviewStoredPackage(store, skill)
+        ? await resolveFailedInspectionStoredPackage(store, skill)
         : undefined;
     const needsPackageReupload = hasStoredPackage === false ? true : undefined;
     return {
       ...availability,
-      reviewStatus: skill?.reviewStatus,
+      inspectionStatus: skill?.inspectionStatus,
       hasStoredPackage: hasStoredPackage === undefined ? undefined : hasStoredPackage,
       needsPackageReupload,
       viewerCanPublish: skill ? isSkillContributor(skill, user) : false,
@@ -1361,7 +1361,7 @@ export function buildServer() {
 
     const hasStoredPackage =
       user && isSkillContributor(skill, user)
-        ? await resolveFailedReviewStoredPackage(store, skill)
+        ? await resolveFailedInspectionStoredPackage(store, skill)
         : undefined;
 
     return {
@@ -1703,33 +1703,33 @@ interface PreparedPublishRequest {
   releaseTags: string[];
 }
 
-interface StagedPublishReviewOptions {
-  skipStages?: ReviewStage[];
-  initialState?: Partial<ReviewPipelineState>;
+interface StagedPublishInspectionOptions {
+  skipStages?: InspectionStage[];
+  initialState?: Partial<InspectionPipelineState>;
 }
 
-class ReviewSupersededError extends Error {
+class InspectionSupersededError extends Error {
   constructor() {
-    super("review_superseded");
-    this.name = "ReviewSupersededError";
+    super("inspection_superseded");
+    this.name = "InspectionSupersededError";
   }
 }
 
-async function ensureLatestReviewTarget(
+async function ensureLatestInspectionTarget(
   store: RegistryStore,
   slug: string,
   version: string
 ): Promise<void> {
   const skill = await store.getSkill(slug);
   if (!skill || skill.latestVersion !== version) {
-    throw new ReviewSupersededError();
+    throw new InspectionSupersededError();
   }
 }
 
-function buildReviewPipelineInitialState(
+function buildInspectionPipelineInitialState(
   skill: RegistrySkill | undefined,
   version: string
-): Partial<ReviewPipelineState> | undefined {
+): Partial<InspectionPipelineState> | undefined {
   if (!skill) {
     return undefined;
   }
@@ -1743,29 +1743,29 @@ function buildReviewPipelineInitialState(
   }
 
   return {
-    findings: registryVersion.review?.findings ?? [],
-    skillSpector: registryVersion.review?.skillSpector,
-    skillSpectorAvailable: Boolean(registryVersion.review?.skillSpector),
-    virusTotal: registryVersion.review?.virusTotal,
+    findings: registryVersion.inspection?.findings ?? [],
+    skillSpector: registryVersion.inspection?.skillSpector,
+    skillSpectorAvailable: Boolean(registryVersion.inspection?.skillSpector),
+    virusTotal: registryVersion.inspection?.virusTotal,
     evaluation: registryVersion.evaluation,
-    completedStages: registryVersion.reviewCompletedStages ?? [],
-    failedStages: registryVersion.reviewFailure?.stages?.map((stage) => ({
+    completedStages: registryVersion.inspectionCompletedStages ?? [],
+    failedStages: registryVersion.inspectionFailure?.stages?.map((stage) => ({
       stage,
-      message: registryVersion.reviewFailure?.message ?? "",
+      message: registryVersion.inspectionFailure?.message ?? "",
     })) ?? [],
   };
 }
 
-function buildRetryReviewOptions(
+function buildRetryInspectionOptions(
   skill: RegistrySkill,
   version: string,
-  requestedStages?: SkillReviewStage[]
-): StagedPublishReviewOptions {
+  requestedStages?: SkillInspectionStage[]
+): StagedPublishInspectionOptions {
   const registryVersion = skill.versions[version];
-  const configuredStages = getConfiguredReviewStages();
-  const completedStages = registryVersion?.reviewCompletedStages ?? [];
-  const failedStages = registryVersion?.reviewFailure?.stages ?? [];
-  const stagesToRun = resolveReviewStagesToRun({
+  const configuredStages = getConfiguredInspectionStages();
+  const completedStages = registryVersion?.inspectionCompletedStages ?? [];
+  const failedStages = registryVersion?.inspectionFailure?.stages ?? [];
+  const stagesToRun = resolveInspectionStagesToRun({
     configuredStages,
     completedStages,
     failedStages,
@@ -1775,24 +1775,24 @@ function buildRetryReviewOptions(
 
   return {
     skipStages,
-    initialState: buildReviewPipelineInitialState(skill, version),
+    initialState: buildInspectionPipelineInitialState(skill, version),
   };
 }
 
-async function executeStagedPublishReview(
+async function executeStagedPublishInspection(
   store: RegistryStore,
   prepared: PreparedPublishRequest,
-  options: StagedPublishReviewOptions = {}
-): Promise<Awaited<ReturnType<typeof reviewAndEvaluateSkillSnapshot>>> {
-  return runReviewPipeline(prepared.snapshot, prepared.version, {
+  options: StagedPublishInspectionOptions = {}
+): Promise<Awaited<ReturnType<typeof inspectAndEvaluateSkillSnapshot>>> {
+  return runInspectionPipeline(prepared.snapshot, prepared.version, {
     skipStages: options.skipStages,
     initialState: options.initialState,
-    onStageComplete: async ({ state, review, evaluation }) => {
-      await ensureLatestReviewTarget(store, prepared.slug, prepared.version);
-      await store.persistReviewStageResults(
+    onStageComplete: async ({ state, inspection, evaluation }) => {
+      await ensureLatestInspectionTarget(store, prepared.slug, prepared.version);
+      await store.persistInspectionStageResults(
         prepared.slug,
         prepared.version,
-        review,
+        inspection,
         evaluation,
         {
           completedStages: state.completedStages,
@@ -1803,91 +1803,91 @@ async function executeStagedPublishReview(
   });
 }
 
-async function runBackgroundPublishReview(
+async function runBackgroundPublishInspection(
   store: RegistryStore,
   prepared: PreparedPublishRequest,
   ownerUserId: string,
   ownerUsername: string,
   changelog?: string,
-  reviewOptions: StagedPublishReviewOptions = {}
+  inspectionOptions: StagedPublishInspectionOptions = {}
 ): Promise<void> {
   console.info(`Background publish review started for ${prepared.slug}@${prepared.version}`);
   try {
-    await ensureLatestReviewTarget(store, prepared.slug, prepared.version);
-    const { review, evaluation, failedStages } = await executeStagedPublishReview(
+    await ensureLatestInspectionTarget(store, prepared.slug, prepared.version);
+    const { inspection, evaluation, failedStages } = await executeStagedPublishInspection(
       store,
       prepared,
-      reviewOptions
+      inspectionOptions
     );
-    await ensureLatestReviewTarget(store, prepared.slug, prepared.version);
+    await ensureLatestInspectionTarget(store, prepared.slug, prepared.version);
     if (failedStages.length > 0) {
-      await markPublishReviewFailed(store, prepared.slug, prepared.version, failedStages);
+      await markPublishInspectionFailed(store, prepared.slug, prepared.version, failedStages);
       return;
     }
 
-    await publishReviewedSnapshot(
+    await publishInspectedSnapshot(
       store,
       prepared,
-      review,
+      inspection,
       evaluation,
       { userId: ownerUserId, username: ownerUsername },
       changelog
     );
-    console.info(`Background publish review completed for ${prepared.slug}@${prepared.version}`);
+    console.info(`Background publish inspection completed for ${prepared.slug}@${prepared.version}`);
   } catch (error) {
-    if (error instanceof ReviewSupersededError) {
+    if (error instanceof InspectionSupersededError) {
       console.info(
         `Background publish review abandoned for ${prepared.slug}@${prepared.version} (no longer latest)`
       );
       return;
     }
     console.error(
-      `Background publish review failed for ${prepared.slug}@${prepared.version}:`,
+      `Background publish inspection failed for ${prepared.slug}@${prepared.version}:`,
       error
     );
-    await markPublishReviewFailed(store, prepared.slug, prepared.version, error);
+    await markPublishInspectionFailed(store, prepared.slug, prepared.version, error);
   }
 }
 
-async function publishReviewedSnapshot(
+async function publishInspectedSnapshot(
   store: RegistryStore,
   prepared: PreparedPublishRequest,
-  review: Awaited<ReturnType<typeof reviewAndEvaluateSkillSnapshot>>["review"],
-  evaluation: Awaited<ReturnType<typeof reviewAndEvaluateSkillSnapshot>>["evaluation"],
+  inspection: Awaited<ReturnType<typeof inspectAndEvaluateSkillSnapshot>>["inspection"],
+  evaluation: Awaited<ReturnType<typeof inspectAndEvaluateSkillSnapshot>>["evaluation"],
   owner: { userId: string; username: string },
   changelog?: string
 ) {
-  await store.commitReviewResultsBeforePublish(prepared.snapshot, review, evaluation, {
+  await store.commitInspectionResultsBeforePublish(prepared.snapshot, inspection, evaluation, {
     releaseTags: prepared.releaseTags,
   });
 
   try {
-    return await store.publishSnapshot(prepared.snapshot, review, evaluation, {
+    return await store.publishSnapshot(prepared.snapshot, inspection, evaluation, {
       owner,
       releaseTags: prepared.releaseTags,
       changelog,
-      reviewAlreadyCommitted: true,
+      inspectionAlreadyCommitted: true,
     });
   } catch (error) {
-    await markPublishReviewFailed(store, prepared.slug, prepared.version, error);
+    await markPublishInspectionFailed(store, prepared.slug, prepared.version, error);
     throw error;
   }
 }
 
-async function markPublishReviewFailed(
+async function markPublishInspectionFailed(
   store: RegistryStore,
   slug: string,
   version: string,
-  failedStagesOrError: ReviewStageFailure[] | unknown
+  failedStagesOrError: InspectionStageFailure[] | unknown
 ): Promise<void> {
   const failure = Array.isArray(failedStagesOrError)
-    ? buildSkillReviewFailureFromStages(failedStagesOrError)
-    : buildSkillReviewFailureFromError(failedStagesOrError);
+    ? buildSkillInspectionFailureFromStages(failedStagesOrError)
+    : buildSkillInspectionFailureFromError(failedStagesOrError);
 
   try {
-    await store.markSkillReviewStatus(slug, "failed", { version, failure });
+    await store.markSkillInspectionStatus(slug, "failed", { version, failure });
   } catch (markError) {
-    console.error(`Failed to mark review status failed for ${slug}@${version}:`, markError);
+    console.error(`Failed to mark inspection status failed for ${slug}@${version}:`, markError);
   }
 }
 
@@ -1917,7 +1917,7 @@ function sendPublishError(reply: FastifyReply, error: unknown) {
 }
 
 function readSkillFromBody(
-  body: PublishBody | ReviewBody,
+  body: PublishBody | InspectionBody,
   options?: { looseEntry?: boolean }
 ): { snapshot: SkillSnapshot; version?: string } {
   if (body.archiveBase64) {

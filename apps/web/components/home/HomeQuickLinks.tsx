@@ -22,7 +22,7 @@ const quickLinks: { href: string; label: string; description: string; icon: Luci
     icon: BarChart3,
   },
   {
-    href: "/reviews",
+    href: "/inspections",
     label: "Audits",
     description: "查看 SkillSpector / VirusTotal 审查摘要。",
     icon: ShieldCheck,

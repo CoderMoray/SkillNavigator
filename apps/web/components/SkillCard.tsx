@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { Download, EyeOff, MessageSquare, Star, Users } from "lucide-react";
-import { formatDateTime, formatNumber, formatSkillReviewFailureSummary } from "../lib/format";
+import { formatDateTime, formatNumber, formatSkillInspectionFailureSummary } from "../lib/format";
 import {
   isSkillSearchResultUnlisted,
   resolveSkillDisplayVerdict,
 } from "../lib/publish-helpers";
 import type { SkillSearchResult } from "../lib/types";
 import { SkillCategoryIcon } from "./SkillCategoryIcon";
-import { VerdictBadge, SkillReviewStatusBadge } from "./StatusBadge";
+import { VerdictBadge, SkillInspectionStatusBadge } from "./StatusBadge";
 
 function SkillListIcon({ skill }: { skill: SkillSearchResult }) {
   const category = skill.categories[0];
@@ -41,9 +41,9 @@ export function SkillCard({ skill, variant = "card" }: { skill: SkillSearchResul
               ) : null}
             </div>
             <p>{skill.description}</p>
-            {skill.reviewStatus === "failed" && skill.reviewFailure ? (
-              <p className="skill-review-failure" title={skill.reviewFailure.message}>
-                {formatSkillReviewFailureSummary(skill.reviewFailure)}
+            {skill.inspectionStatus === "failed" && skill.inspectionFailure ? (
+              <p className="skill-inspection-failure" title={skill.inspectionFailure.message}>
+                {formatSkillInspectionFailureSummary(skill.inspectionFailure)}
               </p>
             ) : null}
           </div>
@@ -55,14 +55,14 @@ export function SkillCard({ skill, variant = "card" }: { skill: SkillSearchResul
           <span>
             <Download size={13} /> {formatNumber(skill.downloads)}
           </span>
-          {skill.reviewStatus === "completed" ? (
-            <VerdictBadge verdict={resolveSkillDisplayVerdict(skill.reviewStatus, skill.status)} />
+          {skill.inspectionStatus === "completed" ? (
+            <VerdictBadge verdict={resolveSkillDisplayVerdict(skill.inspectionStatus, skill.status)} />
           ) : (
-            <SkillReviewStatusBadge
-              status={skill.reviewStatus}
+            <SkillInspectionStatusBadge
+              status={skill.inspectionStatus}
               title={
-                skill.reviewStatus === "failed" && skill.reviewFailure
-                  ? formatSkillReviewFailureSummary(skill.reviewFailure)
+                skill.inspectionStatus === "failed" && skill.inspectionFailure
+                  ? formatSkillInspectionFailureSummary(skill.inspectionFailure)
                   : undefined
               }
             />
@@ -82,11 +82,11 @@ export function SkillCard({ skill, variant = "card" }: { skill: SkillSearchResul
               <EyeOff size={12} /> 已下架
             </span>
           ) : null}
-          <SkillReviewStatusBadge status={skill.reviewStatus} />
+          <SkillInspectionStatusBadge status={skill.inspectionStatus} />
           <div className="mono">latest@{skill.latestVersion}</div>
         </div>
-        {skill.reviewStatus === "completed" ? (
-          <VerdictBadge verdict={resolveSkillDisplayVerdict(skill.reviewStatus, skill.status)} />
+        {skill.inspectionStatus === "completed" ? (
+          <VerdictBadge verdict={resolveSkillDisplayVerdict(skill.inspectionStatus, skill.status)} />
         ) : null}
       </div>
 

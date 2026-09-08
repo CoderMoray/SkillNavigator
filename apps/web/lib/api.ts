@@ -6,9 +6,9 @@ import type {
   RegistryIssue,
   RegistryRating,
   RegistrySkill,
-  ReviewReport,
-  SkillReviewStatus,
-  SkillReviewStage,
+  InspectionReport,
+  SkillInspectionStatus,
+  SkillInspectionStage,
   SkillSearchResult,
   UserSearchResult
 } from "./types";
@@ -114,7 +114,7 @@ export type SkillSlugAvailabilityResponse =
       name: string;
       latestVersion: string;
       published: boolean;
-      reviewStatus?: SkillReviewStatus;
+      inspectionStatus?: SkillInspectionStatus;
       needsPackageReupload?: boolean;
       hasStoredPackage?: boolean;
       viewerCanPublish?: boolean;
@@ -338,18 +338,18 @@ export interface PublishSkillFrontmatter {
   topics?: string[];
 }
 
-export type ReviewStage = "skillspector" | "virustotal" | "halucatch";
+export type InspectionStage = "skillspector" | "virustotal" | "halucatch";
 
-export interface ReviewStageFailure {
-  stage: ReviewStage;
+export interface InspectionStageFailure {
+  stage: InspectionStage;
   message: string;
 }
 
-export interface ReviewPipelineIncompleteResponse {
-  error: "review_pipeline_incomplete";
+export interface InspectionPipelineIncompleteResponse {
+  error: "inspection_pipeline_incomplete";
   retryable: true;
-  failedStages: ReviewStageFailure[];
-  reviewStatus?: "failed";
+  failedStages: InspectionStageFailure[];
+  inspectionStatus?: "failed";
 }
 
 export interface PublishPreviewResponse {
@@ -387,10 +387,10 @@ export async function publishSkillArchive(
   });
 }
 
-export async function retrySkillPublishReview(
+export async function retrySkillPublishInspection(
   token: string,
   slug: string,
-  options?: { async?: boolean; stages?: SkillReviewStage[] }
+  options?: { async?: boolean; stages?: SkillInspectionStage[] }
 ): Promise<PublishSkillResponse | PublishSkillAcceptedResponse> {
   return request<PublishSkillResponse | PublishSkillAcceptedResponse>(
     apiUrl(`/skills/${encodeURIComponent(slug)}/retry-publish`),
@@ -616,7 +616,7 @@ export interface PublishSkillAcceptedResponse {
   slug: string;
   name: string;
   version: string;
-  reviewStatus: "reviewing";
+  inspectionStatus: "inspecting";
 }
 
 export interface PublishSkillResponse {
@@ -625,9 +625,9 @@ export interface PublishSkillResponse {
   version: string;
   releaseTags: string[];
   status: string;
-  reviewStatus: SkillReviewStatus;
+  inspectionStatus: SkillInspectionStatus;
   contentHash: string;
-  review: ReviewReport;
+  inspection: InspectionReport;
   evaluation?: FunctionalEvaluationReport;
   changelog?: string;
 }
@@ -652,7 +652,7 @@ interface ApiErrorResponse {
   error?: string;
   retryable?: boolean;
   retryAfterSeconds?: number;
-  failedStages?: ReviewStageFailure[];
+  failedStages?: InspectionStageFailure[];
   verificationRequired?: boolean;
   verificationEmailSent?: boolean;
   verificationEmailRateLimited?: boolean;
@@ -674,10 +674,10 @@ export class ApiRequestError extends Error {
   }
 }
 
-export function getRetryableReviewFailure(error: unknown): ReviewPipelineIncompleteResponse | undefined {
+export function getRetryableInspectionFailure(error: unknown): InspectionPipelineIncompleteResponse | undefined {
   if (
     !(error instanceof ApiRequestError) ||
-    error.response?.error !== "review_pipeline_incomplete" ||
+    error.response?.error !== "inspection_pipeline_incomplete" ||
     error.response.retryable !== true ||
     !Array.isArray(error.response.failedStages)
   ) {
@@ -685,7 +685,7 @@ export function getRetryableReviewFailure(error: unknown): ReviewPipelineIncompl
   }
 
   return {
-    error: "review_pipeline_incomplete",
+    error: "inspection_pipeline_incomplete",
     retryable: true,
     failedStages: error.response.failedStages
   };

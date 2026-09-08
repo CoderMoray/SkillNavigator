@@ -1,17 +1,17 @@
-import type { ReviewScores } from "./types";
+import type { InspectionScores } from "./types";
 
-const scoreKeys: Array<keyof ReviewScores> = [
+const scoreKeys: Array<keyof InspectionScores> = [
   "qualityScore",
   "securityScore",
   "reliabilityScore"
 ];
 
-export function averageReviewScores(items: Array<{ scores: ReviewScores }>): ReviewScores | undefined {
+export function averageInspectionScores(items: Array<{ scores: InspectionScores }>): InspectionScores | undefined {
   if (items.length === 0) {
     return undefined;
   }
 
-  const totals = Object.fromEntries(scoreKeys.map((key) => [key, 0])) as Record<keyof ReviewScores, number>;
+  const totals = Object.fromEntries(scoreKeys.map((key) => [key, 0])) as Record<keyof InspectionScores, number>;
   for (const item of items) {
     for (const key of scoreKeys) {
       totals[key] += item.scores[key];

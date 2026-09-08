@@ -126,23 +126,23 @@ skillnav
 - 请求体携带 `metadata` 对象，服务端 `applySkillPublishMetadata` 写入 frontmatter；`author` 由服务端写入当前登录用户。
 - 缺少必填 metadata 时，交互模式下会逐项提示补全；`--no-input` 或 `--json` 下直接报错。
 - `--dry-run`：调用 `POST /skills/publish/preview`（服务端预检：元数据 + 打包校验），不落库、不发版；CLI 本地先校验 metadata 完整性。
-- 默认 **异步审查**：上传并暂存包后立即返回 **202**（`reviewStatus: reviewing`），审查在服务端后台执行；传 `async: false` 或 CLI `--wait` 可阻塞至审查结束。
-- 成功（201，仅 `async: false`）：打印 slug、version、status、contentHash，并按需展示 review / evaluation 摘要；`--json` 输出完整响应体。
-- 失败语义：`skill_in_recycle_bin` → 提示先恢复；`Only skill contributors can publish new versions` → 提示需要贡献者权限；`review_pipeline_incomplete`（503）→ 提示可重试。
+- 默认 **异步审查**：上传并暂存包后立即返回 **202**（`inspectionStatus: inspecting`），审查在服务端后台执行；传 `async: false` 或 CLI `--wait` 可阻塞至审查结束。
+- 成功（201，仅 `async: false`）：打印 slug、version、status、contentHash，并按需展示 inspection / evaluation 摘要；`--json` 输出完整响应体。
+- 失败语义：`skill_in_recycle_bin` → 提示先恢复；`Only skill contributors can publish new versions` → 提示需要贡献者权限；`inspection_pipeline_incomplete`（503）→ 提示可重试。
 
 ### `report`
 
-- 取指定版本（默认最新已发布版本）的完整 review / evaluation。
+- 取指定版本（默认最新已发布版本）的完整 inspection / evaluation。
 - 输出分区：SkillSpector（Security）/ VirusTotal（Security）/ HaluCatch（Quality）；人类可读模式给出 verdict、scores 与 findings 列表。
 
 ### `info`
 
 - `GET /skills/:slug`；人类可读：**元数据卡片**（名称、描述、分类、贡献者、评分、Issue 数、下载、可见性、时间戳）。
-- 不展开 review findings；版本审查摘要见 `status`，单版本完整报告见 `report`。
+- 不展开 inspection findings；版本审查摘要见 `status`，单版本完整报告见 `report`。
 
 ### `status`
 
-- 同一 API；人类可读：**Skill 级审查状态**、可见性、各版本 `review` / `verdict` / hash / VT 摘要；可选 `--version` 只看某一版本。
+- 同一 API；人类可读：**单版本审查状态**（默认 latest）、`inspectionStatus`、可见性、`inspection` / `verdict` / hash / VT 摘要；可选 `--version` 指定其他版本（格式一致）。
 - 末尾提示使用 `skillnav report <slug> --version <ver>` 查看完整报告。
 
 ## 7. 输出与退出码约定

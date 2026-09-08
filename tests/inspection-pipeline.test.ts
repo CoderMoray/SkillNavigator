@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { resolveReviewStagesToRun } from "../packages/review-engine/src/review-pipeline.js";
+import { resolveInspectionStagesToRun } from "../packages/inspection-engine/src/inspection-pipeline.js";
 
-describe("resolveReviewStagesToRun", () => {
+describe("resolveInspectionStagesToRun", () => {
   it("runs only failed stages when some stages already completed", () => {
     expect(
-      resolveReviewStagesToRun({
+      resolveInspectionStagesToRun({
         configuredStages: ["skillspector", "virustotal", "halucatch"],
         completedStages: ["skillspector", "virustotal"],
         failedStages: ["virustotal"],
@@ -14,7 +14,7 @@ describe("resolveReviewStagesToRun", () => {
 
   it("honors explicit stage requests within the remaining work", () => {
     expect(
-      resolveReviewStagesToRun({
+      resolveInspectionStagesToRun({
         configuredStages: ["skillspector", "virustotal", "halucatch"],
         completedStages: ["skillspector"],
         failedStages: ["virustotal"],

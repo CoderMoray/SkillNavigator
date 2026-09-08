@@ -42,7 +42,7 @@ const trustRecords = [
     description: "SkillSpector 与 VirusTotal 的结果会进入审查记录，供安装前进一步判断。",
   },
   {
-    href: "/docs/halucatch-review",
+    href: "/docs/halucatch-inspection",
     icon: Braces,
     index: "03",
     title: "查看可靠性报告",
@@ -139,7 +139,7 @@ export default function HomePage() {
                   </div>
                   <div className="homepage-proof-document-foot">
                     <span>package manifest</span>
-                    <span>ready to review</span>
+                    <span>ready to inspect</span>
                   </div>
                 </div>
               </div>
@@ -157,7 +157,7 @@ export default function HomePage() {
               <div className="homepage-proof-row">
                 <span className="homepage-proof-icon"><ShieldCheck size={16} /></span>
                 <span>
-                  <small>review trace</small>
+                  <small>inspection trace</small>
                   <strong>审查摘要</strong>
                 </span>
                 <em>可查看</em>
@@ -280,7 +280,7 @@ export default function HomePage() {
               <h2 id="home-trust-title">不仅看描述，也保留检查的线索</h2>
               <p>每个环节都围绕包结构、静态风险与可靠性报告组织，便于在安装前做自己的判断。</p>
             </div>
-            <Link className="homepage-inline-link" href="/reviews">
+            <Link className="homepage-inline-link" href="/inspections">
               查看审查中心 <ArrowRight aria-hidden="true" size={15} />
             </Link>
           </div>

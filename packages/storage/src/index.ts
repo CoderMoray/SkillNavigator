@@ -6,24 +6,24 @@ export {
 } from "./brand-name.js";
 
 export {
-  buildSkillReviewFailureFromError,
-  buildSkillReviewFailureFromStages,
-  DEFAULT_SKILL_REVIEW_STATUS,
-  formatSkillReviewFailureSummary,
-  isSkillReviewStage,
-  isSkillReviewStatus,
-  isReviewPendingSkillStatus,
-  parseSkillReviewStages,
-  skillReviewStageLabel,
-  skillReviewStatusLabel,
-  readReviewStaleMs,
-  readReviewRecoverAllOnStartup,
-  REVIEW_INTERRUPTED_MESSAGE,
-  REVIEW_STALE_MESSAGE,
-  REVIEW_SUPERSEDED_MESSAGE,
-  SKILL_REVIEW_STAGES,
-  SKILL_REVIEW_STATUSES,
-} from "./review-status.js";
+  buildSkillInspectionFailureFromError,
+  buildSkillInspectionFailureFromStages,
+  DEFAULT_SKILL_INSPECTION_STATUS,
+  formatSkillInspectionFailureSummary,
+  isSkillInspectionStage,
+  isSkillInspectionStatus,
+  isInspectionPendingSkillStatus,
+  parseSkillInspectionStages,
+  skillInspectionStageLabel,
+  skillInspectionStatusLabel,
+  readInspectionStaleMs,
+  readInspectionRecoverAllOnStartup,
+  INSPECTION_INTERRUPTED_MESSAGE,
+  INSPECTION_STALE_MESSAGE,
+  INSPECTION_SUPERSEDED_MESSAGE,
+  SKILL_INSPECTION_STAGES,
+  SKILL_INSPECTION_STATUSES,
+} from "./inspection-status.js";
 
 export {
   assertAssignableContributorRole,
@@ -98,19 +98,19 @@ export type {
   CreateIssueInput,
   CreateRatingInput,
   PublishSnapshotOptions,
-  CommitReviewResultsOptions,
-  PersistReviewStageResultsOptions,
-  UpsertReviewOptions,
-  RecoverStaleReviewingSkillsOptions,
-  MarkSkillReviewStatusOptions,
+  CommitInspectionResultsOptions,
+  PersistInspectionStageResultsOptions,
+  UpsertInspectionOptions,
+  RecoverStaleInspectingSkillsOptions,
+  MarkSkillInspectionStatusOptions,
   PostgresRegistryStoreOptions,
   FileRegistryStoreOptions,
   MinioArtifactStoreOptions,
   RegistryStore,
   RecycleBinSkill,
   SkillSlugAvailability,
-  SkillReviewStage,
-  SkillReviewStatus,
+  SkillInspectionStage,
+  SkillInspectionStatus,
 } from "./types";
 
 export {
@@ -140,7 +140,7 @@ export {
   getSkillRepublishBlockReason,
   getVersionRepublishBlockReason,
   isSkillUnlisted,
-  resolveVersionReviewStatus,
+  resolveVersionInspectionStatus,
 } from "./utils";
 
 export {
@@ -150,7 +150,7 @@ export {
   listCreators,
   mergeOwnerUnpublishedSkills,
   mergeOwnerRejectedSkills,
-  mergeOwnerReviewPendingSkills,
+  mergeOwnerInspectionPendingSkills,
   normalizeHandle,
   type CreatorSummary,
 } from "./creators";
