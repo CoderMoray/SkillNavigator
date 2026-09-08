@@ -128,7 +128,7 @@ def test_print_skill_status_reviewing(capsys) -> None:
     assert "Verdict: pending" in out
     assert "Visibility: unpublished" in out
     assert "1.0.1 (latest)  review=in review  verdict=pending" in out
-    assert "progress: HaluCatch: done" in out
+    assert "    progress:" in out and "HaluCatch: done" in out
 
 
 def test_print_skill_status_failed(capsys) -> None:

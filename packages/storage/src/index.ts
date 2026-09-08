@@ -135,7 +135,9 @@ export {
   assertSkillRepublishAllowed,
   assertSkillVersionRepublishAllowed,
   getSkillRepublishBlockReason,
+  getVersionRepublishBlockReason,
   isSkillUnlisted,
+  resolveVersionReviewStatus,
 } from "./utils";
 
 export {

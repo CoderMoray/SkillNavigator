@@ -43,12 +43,47 @@ import {
   assertSkillVersionRepublishAllowed,
   normalizeReleaseTags,
   resolveVersionReference,
+  resolveVersionReviewStatus,
   skillMatchesCategoryFilters,
   compareIsoTimestampsDesc,
   getRecentSortTimestamp,
   toSearchResult,
   updateRatingAggregate,
 } from "../utils";
+
+function resolveMarkReviewTargetVersion(
+  options: MarkSkillReviewStatusOptions | undefined,
+  existingLatestVersion: string | undefined
+): string | undefined {
+  return options?.version ?? options?.latestVersion ?? options?.setLatestVersion ?? existingLatestVersion;
+}
+
+function resolveMarkReviewLatestPointer(
+  options: MarkSkillReviewStatusOptions | undefined
+): string | undefined {
+  return options?.setLatestVersion ?? options?.latestVersion;
+}
+
+function syncSkillReviewDenormFromLatest(skill: RegistrySkill): void {
+  const latest = skill.versions[skill.latestVersion];
+  if (!latest) {
+    return;
+  }
+
+  const reviewStatus = resolveVersionReviewStatus(latest);
+  skill.reviewStatus = reviewStatus;
+  skill.reviewFailure =
+    reviewStatus === "failed"
+      ? (latest.reviewFailure ?? { stages: [], message: "审查流程未完成" })
+      : undefined;
+  skill.reviewCompletedStages = latest.reviewCompletedStages;
+  skill.reviewStartedAt = latest.reviewStartedAt;
+  skill.reviewEndedAt = latest.reviewEndedAt;
+  skill.uploadedAt = latest.uploadedAt ?? skill.uploadedAt;
+  if (reviewStatus === "failed") {
+    skill.published = false;
+  }
+}
 
 export abstract class JsonRegistryStore implements RegistryStore {
   protected constructor(protected readonly artifactStore?: ArtifactStore) {}
@@ -61,35 +96,23 @@ export abstract class JsonRegistryStore implements RegistryStore {
     const data = await this.load();
     const existing = data.skills[slug];
     const now = new Date().toISOString();
+    const targetVersion = resolveMarkReviewTargetVersion(options, existing?.latestVersion);
+    const latestPointer = resolveMarkReviewLatestPointer(options);
+    const failure =
+      reviewStatus === "failed"
+        ? (options?.failure ?? { stages: [], message: "审查流程未完成" })
+        : undefined;
 
     if (existing) {
-      existing.reviewStatus = reviewStatus;
       existing.updatedAt = now;
-      if (reviewStatus === "reviewing") {
-        existing.reviewStartedAt = now;
-        existing.reviewEndedAt = undefined;
-      } else if (reviewStatus === "completed" || reviewStatus === "failed") {
-        existing.reviewEndedAt = now;
-      }
       if (options?.name !== undefined) {
         existing.name = options.name;
       }
       if (options?.description !== undefined) {
         existing.description = options.description;
       }
-      if (options?.latestVersion !== undefined) {
-        existing.latestVersion = options.latestVersion;
-      }
-      if (reviewStatus === "failed" && options?.failure) {
-        existing.reviewFailure = options.failure;
-        existing.published = false;
-      } else if (reviewStatus !== "failed") {
-        existing.reviewFailure = undefined;
-      } else if (reviewStatus === "failed") {
-        existing.reviewFailure = options?.failure ?? {
-          stages: [],
-          message: "审查流程未完成",
-        };
+      if (latestPointer) {
+        existing.latestVersion = latestPointer;
       }
       if (options?.ownerUserId && options.ownerUsername) {
         const hasOwner = existing.contributors.some((item) => item.role === "owner");
@@ -104,25 +127,32 @@ export abstract class JsonRegistryStore implements RegistryStore {
           });
         }
       }
-      const targetVersion = options?.latestVersion ?? existing.latestVersion;
-      const version = existing.versions[targetVersion];
-      if (version) {
-        if (reviewStatus === "reviewing") {
-          version.reviewStartedAt = now;
-          version.reviewEndedAt = undefined;
-        } else if (reviewStatus === "completed" || reviewStatus === "failed") {
-          version.reviewEndedAt = now;
+
+      if (targetVersion) {
+        const version = existing.versions[targetVersion];
+        if (version) {
+          version.reviewStatus = reviewStatus;
+          version.reviewFailure = reviewStatus === "failed" ? failure : undefined;
+          if (reviewStatus === "reviewing") {
+            version.reviewStartedAt = now;
+            version.reviewEndedAt = undefined;
+            version.reviewCompletedStages = [];
+          } else if (reviewStatus === "completed" || reviewStatus === "failed") {
+            version.reviewEndedAt = now;
+          }
+          if (reviewStatus === "failed") {
+            version.status = "rejected";
+          }
+          version.updatedAt = now;
         }
-        if (reviewStatus === "failed") {
-          version.status = "rejected";
-        }
-        version.updatedAt = now;
       }
+
+      syncSkillReviewDenormFromLatest(existing);
       await this.save(data);
       return;
     }
 
-    if (!options?.name || !options.description || !options.latestVersion) {
+    if (!options?.name || options.description === undefined || !latestPointer) {
       throw new Error(`Skill not found: ${slug}`);
     }
 
@@ -131,12 +161,9 @@ export abstract class JsonRegistryStore implements RegistryStore {
       name: options.name,
       description: options.description,
       ownerUserId: options.ownerUserId,
-      latestVersion: options.latestVersion,
+      latestVersion: latestPointer,
       reviewStatus,
-      reviewFailure:
-        reviewStatus === "failed"
-          ? (options.failure ?? { stages: [], message: "审查流程未完成" })
-          : undefined,
+      reviewFailure: reviewStatus === "failed" ? failure : undefined,
       versions: {},
       contributors:
         options.ownerUserId && options.ownerUsername
@@ -209,9 +236,12 @@ export abstract class JsonRegistryStore implements RegistryStore {
       data.skills[slug]!.versions[version]!.updatedAt = new Date().toISOString();
     }
 
-    data.skills[slug]!.reviewStatus = "completed";
-    data.skills[slug]!.reviewFailure = undefined;
-    data.skills[slug]!.updatedAt = new Date().toISOString();
+    const skill = data.skills[slug]!;
+    const registryVersion = skill.versions[version]!;
+    registryVersion.reviewStatus = "completed";
+    registryVersion.reviewFailure = undefined;
+    syncSkillReviewDenormFromLatest(skill);
+    skill.updatedAt = new Date().toISOString();
     await this.save(data);
   }
 
@@ -264,8 +294,10 @@ export abstract class JsonRegistryStore implements RegistryStore {
       downloads: 0,
       published: false,
       review: {} as RegistryVersion["review"],
+      reviewStatus: "reviewing",
+      reviewCompletedStages: [],
       uploadedAt: now,
-      reviewStartedAt: undefined,
+      reviewStartedAt: now,
       reviewEndedAt: undefined,
       createdAt: now,
       updatedAt: now,
@@ -273,6 +305,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
     skill.uploadedAt = now;
     skill.latestVersion = version;
     skill.updatedAt = now;
+    syncSkillReviewDenormFromLatest(skill);
     if (options.ownerUserId && options.ownerUsername) {
       const hasOwner = skill.contributors.some((item) => item.role === "owner");
       if (!hasOwner) {
@@ -336,6 +369,8 @@ export abstract class JsonRegistryStore implements RegistryStore {
       changelog: options.changelog,
       downloads: 0,
       published: publiclyListed,
+      reviewStatus: "completed",
+      reviewFailure: undefined,
       createdAt: now,
       updatedAt: now,
     };
@@ -354,14 +389,13 @@ export abstract class JsonRegistryStore implements RegistryStore {
       ])
     );
 
-    data.skills[slug] = {
+    const skillRecord: RegistrySkill = {
       slug,
       name: snapshot.manifest.name,
       description: snapshot.manifest.description,
       ownerUserId: existingSkill?.ownerUserId ?? options.owner?.userId,
       latestVersion: releaseTags.includes("latest") ? version : (existingSkill?.latestVersion ?? version),
       reviewStatus: "completed",
-      reviewFailure: undefined,
       versions: { ...versions, [version]: registryVersion },
       contributors,
       issues: existingSkill?.issues ?? [],
@@ -372,6 +406,8 @@ export abstract class JsonRegistryStore implements RegistryStore {
       createdAt: existingSkill?.createdAt ?? now,
       updatedAt: now,
     };
+    syncSkillReviewDenormFromLatest(skillRecord);
+    data.skills[slug] = skillRecord;
 
     await this.save(data);
     return registryVersion;
@@ -392,8 +428,9 @@ export abstract class JsonRegistryStore implements RegistryStore {
     }
     registryVersion.updatedAt = new Date().toISOString();
     if (options.finalize !== false) {
-      data.skills[slug]!.reviewStatus = "completed";
-      data.skills[slug]!.reviewFailure = undefined;
+      registryVersion.reviewStatus = "completed";
+      registryVersion.reviewFailure = undefined;
+      syncSkillReviewDenormFromLatest(data.skills[slug]!);
     }
     data.skills[slug]!.updatedAt = registryVersion.updatedAt;
     await this.save(data);
@@ -416,11 +453,17 @@ export abstract class JsonRegistryStore implements RegistryStore {
     if (!skill) {
       return;
     }
-    skill.reviewCompletedStages = [...new Set(options.completedStages)];
-    if (options.finalize) {
-      skill.reviewStatus = "completed";
-      skill.reviewFailure = undefined;
+    const registryVersion = skill.versions[version];
+    if (!registryVersion) {
+      return;
     }
+    registryVersion.reviewCompletedStages = [...new Set(options.completedStages)];
+    if (options.finalize) {
+      registryVersion.reviewStatus = "completed";
+      registryVersion.reviewFailure = undefined;
+    }
+    syncSkillReviewDenormFromLatest(skill);
+    skill.updatedAt = new Date().toISOString();
     await this.save(data);
   }
 
@@ -822,20 +865,31 @@ export abstract class JsonRegistryStore implements RegistryStore {
     let recovered = 0;
 
     for (const skill of Object.values(data.skills)) {
-      if (skill.deletedAt || skill.reviewStatus !== "reviewing") {
-        continue;
-      }
-      if (!recoverAll && new Date(skill.updatedAt).getTime() > cutoff) {
+      if (skill.deletedAt) {
         continue;
       }
 
-      skill.reviewStatus = "failed";
-      skill.reviewFailure = {
-        stages: [],
-        message: recoverAll ? REVIEW_INTERRUPTED_MESSAGE : REVIEW_STALE_MESSAGE,
-      };
+      for (const version of Object.values(skill.versions)) {
+        if (resolveVersionReviewStatus(version) !== "reviewing") {
+          continue;
+        }
+        if (!recoverAll && new Date(version.updatedAt).getTime() > cutoff) {
+          continue;
+        }
+
+        version.reviewStatus = "failed";
+        version.reviewFailure = {
+          stages: [],
+          message: recoverAll ? REVIEW_INTERRUPTED_MESSAGE : REVIEW_STALE_MESSAGE,
+        };
+        version.status = "rejected";
+        version.reviewEndedAt = new Date().toISOString();
+        version.updatedAt = version.reviewEndedAt;
+        recovered += 1;
+      }
+
+      syncSkillReviewDenormFromLatest(skill);
       skill.updatedAt = new Date().toISOString();
-      recovered += 1;
     }
 
     if (recovered > 0) {

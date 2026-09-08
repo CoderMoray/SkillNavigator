@@ -87,7 +87,7 @@ describe("skill access helpers", () => {
       ],
     });
 
-    expect(canAccessUnpublishedVersion(reviewing, { published: false }, contributor)).toBe(true);
-    expect(canAccessUnpublishedVersion(reviewing, { published: false }, stranger)).toBe(false);
+    expect(canAccessUnpublishedVersion(reviewing, { published: false, reviewStatus: "failed" }, contributor)).toBe(true);
+    expect(canAccessUnpublishedVersion(reviewing, { published: false, reviewStatus: "failed" }, stranger)).toBe(false);
   });
 });

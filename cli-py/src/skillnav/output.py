@@ -341,16 +341,41 @@ def _resolve_version_review_info(
 ) -> dict[str, Any]:
     """Derive per-version review status, verdict, and optional stage progress."""
     latest = skill.get("latestVersion")
-    skill_review_status = str(skill.get("reviewStatus") or "completed")
     is_latest = version_id == latest
+    version_review_status = str(entry.get("reviewStatus") or "").strip()
+    if not version_review_status:
+        version_review_status = (
+            str(skill.get("reviewStatus") or "completed") if is_latest else "completed"
+        )
 
-    if is_latest and skill_review_status in {"reviewing", "failed"}:
-        failure = skill.get("reviewFailure") if skill_review_status == "failed" else None
+    if version_review_status in {"reviewing", "failed", "completed"}:
+        failure = entry.get("reviewFailure") if version_review_status == "failed" else None
+        if not failure and version_review_status == "failed" and is_latest:
+            failure = skill.get("reviewFailure")
         failed_stages = (failure or {}).get("stages") or []
+        completed_stages = entry.get("reviewCompletedStages") or (
+            skill.get("reviewCompletedStages") if is_latest else []
+        ) or []
+        if version_review_status == "completed":
+            review = entry.get("review") or {}
+            verdict = str(review.get("verdict") or entry.get("status") or "?")
+            completed = entry.get("reviewCompletedStages") or (
+                skill.get("reviewCompletedStages") if is_latest else []
+            ) or []
+            if not completed and (review.get("verdict") or review.get("findings") is not None):
+                completed = list(_REVIEW_STAGE_ORDER)
+            return {
+                "review_status": _skill_review_status_label("completed"),
+                "verdict": verdict,
+                "completed_stages": completed,
+                "failed_stages": [],
+                "failure_summary": "",
+                "show_progress": False,
+            }
         return {
-            "review_status": _skill_review_status_label(skill_review_status),
+            "review_status": _skill_review_status_label(version_review_status),
             "verdict": "pending",
-            "completed_stages": skill.get("reviewCompletedStages") or entry.get("reviewCompletedStages") or [],
+            "completed_stages": completed_stages,
             "failed_stages": failed_stages,
             "failure_summary": _review_failure_summary(failure) if isinstance(failure, dict) else "",
             "show_progress": True,

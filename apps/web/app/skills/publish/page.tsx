@@ -951,7 +951,7 @@ function PublishSkillPageContent() {
                     />
                         <small>
                           {isNewVersion && sourceSkill
-                            ? canRetryStoredReview(sourceSkill, sourceSkill.hasStoredPackage)
+                            ? canRetryStoredReview(sourceSkill, sourceSkill.latestVersion, sourceSkill.hasStoredPackage)
                               ? `该 Skill 已保存完整包文件，请返回详情页使用「重新发布」直接重新审查。`
                               : canRepublishFailedVersion(sourceSkill, sourceSkill.latestVersion)
                                 ? `审查未通过，请重新上传 v${sourceSkill.latestVersion} 进行审查。`

@@ -68,7 +68,13 @@ describe("skill republish policy", () => {
   });
 
   it("treats failed review as unlisted and blocks republish", () => {
-    const failed = skill({ reviewStatus: "failed", published: false });
+    const failed = skill({
+      reviewStatus: "failed",
+      published: false,
+      versions: {
+        "1.0.0": version({ reviewStatus: "failed", published: false }),
+      },
+    });
     expect(isSkillUnlisted(failed)).toBe(true);
     expect(() => assertSkillRepublishAllowed(failed)).toThrow("skill_republish_blocked_review_failed");
   });

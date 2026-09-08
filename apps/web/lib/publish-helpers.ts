@@ -1,24 +1,70 @@
-import type { RegistrySkill, ReviewVerdict, SkillReviewStatus, SkillSearchResult } from "./types";
+import type {
+  RegistrySkill,
+  RegistryVersion,
+  ReviewVerdict,
+  SkillReviewFailureInfo,
+  SkillReviewStage,
+  SkillReviewStatus,
+  SkillSearchResult,
+} from "./types";
 
 export type SkillRepublishBlockReason =
   | "review_in_progress"
   | "review_failed"
   | "review_rejected";
 
+export function resolveVersionReviewStatus(
+  version: Pick<RegistryVersion, "reviewStatus" | "version"> | undefined,
+  skill: Pick<RegistrySkill, "reviewStatus" | "latestVersion">
+): SkillReviewStatus {
+  if (!version) {
+    return skill.reviewStatus;
+  }
+  if (version.reviewStatus) {
+    return version.reviewStatus;
+  }
+  if (version.version === skill.latestVersion) {
+    return skill.reviewStatus;
+  }
+  return "completed";
+}
+
+export function resolveVersionReviewFailure(
+  version: Pick<RegistryVersion, "reviewFailure" | "version"> | undefined,
+  skill: Pick<RegistrySkill, "reviewFailure" | "latestVersion">
+): SkillReviewFailureInfo | undefined {
+  if (!version) {
+    return skill.reviewFailure;
+  }
+  if (version.reviewFailure) {
+    return version.reviewFailure;
+  }
+  if (version.version === skill.latestVersion) {
+    return skill.reviewFailure;
+  }
+  return undefined;
+}
+
+export function resolveVersionReviewCompletedStages(
+  version: Pick<RegistryVersion, "reviewCompletedStages" | "version"> | undefined,
+  skill: Pick<RegistrySkill, "reviewCompletedStages" | "latestVersion">
+): SkillReviewStage[] | undefined {
+  if (!version) {
+    return skill.reviewCompletedStages;
+  }
+  if (version.reviewCompletedStages?.length) {
+    return version.reviewCompletedStages;
+  }
+  if (version.version === skill.latestVersion) {
+    return skill.reviewCompletedStages;
+  }
+  return version.reviewCompletedStages;
+}
+
 export function getSkillRepublishBlockReason(
   skill: Pick<RegistrySkill, "reviewStatus" | "latestVersion" | "versions">
 ): SkillRepublishBlockReason | null {
-  if (skill.reviewStatus === "reviewing") {
-    return "review_in_progress";
-  }
-  if (skill.reviewStatus === "failed") {
-    return "review_failed";
-  }
-  const latest = skill.versions[skill.latestVersion];
-  if (latest?.status === "rejected") {
-    return "review_rejected";
-  }
-  return null;
+  return getVersionRepublishBlockReason(skill, skill.latestVersion);
 }
 
 export function getVersionRepublishBlockReason(
@@ -26,11 +72,18 @@ export function getVersionRepublishBlockReason(
   version: string
 ): SkillRepublishBlockReason | null {
   const entry = skill.versions[version];
-  if (entry?.status === "rejected") {
-    return "review_rejected";
+  if (!entry) {
+    return null;
   }
-  if (version === skill.latestVersion) {
-    return getSkillRepublishBlockReason(skill);
+  const reviewStatus = resolveVersionReviewStatus(entry, skill);
+  if (reviewStatus === "reviewing") {
+    return "review_in_progress";
+  }
+  if (reviewStatus === "failed") {
+    return "review_failed";
+  }
+  if (entry.status === "rejected") {
+    return "review_rejected";
   }
   return null;
 }
@@ -119,15 +172,10 @@ export function resolveSkillDisplayVerdict(
 
 export function resolveVersionDisplayVerdict(
   skill: Pick<RegistrySkill, "reviewStatus" | "latestVersion">,
-  version: { version: string; status: ReviewVerdict; published?: boolean }
+  version: Pick<RegistryVersion, "version" | "status" | "published" | "reviewStatus">
 ): ReviewVerdict {
-  if (version.version === skill.latestVersion) {
-    return resolveSkillDisplayVerdict(skill.reviewStatus, version.status, version.published);
-  }
-  if (version.status === "published" && version.published === false) {
-    return "needs-review";
-  }
-  return version.status;
+  const reviewStatus = resolveVersionReviewStatus(version, skill);
+  return resolveSkillDisplayVerdict(reviewStatus, version.status, version.published);
 }
 
 export function hasStoredPendingPackage(
@@ -151,27 +199,29 @@ export function hasStoredPendingPackage(
 
 export function canRetryStoredReview(
   skill: RegistrySkill,
+  version: string = skill.latestVersion,
   hasStoredPackage?: boolean
 ): boolean {
+  const entry = skill.versions[version];
   return (
-    skill.reviewStatus === "failed" &&
-    hasStoredPendingPackage(skill, skill.latestVersion, hasStoredPackage)
+    resolveVersionReviewStatus(entry, skill) === "failed" &&
+    hasStoredPendingPackage(skill, version, hasStoredPackage)
   );
 }
 
 /** Failed review may be re-uploaded with the same version when no stored package exists yet. */
 export function canRepublishFailedVersion(skill: RegistrySkill, version: string): boolean {
-  if (skill.reviewStatus !== "failed" || version !== skill.latestVersion) {
+  const entry = skill.versions[version];
+  if (!entry || resolveVersionReviewStatus(entry, skill) !== "failed") {
     return false;
   }
   if (hasStoredPendingPackage(skill, version)) {
     return false;
   }
 
-  const pending = skill.versions[version];
-  if (pending) {
-    return pending.published === false;
+  if (entry.published === false) {
+    return true;
   }
 
-  return !Object.values(skill.versions).some((entry) => entry.published);
+  return !Object.values(skill.versions).some((item) => item.published);
 }

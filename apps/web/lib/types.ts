@@ -195,6 +195,9 @@ export interface RegistryVersion {
   uploadedAt?: string;
   reviewStartedAt?: string;
   reviewEndedAt?: string;
+  reviewStatus?: SkillReviewStatus;
+  reviewFailure?: SkillReviewFailureInfo;
+  reviewCompletedStages?: SkillReviewStage[];
   createdAt: string;
   updatedAt: string;
 }

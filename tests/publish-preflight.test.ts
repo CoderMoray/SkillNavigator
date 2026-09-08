@@ -97,6 +97,7 @@ describe("assertPublishPreflight", () => {
             "1.0.0": {
               ...skill().versions["1.0.0"],
               published: false,
+              reviewStatus: "failed",
             },
           },
         }),
@@ -129,6 +130,7 @@ describe("assertPublishPreflight", () => {
         "1.0.0": {
           ...skill().versions["1.0.0"],
           published: false,
+          reviewStatus: "failed",
           snapshot: {
             manifest: { name: "Demo", description: "Demo skill" },
             files: [{ path: "SKILL.md", content: "# Demo\n" }],
@@ -142,7 +144,7 @@ describe("assertPublishPreflight", () => {
     expect(canRepublishFailedVersion(failedWithPackage, "1.0.0")).toBe(false);
   });
 
-  it("rejects publish while review is in progress", () => {
+  it("rejects publish while target version review is in progress", () => {
     expect(() =>
       assertPublishPreflight({
         slug: "demo-skill",
@@ -151,10 +153,39 @@ describe("assertPublishPreflight", () => {
         existingSkill: skill({
           latestVersion: "1.0.0",
           reviewStatus: "reviewing",
-          versions: {},
+          versions: {
+            "1.0.0": {
+              ...skill().versions["1.0.0"],
+              published: false,
+              reviewStatus: "reviewing",
+            },
+          },
         }),
       })
     ).toThrow(/skill_review_in_progress/);
+  });
+
+  it("allows publishing a newer version while another version is reviewing", () => {
+    expect(() =>
+      assertPublishPreflight({
+        slug: "demo-skill",
+        version: "1.1.0",
+        releaseTags: ["latest"],
+        existingSkill: skill({
+          latestVersion: "1.0.0",
+          reviewStatus: "reviewing",
+          published: false,
+          versions: {
+            "1.0.0": {
+              ...skill().versions["1.0.0"],
+              version: "1.0.0",
+              published: false,
+              reviewStatus: "reviewing",
+            },
+          },
+        }),
+      })
+    ).not.toThrow();
   });
 
   it("allows publishSnapshot to persist while completing an in-flight review", () => {

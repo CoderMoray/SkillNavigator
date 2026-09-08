@@ -1,6 +1,6 @@
 import { compareSemver } from "@skill-platform/skill-spec/skill-format";
 import type { RegistrySkill } from "./types.js";
-import { canRepublishFailedVersion, isSkillContributor } from "./utils.js";
+import { canRepublishFailedVersion, isSkillContributor, resolveVersionReviewStatus } from "./utils.js";
 
 export class PublishPreflightError extends Error {
   readonly statusCode: number;
@@ -31,7 +31,13 @@ export function assertPublishPreflight(input: PublishPreflightInput): void {
     throw new PublishPreflightError("skill_in_recycle_bin", 409);
   }
 
-  if (existingSkill?.reviewStatus === "reviewing" && !allowReviewInProgress && !allowFailedReviewRetry) {
+  const targetVersion = existingSkill?.versions[version];
+  const targetReviewStatus = targetVersion ? resolveVersionReviewStatus(targetVersion) : null;
+  if (
+    targetReviewStatus === "reviewing" &&
+    !allowReviewInProgress &&
+    !allowFailedReviewRetry
+  ) {
     throw new PublishPreflightError("skill_review_in_progress", 409);
   }
 
@@ -46,9 +52,7 @@ export function assertPublishPreflight(input: PublishPreflightInput): void {
     pendingVersion?.published === false &&
     (allowReviewInProgress ||
       republishingFailedVersion ||
-      (allowFailedReviewRetry &&
-        existingSkill?.reviewStatus === "failed" &&
-        version === existingSkill.latestVersion));
+      (allowFailedReviewRetry && targetReviewStatus === "failed"));
 
   if (existingSkill?.versions[version] && !allowPendingVersion) {
     throw new PublishPreflightError(`Version already exists: ${slug}@${version}`, 409);
@@ -59,7 +63,7 @@ export function assertPublishPreflight(input: PublishPreflightInput): void {
       allowReviewInProgress && pendingVersion?.published === false && version === existingSkill.latestVersion;
     const retryingFailedVersion =
       allowFailedReviewRetry &&
-      existingSkill.reviewStatus === "failed" &&
+      targetReviewStatus === "failed" &&
       pendingVersion?.published === false &&
       version === existingSkill.latestVersion;
     const compared = compareSemver(version, existingSkill.latestVersion);

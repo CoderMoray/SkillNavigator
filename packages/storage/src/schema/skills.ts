@@ -53,6 +53,9 @@ export const skillVersions = pgTable("skill_versions", {
   uploadedAt: timestamp("uploaded_at", { withTimezone: true }),
   reviewStartedAt: timestamp("review_started_at", { withTimezone: true }),
   reviewEndedAt: timestamp("review_ended_at", { withTimezone: true }),
+  reviewStatus: text("review_status").notNull().default("completed"),
+  reviewFailedStages: text("review_failed_stages").array().notNull().default([]),
+  reviewFailedMessage: text("review_failed_message"),
   reviewCompletedStages: text("review_completed_stages").array().notNull().default([]),
   status: text("status").notNull(),
   published: boolean("published").notNull().default(true),
@@ -70,6 +73,7 @@ export const skillVersions = pgTable("skill_versions", {
   index("skill_versions_status_updated_at_idx").on(table.status, table.updatedAt.desc()),
   index("skill_versions_content_hash_idx").on(table.contentHash),
   index("skill_versions_published_idx").on(table.skillSlug, table.published),
+  index("skill_versions_review_status_idx").on(table.skillSlug, table.reviewStatus),
 ]);
 
 export const skillVersionTags = pgTable("skill_version_tags", {

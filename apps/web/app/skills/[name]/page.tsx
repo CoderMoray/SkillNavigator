@@ -12,6 +12,9 @@ import {
   getVersionRepublishBlockReason,
   isSkillUnlisted,
   resolveVersionDisplayVerdict,
+  resolveVersionReviewCompletedStages,
+  resolveVersionReviewFailure,
+  resolveVersionReviewStatus,
   skillRepublishBlockedMessage,
   skillUnlistedNotice,
 } from "../../../lib/publish-helpers";
@@ -384,11 +387,12 @@ export default function SkillDetailPage() {
     try {
       await retrySkillPublishReview(token, skill.slug, {
         async: true,
-        stages: skill.reviewFailure?.stages,
+        stages: resolveVersionReviewFailure(skill.versions[skill.latestVersion], skill)?.stages,
       });
+      const latestFailure = resolveVersionReviewFailure(skill.versions[skill.latestVersion], skill);
       const retryLabel =
-        skill.reviewFailure?.stages?.length
-          ? `已重新提交失败环节（${skill.reviewFailure.stages.join("、")}），请稍后在个人中心查看进度。`
+        latestFailure?.stages?.length
+          ? `已重新提交失败环节（${latestFailure.stages.join("、")}），请稍后在个人中心查看进度。`
           : "已使用已保存的包重新提交审查，请稍后在个人中心查看进度。";
       setSuccessToast(retryLabel);
       router.push(`${creatorProfilePath(viewer.username)}`);
@@ -427,20 +431,25 @@ export default function SkillDetailPage() {
     );
   }
 
-  const isReviewPending = skill.reviewStatus === "reviewing" || skill.reviewStatus === "failed";
+  const isReviewPending =
+    resolveVersionReviewStatus(currentVersion, skill) === "reviewing" ||
+    resolveVersionReviewStatus(currentVersion, skill) === "failed";
+  const displayReviewStatus = resolveVersionReviewStatus(currentVersion, skill);
+  const displayReviewFailure = resolveVersionReviewFailure(currentVersion, skill);
+  const displayReviewCompletedStages = resolveVersionReviewCompletedStages(currentVersion, skill);
   const isOwner = Boolean(viewer && isSkillOwner(skill, viewer));
   const isContributor = Boolean(viewer && isSkillContributor(skill, viewer));
   const showReviewFailureDetail =
-    skill.reviewStatus === "failed" &&
-    Boolean(skill.reviewFailure) &&
-    getSkillRepublishBlockReason(skill) !== "review_failed";
+    displayReviewStatus === "failed" &&
+    Boolean(displayReviewFailure) &&
+    getVersionRepublishBlockReason(skill, currentVersion?.version ?? skill.latestVersion) !== "review_failed";
   const isUnlisted = isSkillUnlisted(skill);
   const unlistedNotice = skillUnlistedNotice(skill);
   const reviewProgressSection =
-    skill.reviewStatus === "failed" || skill.reviewStatus === "reviewing" ? (
+    displayReviewStatus === "failed" || displayReviewStatus === "reviewing" ? (
       <SkillReviewProgress
-        completedStages={skill.reviewCompletedStages}
-        failedStages={skill.reviewFailure?.stages}
+        completedStages={displayReviewCompletedStages}
+        failedStages={displayReviewFailure?.stages}
       />
     ) : null;
   const ownerUnlistedNoticeSection =
@@ -455,10 +464,16 @@ export default function SkillDetailPage() {
         </div>
       </div>
     ) : null;
-  const canRetryStoredPackage = canRetryStoredReview(skill, skill.hasStoredPackage);
-  const needsPackageReupload = skill.reviewStatus === "failed" && isContributor && !canRetryStoredPackage;
+  const canRetryStoredPackage = canRetryStoredReview(skill, skill.latestVersion, skill.hasStoredPackage);
+  const isViewingLatest = (currentVersion?.version ?? skill.latestVersion) === skill.latestVersion;
+  const showRetryActions = isViewingLatest && displayReviewStatus === "failed" && isContributor;
+  const needsPackageReupload =
+    displayReviewStatus === "failed" && isContributor && !canRetryStoredPackage;
+  const canRetryLatestReview =
+    currentVersion?.version === skill.latestVersion &&
+    canRetryStoredReview(skill, skill.latestVersion, skill.hasStoredPackage);
   const retryReviewLabel =
-    skill.reviewFailure?.stages?.length && canRetryStoredPackage
+    displayReviewFailure?.stages?.length && canRetryLatestReview
       ? "重试失败环节"
       : "重新发布";
   const currentVersionDisplayVerdict = currentVersion
@@ -487,10 +502,10 @@ export default function SkillDetailPage() {
               <div className="card-head">
                 <span className="eyebrow">Skill Detail</span>
                 <SkillReviewStatusBadge
-                  status={skill.reviewStatus}
+                  status={displayReviewStatus}
                   title={
                     showReviewFailureDetail
-                      ? formatSkillReviewFailureSummary(skill.reviewFailure!)
+                      ? formatSkillReviewFailureSummary(displayReviewFailure!)
                       : undefined
                   }
                 />
@@ -508,17 +523,17 @@ export default function SkillDetailPage() {
               </div>
               {showReviewFailureDetail ? (
                 <p className="description skill-review-failure" style={{ marginTop: 12 }}>
-                  {formatSkillReviewFailureSummary(skill.reviewFailure!)}
+                  {formatSkillReviewFailureSummary(displayReviewFailure!)}
                 </p>
               ) : null}
               {ownerUnlistedNoticeSection}
               {reviewProgressSection}
-              {skill.reviewStatus === "reviewing" ? (
+              {displayReviewStatus === "reviewing" ? (
                 <p className="description" style={{ marginTop: 12 }}>
                   审查仍在进行中。完成后此页将显示版本、文件与审查结果；请稍后刷新。
                 </p>
               ) : null}
-              {skill.reviewStatus === "failed" && isContributor ? (
+              {showRetryActions ? (
                 <div className="hero-actions" style={{ marginTop: 16 }}>
                   {needsPackageReupload ? (
                     <Link className="button primary" href={`/skills/publish?skill=${encodeURIComponent(skill.slug)}`}>
@@ -1118,10 +1133,10 @@ export default function SkillDetailPage() {
               <span className="eyebrow">Skill Detail</span>
               {isReviewPending ? (
                 <SkillReviewStatusBadge
-                  status={skill.reviewStatus}
+                  status={displayReviewStatus}
                   title={
                     showReviewFailureDetail
-                      ? formatSkillReviewFailureSummary(skill.reviewFailure!)
+                      ? formatSkillReviewFailureSummary(displayReviewFailure!)
                       : undefined
                   }
                 />
@@ -1192,7 +1207,7 @@ export default function SkillDetailPage() {
               <button className="button secondary" onClick={() => void handleCopyInstallPrompt()} type="button">
                 <Copy size={16} /> 复制 prompt
               </button>
-              {skill.reviewStatus === "failed" && isContributor ? (
+              {showRetryActions ? (
                 needsPackageReupload ? (
                   <Link className="button primary" href={`/skills/publish?skill=${encodeURIComponent(skill.slug)}`}>
                     <Upload size={16} /> 重新上传
@@ -1211,7 +1226,7 @@ export default function SkillDetailPage() {
             </div>
             {showReviewFailureDetail ? (
               <p className="description skill-review-failure" style={{ marginTop: 12 }}>
-                {formatSkillReviewFailureSummary(skill.reviewFailure!)}
+                {formatSkillReviewFailureSummary(displayReviewFailure!)}
               </p>
             ) : null}
             {ownerUnlistedNoticeSection}

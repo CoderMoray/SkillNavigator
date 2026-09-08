@@ -91,6 +91,8 @@ export interface RegistryVersion {
   uploadedAt?: string;
   reviewStartedAt?: string;
   reviewEndedAt?: string;
+  reviewStatus?: SkillReviewStatus;
+  reviewFailure?: SkillReviewFailureInfo;
   reviewCompletedStages?: SkillReviewStage[];
   createdAt: string;
   updatedAt: string;
@@ -207,6 +209,11 @@ export interface MarkSkillReviewStatusOptions {
   description?: string;
   ownerUserId?: string;
   ownerUsername?: string;
+  /** Version row to update (required for per-version review state). */
+  version?: string;
+  /** Updates skills.latest_version when publishing a new version. */
+  setLatestVersion?: string;
+  /** @deprecated Use version + setLatestVersion instead. */
   latestVersion?: string;
   failure?: SkillReviewFailureInfo;
 }

@@ -1,12 +1,13 @@
 import type { ReviewVerdict } from "@skill-platform/review-engine";
 import type { SkillSnapshot } from "@skill-platform/skill-spec";
 import { compareSemver } from "@skill-platform/skill-spec/skill-format";
-import { isReviewPendingSkillStatus, type SkillReviewStatus } from "./review-status";
+import { DEFAULT_SKILL_REVIEW_STATUS, isReviewPendingSkillStatus, type SkillReviewStatus } from "./review-status";
 import {
   type RegistryContributor,
   type RegistryData,
   type RegistryRating,
   type RegistrySkill,
+  type RegistryVersion,
   type SkillSearchResult,
   type PublishSnapshotOptions,
 } from "./types";
@@ -154,20 +155,37 @@ export type SkillRepublishBlockReason =
   | "review_failed"
   | "review_rejected";
 
-export function getSkillRepublishBlockReason(
-  skill: Pick<RegistrySkill, "reviewStatus" | "latestVersion" | "versions">
+export function resolveVersionReviewStatus(
+  version: Pick<RegistryVersion, "reviewStatus">
+): SkillReviewStatus {
+  return version.reviewStatus ?? DEFAULT_SKILL_REVIEW_STATUS;
+}
+
+export function getVersionRepublishBlockReason(
+  skill: Pick<RegistrySkill, "latestVersion" | "versions">,
+  version: string
 ): SkillRepublishBlockReason | null {
-  if (skill.reviewStatus === "reviewing") {
+  const entry = skill.versions[version];
+  if (!entry) {
+    return null;
+  }
+  const reviewStatus = resolveVersionReviewStatus(entry);
+  if (reviewStatus === "reviewing") {
     return "review_in_progress";
   }
-  if (skill.reviewStatus === "failed") {
+  if (reviewStatus === "failed") {
     return "review_failed";
   }
-  const latest = skill.versions[skill.latestVersion];
-  if (latest?.status === "rejected") {
+  if (entry.status === "rejected") {
     return "review_rejected";
   }
   return null;
+}
+
+export function getSkillRepublishBlockReason(
+  skill: Pick<RegistrySkill, "reviewStatus" | "latestVersion" | "versions">
+): SkillRepublishBlockReason | null {
+  return getVersionRepublishBlockReason(skill, skill.latestVersion);
 }
 
 export function isSkillUnlisted(
@@ -220,12 +238,16 @@ export function toSearchResult(skill: RegistrySkill): SkillSearchResult {
     name: skill.name,
     description: skill.description,
     latestVersion: skill.latestVersion,
-    reviewStatus: skill.reviewStatus,
-    reviewFailure: skill.reviewFailure,
+    reviewStatus: resolveVersionReviewStatus(latest),
+    reviewFailure: latest.reviewFailure ?? skill.reviewFailure,
     uploadedAt: skill.uploadedAt ?? latest.uploadedAt,
     reviewStartedAt: skill.reviewStartedAt ?? latest.reviewStartedAt,
     reviewEndedAt: skill.reviewEndedAt ?? latest.reviewEndedAt,
-    status: resolveSkillDisplayVerdict(skill.reviewStatus, latest.status, latest.published),
+    status: resolveSkillDisplayVerdict(
+      resolveVersionReviewStatus(latest),
+      latest.status,
+      latest.published
+    ),
     scores: latest.review.scores,
     categories: latest.manifest.categories ?? [],
     averageRating: skill.averageRating,
@@ -291,19 +313,19 @@ export function hasStoredPendingPackage(skill: RegistrySkill, version: string = 
 
 /** Failed review may be retried with the same version when no published version exists yet. */
 export function canRepublishFailedVersion(skill: RegistrySkill, version: string): boolean {
-  if (skill.reviewStatus !== "failed" || version !== skill.latestVersion) {
+  const entry = skill.versions[version];
+  if (!entry || resolveVersionReviewStatus(entry) !== "failed") {
     return false;
   }
   if (hasStoredPendingPackage(skill, version)) {
     return false;
   }
 
-  const pending = skill.versions[version];
-  if (pending) {
-    return pending.published === false;
+  if (entry.published === false) {
+    return true;
   }
 
-  return !Object.values(skill.versions).some((entry) => entry.published);
+  return !Object.values(skill.versions).some((item) => item.published);
 }
 
 export function isSkillOwner(
@@ -357,7 +379,7 @@ export function canAccessSkillDetail(
 
 export function canAccessUnpublishedVersion(
   skill: RegistrySkill,
-  version: { published?: boolean },
+  version: { published?: boolean; reviewStatus?: SkillReviewStatus },
   user: { id: string; username: string; role?: string } | undefined
 ): boolean {
   if (version.published !== false) {
@@ -366,7 +388,7 @@ export function canAccessUnpublishedVersion(
   if (!user) {
     return false;
   }
-  if (isReviewPendingSkillStatus(skill.reviewStatus)) {
+  if (isReviewPendingSkillStatus(version.reviewStatus ?? DEFAULT_SKILL_REVIEW_STATUS)) {
     return isSkillContributor(skill, user);
   }
   return isSkillOwner(skill, user);

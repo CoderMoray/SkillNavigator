@@ -67,6 +67,7 @@ import {
   isRegistrationEmailConfigured,
   sendPasswordResetEmail,
   sendRegistrationVerificationEmail,
+  resolveVersionReviewStatus,
   type AuthStore,
   type ContributorRole,
   type IssueSeverity,
@@ -219,10 +220,12 @@ async function resolveFailedReviewStoredPackage(
   store: RegistryStore,
   skill: RegistrySkill
 ): Promise<boolean | undefined> {
-  if (skill.reviewStatus !== "failed") {
+  const version = skill.latestVersion;
+  const registryVersion = skill.versions[version];
+  if (resolveVersionReviewStatus(registryVersion ?? { reviewStatus: skill.reviewStatus }) !== "failed") {
     return undefined;
   }
-  return Boolean(await store.loadStoredSnapshot(skill.slug, skill.latestVersion));
+  return Boolean(await store.loadStoredSnapshot(skill.slug, version));
 }
 
 async function assertPublishDoesNotReplaceStoredRetryPackage(
@@ -231,7 +234,11 @@ async function assertPublishDoesNotReplaceStoredRetryPackage(
   version: string,
   existingSkill: RegistrySkill | undefined
 ): Promise<void> {
-  if (existingSkill?.reviewStatus !== "failed" || version !== existingSkill.latestVersion) {
+  const registryVersion = existingSkill?.versions[version];
+  if (
+    resolveVersionReviewStatus(registryVersion ?? { reviewStatus: existingSkill?.reviewStatus }) !== "failed" ||
+    version !== existingSkill?.latestVersion
+  ) {
     return;
   }
   if (await store.loadStoredSnapshot(slug, version)) {
@@ -884,11 +891,12 @@ export function buildServer() {
       });
 
       await store.markSkillReviewStatus(prepared.slug, "reviewing", {
+        version: prepared.version,
+        setLatestVersion: prepared.version,
         name: prepared.snapshot.manifest.name,
         description: prepared.snapshot.manifest.description ?? "",
         ownerUserId: user.id,
         ownerUsername: user.username,
-        latestVersion: prepared.version,
       });
 
       if (request.body.async !== false) {
@@ -912,12 +920,12 @@ export function buildServer() {
       try {
         ({ review, evaluation, failedStages } = await executeStagedPublishReview(store, prepared));
       } catch (error) {
-        await markPublishReviewFailed(store, prepared.slug, error);
+        await markPublishReviewFailed(store, prepared.slug, prepared.version, error);
         throw error;
       }
 
       if (failedStages.length > 0) {
-        await markPublishReviewFailed(store, prepared.slug, failedStages);
+        await markPublishReviewFailed(store, prepared.slug, prepared.version, failedStages);
         return reply.code(503).send({
           error: "review_pipeline_incomplete",
           retryable: true,
@@ -966,15 +974,19 @@ export function buildServer() {
     if (!isSkillContributor(skill, user)) {
       return reply.code(403).send({ error: "Only skill contributors can publish new versions" });
     }
-    if (skill.reviewStatus === "reviewing") {
+    const version = skill.latestVersion;
+    const registryVersion = skill.versions[version];
+    const versionReviewStatus = resolveVersionReviewStatus(
+      registryVersion ?? { reviewStatus: skill.reviewStatus }
+    );
+    if (versionReviewStatus === "reviewing") {
       return reply.code(409).send({ error: "skill_review_in_progress" });
     }
-    if (skill.reviewStatus !== "failed") {
+    if (versionReviewStatus !== "failed") {
       return reply.code(400).send({ error: "skill_not_retryable" });
     }
 
-    const version = skill.latestVersion;
-    const pendingVersion = skill.versions[version];
+    const pendingVersion = registryVersion;
     const releaseTags = pendingVersion?.releaseTags ?? ["latest"];
     const changelog = pendingVersion?.changelog;
 
@@ -1010,7 +1022,7 @@ export function buildServer() {
     publishRateLimiter.recordAttempt(user.id);
 
     await store.markSkillReviewStatus(skill.slug, "reviewing", {
-      latestVersion: version,
+      version,
     });
 
     const prepared: PreparedPublishRequest = {
@@ -1019,7 +1031,7 @@ export function buildServer() {
       slug: skill.slug,
       releaseTags,
     };
-    const reviewOptions = buildRetryReviewOptions(skill, request.body?.stages);
+    const reviewOptions = buildRetryReviewOptions(skill, version, request.body?.stages);
 
     if (request.body?.async !== false) {
       void runBackgroundPublishReview(store, prepared, user.id, user.username, changelog, reviewOptions).catch((error) => {
@@ -1047,12 +1059,12 @@ export function buildServer() {
           reviewOptions
         ));
       } catch (error) {
-        await markPublishReviewFailed(store, prepared.slug, error);
+        await markPublishReviewFailed(store, prepared.slug, prepared.version, error);
         throw error;
       }
 
       if (failedStages.length > 0) {
-        await markPublishReviewFailed(store, prepared.slug, failedStages);
+        await markPublishReviewFailed(store, prepared.slug, prepared.version, failedStages);
         return reply.code(503).send({
           error: "review_pipeline_incomplete",
           retryable: true,
@@ -1691,7 +1703,7 @@ function buildReviewPipelineInitialState(
   const registryVersion = skill.versions[version];
   if (!registryVersion) {
     return {
-      completedStages: skill.reviewCompletedStages ?? [],
+      completedStages: [],
       failedStages: [],
     };
   }
@@ -1702,18 +1714,23 @@ function buildReviewPipelineInitialState(
     skillSpectorAvailable: Boolean(registryVersion.review?.skillSpector),
     virusTotal: registryVersion.review?.virusTotal,
     evaluation: registryVersion.evaluation,
-    completedStages: skill.reviewCompletedStages ?? [],
-    failedStages: [],
+    completedStages: registryVersion.reviewCompletedStages ?? [],
+    failedStages: registryVersion.reviewFailure?.stages?.map((stage) => ({
+      stage,
+      message: registryVersion.reviewFailure?.message ?? "",
+    })) ?? [],
   };
 }
 
 function buildRetryReviewOptions(
   skill: RegistrySkill,
+  version: string,
   requestedStages?: SkillReviewStage[]
 ): StagedPublishReviewOptions {
+  const registryVersion = skill.versions[version];
   const configuredStages = getConfiguredReviewStages();
-  const completedStages = skill.reviewCompletedStages ?? [];
-  const failedStages = skill.reviewFailure?.stages ?? [];
+  const completedStages = registryVersion?.reviewCompletedStages ?? [];
+  const failedStages = registryVersion?.reviewFailure?.stages ?? [];
   const stagesToRun = resolveReviewStagesToRun({
     configuredStages,
     completedStages,
@@ -1724,7 +1741,7 @@ function buildRetryReviewOptions(
 
   return {
     skipStages,
-    initialState: buildReviewPipelineInitialState(skill, skill.latestVersion),
+    initialState: buildReviewPipelineInitialState(skill, version),
   };
 }
 
@@ -1767,7 +1784,7 @@ async function runBackgroundPublishReview(
       reviewOptions
     );
     if (failedStages.length > 0) {
-      await markPublishReviewFailed(store, prepared.slug, failedStages);
+      await markPublishReviewFailed(store, prepared.slug, prepared.version, failedStages);
       return;
     }
 
@@ -1785,7 +1802,7 @@ async function runBackgroundPublishReview(
       `Background publish review failed for ${prepared.slug}@${prepared.version}:`,
       error
     );
-    await markPublishReviewFailed(store, prepared.slug, error);
+    await markPublishReviewFailed(store, prepared.slug, prepared.version, error);
   }
 }
 
@@ -1809,7 +1826,7 @@ async function publishReviewedSnapshot(
       reviewAlreadyCommitted: true,
     });
   } catch (error) {
-    await markPublishReviewFailed(store, prepared.slug, error);
+    await markPublishReviewFailed(store, prepared.slug, prepared.version, error);
     throw error;
   }
 }
@@ -1817,6 +1834,7 @@ async function publishReviewedSnapshot(
 async function markPublishReviewFailed(
   store: RegistryStore,
   slug: string,
+  version: string,
   failedStagesOrError: ReviewStageFailure[] | unknown
 ): Promise<void> {
   const failure = Array.isArray(failedStagesOrError)
@@ -1824,9 +1842,9 @@ async function markPublishReviewFailed(
     : buildSkillReviewFailureFromError(failedStagesOrError);
 
   try {
-    await store.markSkillReviewStatus(slug, "failed", { failure });
+    await store.markSkillReviewStatus(slug, "failed", { version, failure });
   } catch (markError) {
-    console.error(`Failed to mark review status failed for ${slug}:`, markError);
+    console.error(`Failed to mark review status failed for ${slug}@${version}:`, markError);
   }
 }
 

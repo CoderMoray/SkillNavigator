@@ -87,6 +87,19 @@ function mapReviewFailureFromRow(
   };
 }
 
+function resolveMarkReviewTargetVersion(
+  options: MarkSkillReviewStatusOptions | undefined,
+  existingLatestVersion: string | undefined
+): string | undefined {
+  return options?.version ?? options?.latestVersion ?? options?.setLatestVersion ?? existingLatestVersion;
+}
+
+function resolveMarkReviewLatestPointer(
+  options: MarkSkillReviewStatusOptions | undefined
+): string | undefined {
+  return options?.setLatestVersion ?? options?.latestVersion;
+}
+
 function reviewFailurePatch(
   reviewStatus: SkillReviewStatus,
   failure?: SkillReviewFailureInfo
@@ -955,6 +968,12 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         reviewStartedAt: mapOptionalTimestamp(v.reviewStartedAt),
         reviewEndedAt: mapOptionalTimestamp(v.reviewEndedAt),
         reviewCompletedStages: parseSkillReviewStages(v.reviewCompletedStages),
+        reviewStatus: parseSkillReviewStatus(v.reviewStatus),
+        reviewFailure: mapReviewFailureFromRow(
+          parseSkillReviewStatus(v.reviewStatus),
+          v.reviewFailedStages,
+          v.reviewFailedMessage
+        ),
         createdAt: String(v.createdAt), updatedAt: String(v.updatedAt),
       };
     }
@@ -1270,19 +1289,15 @@ export class PostgresRegistryStore extends JsonRegistryStore {
 
     if (finalize) {
       await this.db.update(schema.skillVersions)
-        .set({ status: review.verdict, updatedAt: new Date() })
-        .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
-    }
-
-    if (finalize) {
-      await this.db.update(schema.skills)
         .set({
+          status: review.verdict,
           reviewStatus: "completed",
           reviewFailedStages: [],
           reviewFailedMessage: null,
           updatedAt: new Date(),
         })
-        .where(eq(schema.skills.slug, slug));
+        .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
+      await this.syncSkillReviewDenormFromLatest(slug);
     }
 
     return (await this.getSkill(slug))?.versions[version] as RegistryVersion;
@@ -1304,30 +1319,67 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       await this.upsertEvaluation(slug, version, evaluation);
     }
 
-    await this.db.update(schema.skills)
-      .set({
-        reviewCompletedStages: completedStages,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.skills.slug, slug));
-
     await this.db.update(schema.skillVersions)
       .set({
         reviewCompletedStages: completedStages,
         updatedAt: new Date(),
+        ...(finalize
+          ? {
+              reviewStatus: "completed" as const,
+              reviewFailedStages: [],
+              reviewFailedMessage: null,
+            }
+          : {}),
       })
       .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
 
-    if (finalize) {
-      await this.db.update(schema.skills)
-        .set({
-          reviewStatus: "completed",
-          reviewFailedStages: [],
-          reviewFailedMessage: null,
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.skills.slug, slug));
+    await this.syncSkillReviewDenormFromLatest(slug);
+  }
+
+  private async syncSkillReviewDenormFromLatest(slug: string): Promise<void> {
+    const [skillRow] = await this.db
+      .select({ latestVersion: schema.skills.latestVersion })
+      .from(schema.skills)
+      .where(eq(schema.skills.slug, slug))
+      .limit(1);
+    if (!skillRow?.latestVersion) {
+      return;
     }
+
+    const [versionRow] = await this.db
+      .select({
+        reviewStatus: schema.skillVersions.reviewStatus,
+        reviewFailedStages: schema.skillVersions.reviewFailedStages,
+        reviewFailedMessage: schema.skillVersions.reviewFailedMessage,
+        reviewCompletedStages: schema.skillVersions.reviewCompletedStages,
+        reviewStartedAt: schema.skillVersions.reviewStartedAt,
+        reviewEndedAt: schema.skillVersions.reviewEndedAt,
+      })
+      .from(schema.skillVersions)
+      .where(
+        and(
+          eq(schema.skillVersions.skillSlug, slug),
+          eq(schema.skillVersions.version, skillRow.latestVersion)
+        )
+      )
+      .limit(1);
+    if (!versionRow) {
+      return;
+    }
+
+    const reviewStatus = parseSkillReviewStatus(versionRow.reviewStatus);
+    await this.db.update(schema.skills)
+      .set({
+        reviewStatus,
+        reviewFailedStages: versionRow.reviewFailedStages,
+        reviewFailedMessage: versionRow.reviewFailedMessage,
+        reviewCompletedStages: versionRow.reviewCompletedStages,
+        reviewStartedAt: versionRow.reviewStartedAt,
+        reviewEndedAt: versionRow.reviewEndedAt,
+        ...(reviewStatus === "failed" ? { published: false } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.skills.slug, slug));
   }
 
   async upsertEvaluation(slug: string, version: string, evaluation: FunctionalEvaluationReport): Promise<RegistryVersion> {
@@ -1368,6 +1420,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     await this.ensureSchema();
     const now = new Date();
     const timingPatch = skillReviewTimingPatch(reviewStatus, now);
+    const failurePatch = reviewFailurePatch(reviewStatus, options?.failure);
     const [existing] = await this.db
       .select({
         slug: schema.skills.slug,
@@ -1377,27 +1430,20 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       .where(eq(schema.skills.slug, slug))
       .limit(1);
 
-    const targetVersion = options?.latestVersion ?? existing?.latestVersion;
+    const targetVersion = resolveMarkReviewTargetVersion(options, existing?.latestVersion);
+    const latestPointer = resolveMarkReviewLatestPointer(options);
 
     if (existing) {
       await this.db.update(schema.skills)
         .set({
-          reviewStatus,
           updatedAt: now,
-          ...(reviewStatus === "failed" ? { published: false } : {}),
-          ...reviewFailurePatch(reviewStatus, options?.failure),
-          ...timingPatch,
-          ...(options
-            ? {
-                name: options.name,
-                description: options.description,
-                latestVersion: options.latestVersion,
-              }
-            : {}),
+          ...(latestPointer ? { latestVersion: latestPointer } : {}),
+          ...(options?.name !== undefined ? { name: options.name } : {}),
+          ...(options?.description !== undefined ? { description: options.description } : {}),
         })
         .where(eq(schema.skills.slug, slug));
     } else {
-      if (!options?.name || options.description === undefined || !options.latestVersion) {
+      if (!options?.name || options.description === undefined || !latestPointer) {
         throw new Error(`Skill not found: ${slug}`);
       }
 
@@ -1406,9 +1452,9 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         name: options.name,
         description: options.description,
         ownerUserId: options.ownerUserId ?? null,
-        latestVersion: options.latestVersion,
+        latestVersion: latestPointer,
         reviewStatus,
-        ...reviewFailurePatch(reviewStatus, options.failure),
+        ...failurePatch,
         ...timingPatch,
         published: false,
         createdAt: now,
@@ -1416,17 +1462,20 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       });
     }
 
-    if (targetVersion && Object.keys(timingPatch).length > 0) {
+    if (targetVersion) {
       await this.db.update(schema.skillVersions)
-        .set({ ...timingPatch, updatedAt: now })
+        .set({
+          reviewStatus,
+          ...failurePatch,
+          ...timingPatch,
+          ...(reviewStatus === "reviewing" ? { reviewCompletedStages: [] } : {}),
+          ...(reviewStatus === "failed" ? { status: "rejected" as const } : {}),
+          updatedAt: now,
+        })
         .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, targetVersion)));
     }
 
-    if (targetVersion && reviewStatus === "failed") {
-      await this.db.update(schema.skillVersions)
-        .set({ status: "rejected", updatedAt: now })
-        .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, targetVersion)));
-    }
+    await this.syncSkillReviewDenormFromLatest(slug);
 
     if (options?.ownerUserId && options.ownerUsername) {
       await this.ensureSkillOwnerContributor(slug, options.ownerUserId, options.ownerUsername);
@@ -1547,6 +1596,9 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       uploadedAt: now,
       reviewStartedAt: null,
       reviewEndedAt: null,
+      reviewStatus: "reviewing" as const,
+      reviewFailedStages: [],
+      reviewFailedMessage: null,
       reviewCompletedStages: [],
       updatedAt: now,
     };
@@ -1577,9 +1629,6 @@ export class PostgresRegistryStore extends JsonRegistryStore {
             name,
             description,
             latestVersion: version,
-            reviewCompletedStages: [],
-            reviewFailedStages: [],
-            reviewFailedMessage: null,
             uploadedAt: now,
             updatedAt: now,
           })
@@ -1626,6 +1675,8 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     if (options.ownerUserId && options.ownerUsername) {
       await this.ensureSkillOwnerContributor(slug, options.ownerUserId, options.ownerUsername);
     }
+
+    await this.syncSkillReviewDenormFromLatest(slug);
   }
 
   async rollbackPendingPublishVersion(slug: string, version: string): Promise<void> {
@@ -1922,9 +1973,9 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       const rv = skill?.versions[version];
       if (!skill || skill.deletedAt || !rv) continue;
 
-      if (!reviewingSlugs.has(slug)) {
-        await this.markSkillReviewStatus(slug, "reviewing");
-        reviewingSlugs.add(slug);
+      if (!reviewingSlugs.has(`${slug}@${version}`)) {
+        await this.markSkillReviewStatus(slug, "reviewing", { version });
+        reviewingSlugs.add(`${slug}@${version}`);
       }
 
       const { review, evaluation } = await pipelineFn(rv.snapshot, version);
@@ -1953,31 +2004,36 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         name: schema.skills.name,
         description: schema.skills.description,
         latestVersion: schema.skills.latestVersion,
-        reviewStatus: schema.skills.reviewStatus,
-        reviewFailedStages: schema.skills.reviewFailedStages,
-        reviewFailedMessage: schema.skills.reviewFailedMessage,
-        uploadedAt: schema.skills.uploadedAt,
-        reviewStartedAt: schema.skills.reviewStartedAt,
-        reviewEndedAt: schema.skills.reviewEndedAt,
+        pendingVersion: schema.skillVersions.version,
+        reviewStatus: schema.skillVersions.reviewStatus,
+        reviewFailedStages: schema.skillVersions.reviewFailedStages,
+        reviewFailedMessage: schema.skillVersions.reviewFailedMessage,
+        uploadedAt: schema.skillVersions.uploadedAt,
+        reviewStartedAt: schema.skillVersions.reviewStartedAt,
+        reviewEndedAt: schema.skillVersions.reviewEndedAt,
         published: schema.skills.published,
         averageRating: schema.skills.averageRating,
         ratingCount: schema.skills.ratingCount,
-        updatedAt: schema.skills.updatedAt,
+        updatedAt: schema.skillVersions.updatedAt,
         openIssues: sql<number>`(
           select count(*) from ${schema.skillIssues}
           where ${schema.skillIssues.skillSlug} = ${schema.skills.slug}
           and ${schema.skillIssues.status} != 'closed'
         )`.mapWith(Number),
       })
-      .from(schema.skills)
+      .from(schema.skillVersions)
+      .innerJoin(schema.skills, eq(schema.skills.slug, schema.skillVersions.skillSlug))
       .where(
         and(
           isNull(schema.skills.deletedAt),
           memberMatch,
-          or(eq(schema.skills.reviewStatus, "reviewing"), eq(schema.skills.reviewStatus, "failed"))
+          or(
+            eq(schema.skillVersions.reviewStatus, "reviewing"),
+            eq(schema.skillVersions.reviewStatus, "failed")
+          )
         )
       )
-      .orderBy(desc(schema.skills.updatedAt));
+      .orderBy(desc(schema.skillVersions.updatedAt));
 
     if (rows.length === 0) {
       return [];
@@ -2002,7 +2058,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       slug: row.slug,
       name: row.name,
       description: row.description,
-      latestVersion: row.latestVersion,
+      latestVersion: row.pendingVersion ?? row.latestVersion,
       reviewStatus,
       reviewFailure: mapReviewFailureFromRow(
         reviewStatus,
@@ -2445,20 +2501,22 @@ export class PostgresRegistryStore extends JsonRegistryStore {
 
     const rows = await this.db
       .select({
-        slug: schema.skills.slug,
-        latestVersion: schema.skills.latestVersion,
+        slug: schema.skillVersions.skillSlug,
+        version: schema.skillVersions.version,
       })
-      .from(schema.skills)
+      .from(schema.skillVersions)
+      .innerJoin(schema.skills, eq(schema.skills.slug, schema.skillVersions.skillSlug))
       .where(
         and(
           isNull(schema.skills.deletedAt),
-          eq(schema.skills.reviewStatus, "reviewing"),
-          ...(recoverAll ? [] : [lte(schema.skills.updatedAt, staleBefore)])
+          eq(schema.skillVersions.reviewStatus, "reviewing"),
+          ...(recoverAll ? [] : [lte(schema.skillVersions.updatedAt, staleBefore)])
         )
       );
 
     for (const row of rows) {
       await this.markSkillReviewStatus(row.slug, "failed", {
+        version: row.version,
         failure: {
           stages: [],
           message: recoverAll ? REVIEW_INTERRUPTED_MESSAGE : REVIEW_STALE_MESSAGE,
