@@ -6,6 +6,7 @@ import {
   INSPECTION_INTERRUPTED_MESSAGE,
   INSPECTION_STALE_MESSAGE,
   INSPECTION_SUPERSEDED_MESSAGE,
+  isInspectionFailureStatus,
   readInspectionStaleMs,
 } from "../inspection-status.js";
 import type {
@@ -73,15 +74,14 @@ function syncSkillInspectionDenormFromLatest(skill: RegistrySkill): void {
 
   const inspectionStatus = resolveVersionInspectionStatus(latest);
   skill.inspectionStatus = inspectionStatus;
-  skill.inspectionFailure =
-    inspectionStatus === "failed"
-      ? (latest.inspectionFailure ?? { stages: [], message: "审查流程未完成" })
-      : undefined;
+  skill.inspectionFailure = isInspectionFailureStatus(inspectionStatus)
+    ? (latest.inspectionFailure ?? { stages: [], message: "审查流程未完成" })
+    : undefined;
   skill.inspectionCompletedStages = latest.inspectionCompletedStages;
   skill.inspectionStartedAt = latest.inspectionStartedAt;
   skill.inspectionEndedAt = latest.inspectionEndedAt;
   skill.uploadedAt = latest.uploadedAt ?? skill.uploadedAt;
-  if (inspectionStatus === "failed") {
+  if (isInspectionFailureStatus(inspectionStatus)) {
     skill.published = false;
   }
 }
@@ -99,10 +99,9 @@ export abstract class JsonRegistryStore implements RegistryStore {
     const now = new Date().toISOString();
     const targetVersion = resolveMarkReviewTargetVersion(options, existing?.latestVersion);
     const latestPointer = resolveMarkReviewLatestPointer(options);
-    const failure =
-      inspectionStatus === "failed"
-        ? (options?.failure ?? { stages: [], message: "审查流程未完成" })
-        : undefined;
+    const failure = isInspectionFailureStatus(inspectionStatus)
+      ? (options?.failure ?? { stages: [], message: "审查流程未完成" })
+      : undefined;
 
     if (existing) {
       existing.updatedAt = now;
@@ -133,15 +132,15 @@ export abstract class JsonRegistryStore implements RegistryStore {
         const version = existing.versions[targetVersion];
         if (version) {
           version.inspectionStatus = inspectionStatus;
-          version.inspectionFailure = inspectionStatus === "failed" ? failure : undefined;
+          version.inspectionFailure = isInspectionFailureStatus(inspectionStatus) ? failure : undefined;
           if (inspectionStatus === "inspecting") {
             version.inspectionStartedAt = now;
             version.inspectionEndedAt = undefined;
             version.inspectionCompletedStages = [];
-          } else if (inspectionStatus === "completed" || inspectionStatus === "failed") {
+          } else if (inspectionStatus === "completed" || isInspectionFailureStatus(inspectionStatus)) {
             version.inspectionEndedAt = now;
           }
-          if (inspectionStatus === "failed") {
+          if (inspectionStatus === "rejected") {
             version.status = "rejected";
           }
           version.updatedAt = now;
@@ -164,7 +163,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
       ownerUserId: options.ownerUserId,
       latestVersion: latestPointer,
       inspectionStatus,
-      inspectionFailure: inspectionStatus === "failed" ? failure : undefined,
+      inspectionFailure: isInspectionFailureStatus(inspectionStatus) ? failure : undefined,
       versions: {},
       contributors:
         options.ownerUserId && options.ownerUsername
@@ -309,7 +308,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
         existingVersion !== version &&
         resolveVersionInspectionStatus(entry) === "inspecting"
       ) {
-        entry.inspectionStatus = "failed";
+        entry.inspectionStatus = "interrupted";
         entry.inspectionFailure = { stages: [], message: INSPECTION_SUPERSEDED_MESSAGE };
         entry.status = "rejected";
         entry.inspectionEndedAt = now;
@@ -889,7 +888,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
 
         const isLatest = version.version === skill.latestVersion;
         if (!isLatest) {
-          version.inspectionStatus = "failed";
+          version.inspectionStatus = "interrupted";
           version.inspectionFailure = {
             stages: [],
             message: INSPECTION_SUPERSEDED_MESSAGE,
@@ -905,7 +904,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
           continue;
         }
 
-        version.inspectionStatus = "failed";
+        version.inspectionStatus = "interrupted";
         version.inspectionFailure = {
           stages: [],
           message: recoverAll ? INSPECTION_INTERRUPTED_MESSAGE : INSPECTION_STALE_MESSAGE,

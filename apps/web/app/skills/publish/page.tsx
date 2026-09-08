@@ -37,7 +37,7 @@ import {
 } from "../../../lib/build-skill-zip";
 import type { PublicUser, RegistrySkill } from "../../../lib/types";
 import { compareSemver, SKILL_ENTRY_BASENAMES, validatePublishMetadataInput } from "@skill-platform/skill-spec/skill-format";
-import { canRepublishFailedVersion, canRetryStoredInspection, hasStoredPendingPackage } from "../../../lib/publish-helpers";
+import { canRepublishFailedVersion, canRetryStoredInspection, hasStoredPendingPackage, isInspectionFailureStatus } from "../../../lib/publish-helpers";
 import { isSkillContributor } from "../../../lib/skill-contributors";
 import { SKILL_CATEGORY_OPTIONS } from "../../../lib/skill-categories";
 
@@ -335,13 +335,13 @@ function PublishSkillPageContent() {
       slugAvailability.viewerCanPublish
     ) {
       if (
-        slugAvailability.inspectionStatus === "failed" &&
+        isInspectionFailureStatus(slugAvailability.inspectionStatus) &&
         slugAvailability.hasStoredPackage
       ) {
         return `该 Slug 对应 Skill 已保存完整包文件，请前往详情页使用「重新发布」直接重新审查，无需重复上传。`;
       }
       if (
-        slugAvailability.inspectionStatus === "failed" &&
+        isInspectionFailureStatus(slugAvailability.inspectionStatus) &&
         slugAvailability.needsPackageReupload
       ) {
         return `该 Slug 对应 Skill 审查未通过且未保留包文件，请重新上传 v${slugAvailability.latestVersion} 进行审查。`;

@@ -1,6 +1,19 @@
-export const SKILL_INSPECTION_STATUSES = ["inspecting", "completed", "failed"] as const;
+export const SKILL_INSPECTION_STATUSES = ["inspecting", "completed", "interrupted", "rejected"] as const;
 
 export type SkillInspectionStatus = (typeof SKILL_INSPECTION_STATUSES)[number];
+
+/** @deprecated Legacy DB/API value; normalized to interrupted or rejected at read time. */
+export const LEGACY_SKILL_INSPECTION_FAILED = "failed" as const;
+
+export type InspectionAggregateDisplayStatus = "completed" | "interrupted" | "rejected" | "processing";
+
+export type InspectionStageDisplayStatus =
+  | "passed"
+  | "done"
+  | "processing"
+  | "interrupted"
+  | "rejected"
+  | string;
 
 export const SKILL_INSPECTION_STAGES = ["skillspector", "virustotal", "halucatch"] as const;
 
@@ -21,8 +34,26 @@ export function isSkillInspectionStage(value: string): value is SkillInspectionS
   return (SKILL_INSPECTION_STAGES as readonly string[]).includes(value);
 }
 
+export function normalizeSkillInspectionStatus(value: string | undefined | null): SkillInspectionStatus {
+  const raw = String(value ?? "").trim();
+  if (raw === LEGACY_SKILL_INSPECTION_FAILED) {
+    return "interrupted";
+  }
+  if (isSkillInspectionStatus(raw)) {
+    return raw;
+  }
+  return DEFAULT_SKILL_INSPECTION_STATUS;
+}
+
+export function isInspectionFailureStatus(
+  inspectionStatus: string | undefined | null
+): inspectionStatus is "interrupted" | "rejected" {
+  const normalized = normalizeSkillInspectionStatus(inspectionStatus);
+  return normalized === "interrupted" || normalized === "rejected";
+}
+
 export function isInspectionPendingSkillStatus(inspectionStatus: SkillInspectionStatus): boolean {
-  return inspectionStatus === "inspecting" || inspectionStatus === "failed";
+  return inspectionStatus === "inspecting" || isInspectionFailureStatus(inspectionStatus);
 }
 
 export function skillInspectionStatusLabel(status: SkillInspectionStatus): string {
@@ -31,9 +62,19 @@ export function skillInspectionStatusLabel(status: SkillInspectionStatus): strin
       return "审查中";
     case "completed":
       return "审查完成";
-    case "failed":
-      return "审查失败";
+    case "interrupted":
+      return "审查中断";
+    case "rejected":
+      return "审查拒绝";
   }
+}
+
+/** Pipeline / runtime failures mean the inspection did not finish — never "rejected". */
+export function classifyInspectionFailureStatus(
+  _failure: SkillInspectionFailureInfo | undefined,
+  _versionStatus?: string
+): "interrupted" {
+  return "interrupted";
 }
 
 export function skillInspectionStageLabel(stage: SkillInspectionStage): string {

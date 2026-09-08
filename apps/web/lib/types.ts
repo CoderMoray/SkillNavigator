@@ -1,5 +1,5 @@
 export type InspectionVerdict = "published" | "needs-inspection" | "rejected";
-export type SkillInspectionStatus = "inspecting" | "completed" | "failed";
+export type SkillInspectionStatus = "inspecting" | "completed" | "interrupted" | "rejected";
 export type SkillInspectionStage = "skillspector" | "virustotal" | "halucatch";
 
 export interface SkillInspectionFailureInfo {

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Download, EyeOff, MessageSquare, Star, Users } from "lucide-react";
 import { formatDateTime, formatNumber, formatSkillInspectionFailureSummary } from "../lib/format";
 import {
+  isInspectionFailureStatus,
   isSkillSearchResultUnlisted,
   resolveSkillDisplayVerdict,
 } from "../lib/publish-helpers";
@@ -41,7 +42,7 @@ export function SkillCard({ skill, variant = "card" }: { skill: SkillSearchResul
               ) : null}
             </div>
             <p>{skill.description}</p>
-            {skill.inspectionStatus === "failed" && skill.inspectionFailure ? (
+            {isInspectionFailureStatus(skill.inspectionStatus) && skill.inspectionFailure ? (
               <p className="skill-inspection-failure" title={skill.inspectionFailure.message}>
                 {formatSkillInspectionFailureSummary(skill.inspectionFailure)}
               </p>
@@ -61,7 +62,7 @@ export function SkillCard({ skill, variant = "card" }: { skill: SkillSearchResul
             <SkillInspectionStatusBadge
               status={skill.inspectionStatus}
               title={
-                skill.inspectionStatus === "failed" && skill.inspectionFailure
+                isInspectionFailureStatus(skill.inspectionStatus) && skill.inspectionFailure
                   ? formatSkillInspectionFailureSummary(skill.inspectionFailure)
                   : undefined
               }

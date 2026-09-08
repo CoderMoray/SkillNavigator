@@ -10,6 +10,7 @@ import {
   canRetryStoredInspection,
   getSkillRepublishBlockReason,
   getVersionRepublishBlockReason,
+  isInspectionFailureStatus,
   isSkillUnlisted,
   resolveVersionDisplayVerdict,
   resolveVersionInspectionCompletedStages,
@@ -433,20 +434,20 @@ export default function SkillDetailPage() {
 
   const isInspectionPending =
     resolveVersionInspectionStatus(currentVersion, skill) === "inspecting" ||
-    resolveVersionInspectionStatus(currentVersion, skill) === "failed";
+    isInspectionFailureStatus(resolveVersionInspectionStatus(currentVersion, skill));
   const displayInspectionStatus = resolveVersionInspectionStatus(currentVersion, skill);
   const displayInspectionFailure = resolveVersionInspectionFailure(currentVersion, skill);
   const displayInspectionCompletedStages = resolveVersionInspectionCompletedStages(currentVersion, skill);
   const isOwner = Boolean(viewer && isSkillOwner(skill, viewer));
   const isContributor = Boolean(viewer && isSkillContributor(skill, viewer));
   const showInspectionFailureDetail =
-    displayInspectionStatus === "failed" &&
+    isInspectionFailureStatus(displayInspectionStatus) &&
     Boolean(displayInspectionFailure) &&
     getVersionRepublishBlockReason(skill, currentVersion?.version ?? skill.latestVersion) !== "inspection_failed";
   const isUnlisted = isSkillUnlisted(skill);
   const unlistedNotice = skillUnlistedNotice(skill);
   const inspectionProgressSection =
-    displayInspectionStatus === "failed" || displayInspectionStatus === "inspecting" ? (
+    isInspectionFailureStatus(displayInspectionStatus) || displayInspectionStatus === "inspecting" ? (
       <SkillInspectionProgress
         completedStages={displayInspectionCompletedStages}
         failedStages={displayInspectionFailure?.stages}
@@ -466,9 +467,9 @@ export default function SkillDetailPage() {
     ) : null;
   const canRetryStoredPackage = canRetryStoredInspection(skill, skill.latestVersion, skill.hasStoredPackage);
   const isViewingLatest = (currentVersion?.version ?? skill.latestVersion) === skill.latestVersion;
-  const showRetryActions = isViewingLatest && displayInspectionStatus === "failed" && isContributor;
+  const showRetryActions = isViewingLatest && isInspectionFailureStatus(displayInspectionStatus) && isContributor;
   const needsPackageReupload =
-    displayInspectionStatus === "failed" && isContributor && !canRetryStoredPackage;
+    isInspectionFailureStatus(displayInspectionStatus) && isContributor && !canRetryStoredPackage;
   const canRetryLatestInspection =
     currentVersion?.version === skill.latestVersion &&
     canRetryStoredInspection(skill, skill.latestVersion, skill.hasStoredPackage);

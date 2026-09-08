@@ -32,7 +32,8 @@ const stranger = { id: "user_other", username: "other" };
 describe("skill access helpers", () => {
   it("detects review pending statuses", () => {
     expect(isInspectionPendingSkillStatus("inspecting")).toBe(true);
-    expect(isInspectionPendingSkillStatus("failed")).toBe(true);
+    expect(isInspectionPendingSkillStatus("interrupted")).toBe(true);
+    expect(isInspectionPendingSkillStatus("rejected")).toBe(true);
     expect(isInspectionPendingSkillStatus("completed")).toBe(false);
   });
 
@@ -80,14 +81,14 @@ describe("skill access helpers", () => {
     const inspecting = skill({
       slug: "pending",
       published: false,
-      inspectionStatus: "failed",
+      inspectionStatus: "interrupted",
       ownerUserId: owner.id,
       contributors: [
         { id: "c2", name: "contrib", username: "contrib", role: "contributor", userId: contributor.id, addedAt: "2026-01-01T00:00:00.000Z" },
       ],
     });
 
-    expect(canAccessUnpublishedVersion(inspecting, { published: false, inspectionStatus: "failed" }, contributor)).toBe(true);
-    expect(canAccessUnpublishedVersion(inspecting, { published: false, inspectionStatus: "failed" }, stranger)).toBe(false);
+    expect(canAccessUnpublishedVersion(inspecting, { published: false, inspectionStatus: "interrupted" }, contributor)).toBe(true);
+    expect(canAccessUnpublishedVersion(inspecting, { published: false, inspectionStatus: "interrupted" }, stranger)).toBe(false);
   });
 });

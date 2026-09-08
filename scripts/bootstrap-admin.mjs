@@ -16,8 +16,6 @@ import {
   loadDotEnvIfPresent,
 } from "@skill-platform/storage";
 import {
-  DEMO_SLUG,
-  OFFICIAL_SLUG,
   parseAdminConfig,
   runBootstrap,
 } from "./bootstrap-admin-core.mjs";

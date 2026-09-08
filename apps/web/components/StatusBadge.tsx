@@ -20,7 +20,7 @@ export function SkillInspectionStatusBadge({
     return null;
   }
 
-  if (status === "failed") {
+  if (status === "interrupted" || status === "rejected") {
     return <VerdictBadge verdict="rejected" title={title} />;
   }
 

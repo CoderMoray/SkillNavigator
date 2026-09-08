@@ -3,8 +3,9 @@ import { resolveSkillDisplayVerdict } from "../packages/storage/src/utils.js";
 
 describe("resolveSkillDisplayVerdict", () => {
   it("failed review always displays as rejected", () => {
-    expect(resolveSkillDisplayVerdict("failed", "published", false)).toBe("rejected");
-    expect(resolveSkillDisplayVerdict("failed", "published", true)).toBe("rejected");
+    expect(resolveSkillDisplayVerdict("interrupted", "published", false)).toBe("needs-inspection");
+    expect(resolveSkillDisplayVerdict("rejected", "published", false)).toBe("rejected");
+    expect(resolveSkillDisplayVerdict("rejected", "published", true)).toBe("rejected");
   });
 
   it("in-flight review must not display as published", () => {

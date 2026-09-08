@@ -50,7 +50,8 @@ export function skillInspectionStatusLabel(status: SkillInspectionStatus): strin
   const labels: Record<SkillInspectionStatus, string> = {
     inspecting: "审查中",
     completed: "审查完成",
-    failed: "审查失败"
+    interrupted: "审查中断",
+    rejected: "审查拒绝"
   };
   return labels[status];
 }

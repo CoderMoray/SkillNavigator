@@ -1,5 +1,6 @@
 import { compareSemver } from "@skill-platform/skill-spec/skill-format";
 import type { RegistrySkill } from "./types.js";
+import { isInspectionFailureStatus } from "./inspection-status.js";
 import { canRepublishFailedVersion, isSkillContributor, resolveVersionInspectionStatus } from "./utils.js";
 
 export class PublishPreflightError extends Error {
@@ -67,7 +68,7 @@ export function assertPublishPreflight(input: PublishPreflightInput): void {
     pendingVersion?.published === false &&
     (allowInspectionInProgress ||
       republishingFailedVersion ||
-      (allowFailedInspectionRetry && targetInspectionStatus === "failed"));
+      (allowFailedInspectionRetry && isInspectionFailureStatus(targetInspectionStatus)));
 
   if (existingSkill?.versions[version] && !allowPendingVersion) {
     throw new PublishPreflightError(`Version already exists: ${slug}@${version}`, 409);
@@ -78,7 +79,7 @@ export function assertPublishPreflight(input: PublishPreflightInput): void {
       allowInspectionInProgress && pendingVersion?.published === false && version === existingSkill.latestVersion;
     const retryingFailedVersion =
       allowFailedInspectionRetry &&
-      targetInspectionStatus === "failed" &&
+      isInspectionFailureStatus(targetInspectionStatus) &&
       pendingVersion?.published === false &&
       version === existingSkill.latestVersion;
     const compared = compareSemver(version, existingSkill.latestVersion);

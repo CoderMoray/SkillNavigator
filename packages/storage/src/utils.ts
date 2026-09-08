@@ -1,7 +1,13 @@
 import type { InspectionVerdict } from "@skill-platform/inspection-engine";
 import type { SkillSnapshot } from "@skill-platform/skill-spec";
 import { compareSemver } from "@skill-platform/skill-spec/skill-format";
-import { DEFAULT_SKILL_INSPECTION_STATUS, isInspectionPendingSkillStatus, type SkillInspectionStatus } from "./inspection-status";
+import {
+  DEFAULT_SKILL_INSPECTION_STATUS,
+  isInspectionFailureStatus,
+  isInspectionPendingSkillStatus,
+  normalizeSkillInspectionStatus,
+  type SkillInspectionStatus,
+} from "./inspection-status";
 import {
   type RegistryContributor,
   type RegistryData,
@@ -138,8 +144,8 @@ export function resolveSkillDisplayVerdict(
   versionStatus: InspectionVerdict,
   versionPublished?: boolean
 ): InspectionVerdict {
-  if (inspectionStatus === "failed") {
-    return "rejected";
+  if (isInspectionFailureStatus(inspectionStatus)) {
+    return inspectionStatus === "rejected" ? "rejected" : "needs-inspection";
   }
   if (inspectionStatus === "inspecting") {
     return versionStatus === "rejected" ? "rejected" : "needs-inspection";
@@ -158,7 +164,7 @@ export type SkillRepublishBlockReason =
 export function resolveVersionInspectionStatus(
   version: Pick<RegistryVersion, "inspectionStatus">
 ): SkillInspectionStatus {
-  return version.inspectionStatus ?? DEFAULT_SKILL_INSPECTION_STATUS;
+  return normalizeSkillInspectionStatus(version.inspectionStatus);
 }
 
 export function isLatestReviewTarget(
@@ -176,7 +182,7 @@ export function canRetryVersionReview(
   if (!entry || !isLatestReviewTarget(skill, version)) {
     return false;
   }
-  return resolveVersionInspectionStatus(entry) === "failed";
+  return isInspectionFailureStatus(resolveVersionInspectionStatus(entry));
 }
 
 export function getVersionRepublishBlockReason(
@@ -191,8 +197,8 @@ export function getVersionRepublishBlockReason(
   if (inspectionStatus === "inspecting") {
     return "inspection_in_progress";
   }
-  if (inspectionStatus === "failed") {
-    return "inspection_failed";
+  if (isInspectionFailureStatus(inspectionStatus)) {
+    return inspectionStatus === "rejected" ? "inspection_rejected" : "inspection_failed";
   }
   if (entry.status === "rejected") {
     return "inspection_rejected";
@@ -332,7 +338,7 @@ export function hasStoredPendingPackage(skill: RegistrySkill, version: string = 
 /** Failed review may be retried with the same version when no published version exists yet. */
 export function canRepublishFailedVersion(skill: RegistrySkill, version: string): boolean {
   const entry = skill.versions[version];
-  if (!entry || resolveVersionInspectionStatus(entry) !== "failed") {
+  if (!entry || !isInspectionFailureStatus(resolveVersionInspectionStatus(entry))) {
     return false;
   }
   if (hasStoredPendingPackage(skill, version)) {

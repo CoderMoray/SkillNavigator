@@ -54,6 +54,8 @@ import {
   PublishRateLimiter,
   buildSkillInspectionFailureFromError,
   buildSkillInspectionFailureFromStages,
+  classifyInspectionFailureStatus,
+  isInspectionFailureStatus,
   readInspectionRecoverAllOnStartup,
   readInspectionStaleMs,
   VerificationEmailRateLimiter,
@@ -222,7 +224,7 @@ async function resolveFailedInspectionStoredPackage(
 ): Promise<boolean | undefined> {
   const version = skill.latestVersion;
   const registryVersion = skill.versions[version];
-  if (resolveVersionInspectionStatus(registryVersion ?? { inspectionStatus: skill.inspectionStatus }) !== "failed") {
+  if (!isInspectionFailureStatus(resolveVersionInspectionStatus(registryVersion ?? { inspectionStatus: skill.inspectionStatus }))) {
     return undefined;
   }
   return Boolean(await store.loadStoredSnapshot(skill.slug, version));
@@ -236,7 +238,7 @@ async function assertPublishDoesNotReplaceStoredRetryPackage(
 ): Promise<void> {
   const registryVersion = existingSkill?.versions[version];
   if (
-    resolveVersionInspectionStatus(registryVersion ?? { inspectionStatus: existingSkill?.inspectionStatus }) !== "failed" ||
+    !isInspectionFailureStatus(resolveVersionInspectionStatus(registryVersion ?? { inspectionStatus: existingSkill?.inspectionStatus })) ||
     version !== existingSkill?.latestVersion
   ) {
     return;
@@ -929,12 +931,13 @@ export function buildServer() {
 
       if (failedStages.length > 0) {
         await markPublishInspectionFailed(store, prepared.slug, prepared.version, failedStages);
+        const failure = buildSkillInspectionFailureFromStages(failedStages);
         return reply.code(503).send({
           error: "inspection_pipeline_incomplete",
           retryable: true,
           failedStages,
-          inspectionStatus: "failed",
-          inspectionFailure: buildSkillInspectionFailureFromStages(failedStages),
+          inspectionStatus: classifyInspectionFailureStatus(failure),
+          inspectionFailure: failure,
         });
       }
 
@@ -990,7 +993,7 @@ export function buildServer() {
     if (versionInspectionStatus === "inspecting") {
       return reply.code(409).send({ error: "skill_inspection_in_progress" });
     }
-    if (versionInspectionStatus !== "failed") {
+    if (!isInspectionFailureStatus(versionInspectionStatus)) {
       return reply.code(400).send({ error: "skill_not_retryable" });
     }
 
@@ -1076,12 +1079,13 @@ export function buildServer() {
 
       if (failedStages.length > 0) {
         await markPublishInspectionFailed(store, prepared.slug, prepared.version, failedStages);
+        const failure = buildSkillInspectionFailureFromStages(failedStages);
         return reply.code(503).send({
           error: "inspection_pipeline_incomplete",
           retryable: true,
           failedStages,
-          inspectionStatus: "failed",
-          inspectionFailure: buildSkillInspectionFailureFromStages(failedStages),
+          inspectionStatus: classifyInspectionFailureStatus(failure),
+          inspectionFailure: failure,
         });
       }
 
@@ -1883,9 +1887,10 @@ async function markPublishInspectionFailed(
   const failure = Array.isArray(failedStagesOrError)
     ? buildSkillInspectionFailureFromStages(failedStagesOrError)
     : buildSkillInspectionFailureFromError(failedStagesOrError);
+  const inspectionStatus = classifyInspectionFailureStatus(failure);
 
   try {
-    await store.markSkillInspectionStatus(slug, "failed", { version, failure });
+    await store.markSkillInspectionStatus(slug, inspectionStatus, { version, failure });
   } catch (markError) {
     console.error(`Failed to mark inspection status failed for ${slug}@${version}:`, markError);
   }

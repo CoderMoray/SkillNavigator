@@ -349,7 +349,7 @@ export interface InspectionPipelineIncompleteResponse {
   error: "inspection_pipeline_incomplete";
   retryable: true;
   failedStages: InspectionStageFailure[];
-  inspectionStatus?: "failed";
+  inspectionStatus?: "interrupted" | "rejected";
 }
 
 export interface PublishPreviewResponse {

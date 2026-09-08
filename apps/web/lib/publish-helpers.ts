@@ -13,18 +13,37 @@ export type SkillRepublishBlockReason =
   | "inspection_failed"
   | "inspection_rejected";
 
+export function normalizeSkillInspectionStatus(
+  status: SkillInspectionStatus | "failed" | undefined
+): SkillInspectionStatus {
+  if (status === "failed") {
+    return "interrupted";
+  }
+  if (status === "inspecting" || status === "completed" || status === "interrupted" || status === "rejected") {
+    return status;
+  }
+  return "completed";
+}
+
+export function isInspectionFailureStatus(
+  status: SkillInspectionStatus | "failed" | undefined
+): status is "interrupted" | "rejected" {
+  const normalized = normalizeSkillInspectionStatus(status);
+  return normalized === "interrupted" || normalized === "rejected";
+}
+
 export function resolveVersionInspectionStatus(
   version: Pick<RegistryVersion, "inspectionStatus" | "version"> | undefined,
   skill: Pick<RegistrySkill, "inspectionStatus" | "latestVersion">
 ): SkillInspectionStatus {
   if (!version) {
-    return skill.inspectionStatus;
+    return normalizeSkillInspectionStatus(skill.inspectionStatus);
   }
   if (version.inspectionStatus) {
-    return version.inspectionStatus;
+    return normalizeSkillInspectionStatus(version.inspectionStatus);
   }
   if (version.version === skill.latestVersion) {
-    return skill.inspectionStatus;
+    return normalizeSkillInspectionStatus(skill.inspectionStatus);
   }
   return "completed";
 }
@@ -79,10 +98,10 @@ export function getVersionRepublishBlockReason(
   if (inspectionStatus === "inspecting") {
     return "inspection_in_progress";
   }
-  if (inspectionStatus === "failed") {
+  if (inspectionStatus === "interrupted") {
     return "inspection_failed";
   }
-  if (entry.status === "rejected") {
+  if (inspectionStatus === "rejected") {
     return "inspection_rejected";
   }
   return null;
@@ -103,7 +122,7 @@ export function isSkillSearchResultUnlisted(
   if (skill.published === false) {
     return true;
   }
-  if (skill.inspectionStatus === "inspecting" || skill.inspectionStatus === "failed") {
+  if (skill.inspectionStatus === "inspecting" || isInspectionFailureStatus(skill.inspectionStatus)) {
     return true;
   }
   if (skill.status === "rejected") {
@@ -158,8 +177,8 @@ export function resolveSkillDisplayVerdict(
   versionStatus: InspectionVerdict,
   versionPublished?: boolean
 ): InspectionVerdict {
-  if (inspectionStatus === "failed") {
-    return "rejected";
+  if (isInspectionFailureStatus(inspectionStatus)) {
+    return inspectionStatus === "rejected" ? "rejected" : "needs-inspection";
   }
   if (inspectionStatus === "inspecting") {
     return versionStatus === "rejected" ? "rejected" : "needs-inspection";
@@ -207,7 +226,7 @@ export function canRetryStoredInspection(
   }
   const entry = skill.versions[version];
   return (
-    resolveVersionInspectionStatus(entry, skill) === "failed" &&
+    isInspectionFailureStatus(resolveVersionInspectionStatus(entry, skill)) &&
     hasStoredPendingPackage(skill, version, hasStoredPackage)
   );
 }
@@ -215,7 +234,7 @@ export function canRetryStoredInspection(
 /** Failed inspection may be re-uploaded with the same version when no stored package exists yet. */
 export function canRepublishFailedVersion(skill: RegistrySkill, version: string): boolean {
   const entry = skill.versions[version];
-  if (!entry || resolveVersionInspectionStatus(entry, skill) !== "failed") {
+  if (!entry || !isInspectionFailureStatus(resolveVersionInspectionStatus(entry, skill))) {
     return false;
   }
   if (hasStoredPendingPackage(skill, version)) {

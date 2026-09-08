@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   buildSkillInspectionFailureFromError,
   buildSkillInspectionFailureFromStages,
+  classifyInspectionFailureStatus,
   DEFAULT_SKILL_INSPECTION_STATUS,
   formatSkillInspectionFailureSummary,
   isSkillInspectionStatus,
+  normalizeSkillInspectionStatus,
   skillInspectionStageLabel,
   skillInspectionStatusLabel,
   SKILL_INSPECTION_STAGES,
@@ -13,7 +15,7 @@ import {
 
 describe("skill inspection status", () => {
   it("exposes the expected lifecycle values", () => {
-    expect(SKILL_INSPECTION_STATUSES).toEqual(["inspecting", "completed", "failed"]);
+    expect(SKILL_INSPECTION_STATUSES).toEqual(["inspecting", "completed", "interrupted", "rejected"]);
     expect(SKILL_INSPECTION_STAGES).toEqual(["skillspector", "virustotal", "halucatch"]);
     expect(DEFAULT_SKILL_INSPECTION_STATUS).toBe("completed");
   });
@@ -21,11 +23,32 @@ describe("skill inspection status", () => {
   it("validates known statuses and labels them in zh-CN", () => {
     expect(isSkillInspectionStatus("inspecting")).toBe(true);
     expect(isSkillInspectionStatus("completed")).toBe(true);
-    expect(isSkillInspectionStatus("failed")).toBe(true);
+    expect(isSkillInspectionStatus("interrupted")).toBe(true);
+    expect(isSkillInspectionStatus("rejected")).toBe(true);
     expect(isSkillInspectionStatus("published")).toBe(false);
     expect(skillInspectionStatusLabel("inspecting")).toBe("审查中");
     expect(skillInspectionStatusLabel("completed")).toBe("审查完成");
-    expect(skillInspectionStatusLabel("failed")).toBe("审查失败");
+    expect(skillInspectionStatusLabel("interrupted")).toBe("审查中断");
+    expect(skillInspectionStatusLabel("rejected")).toBe("审查拒绝");
+  });
+
+  it("normalizes legacy failed values", () => {
+    expect(normalizeSkillInspectionStatus("failed")).toBe("interrupted");
+  });
+
+  it("classifies pipeline failures as interrupted (inspection did not complete)", () => {
+    expect(
+      classifyInspectionFailureStatus({
+        stages: [],
+        message: "审查任务因服务重启中断，请重试未完成或失败的审查环节。",
+      })
+    ).toBe("interrupted");
+    expect(
+      classifyInspectionFailureStatus({
+        stages: ["virustotal"],
+        message: "VirusTotal scan timed out",
+      })
+    ).toBe("interrupted");
   });
 
   it("builds failure info from pipeline stage errors", () => {
