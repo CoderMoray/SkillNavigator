@@ -205,7 +205,7 @@ async function removeSkillPermanently(registryStore, slug) {
 }
 
 async function main() {
-  loadDotEnvIfPresent(path.join(repoRoot, ".env"));
+  loadDotEnvIfPresent();
 
   // The seed review must run offline and deterministically.
   process.env.SKILLSPECTOR_ENABLED = "false";

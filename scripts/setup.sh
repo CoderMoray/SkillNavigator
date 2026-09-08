@@ -4,10 +4,28 @@ set -euo pipefail
 API="${API:-http://127.0.0.1:3000}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-# Load .env (root) so ON_DEV / ADMIN_* / REPORT_MAIL_* are available.
+# Load dotenv (root) so ON_DEV / ADMIN_* / REPORT_MAIL_* are available.
+# Same resolution as packages/storage/src/env.ts loadDotEnvIfPresent():
+#   1. $DOTENV_FILE exactly (absolute, or relative to the repo root)
+#   2. otherwise .env, falling back to .env.rapid
 # Values already exported (e.g. by CI or an explicit ON_DEV=false) take
-# precedence over .env entries, so set -a + source would be wrong here.
-if [ -f "$REPO_ROOT/.env" ]; then
+# precedence over file entries, so set -a + source would be wrong here.
+# Note: this bash loader handles plain KEY=VALUE lines only (no quoted
+# values / export prefixes) — the Node helper is the reference implementation.
+DOTENV_TARGET=""
+if [ -n "${DOTENV_FILE:-}" ]; then
+  if [ -f "$DOTENV_FILE" ]; then
+    DOTENV_TARGET="$DOTENV_FILE"
+  elif [ -f "$REPO_ROOT/$DOTENV_FILE" ]; then
+    DOTENV_TARGET="$REPO_ROOT/$DOTENV_FILE"
+  fi
+elif [ -f "$REPO_ROOT/.env" ]; then
+  DOTENV_TARGET="$REPO_ROOT/.env"
+elif [ -f "$REPO_ROOT/.env.rapid" ]; then
+  DOTENV_TARGET="$REPO_ROOT/.env.rapid"
+fi
+
+if [ -n "$DOTENV_TARGET" ]; then
   set -a
   while IFS= read -r _line; do
     case "$_line" in
@@ -19,9 +37,10 @@ if [ -f "$REPO_ROOT/.env" ]; then
         fi
         ;;
     esac
-  done < "$REPO_ROOT/.env"
+  done < "$DOTENV_TARGET"
   set +a
 fi
+unset DOTENV_TARGET
 
 ON_DEV="${ON_DEV:-true}"
 
@@ -33,7 +52,7 @@ echo "=== Skill Platform Setup (ON_DEV=$ON_DEV) ==="
 #    If the preflight reports a gap, install locally: `npm run setup:skillspector`.
 #    Production (ON_DEV=false) fails fast; dev warns unless REVIEW_DEPS_STRICT=true.
 echo "[0] Verifying review providers..."
-if node "$REPO_ROOT/scripts/verify-review-deps.mjs"; then
+if node_modules/.bin/tsx "$REPO_ROOT/scripts/verify-review-deps.mjs"; then
   echo "  ✅ Review providers ready"
 else
   if [ "$ON_DEV" = "true" ] && [ "${REVIEW_DEPS_STRICT:-false}" != "true" ]; then
@@ -121,7 +140,7 @@ has_admin_config() {
 if ! has_admin_config; then
   echo "[1] Production: no ADMIN_DISPLAY_NAME / ADMIN_USERNAME / ADMIN_EMAIL configured."
   echo "    Skipping administrator bootstrap — the skill registry stays empty (no seed Skill)."
-  echo "    To initialize, set the three ADMIN_* vars in .env and run npm run setup again."
+  echo "    To initialize, set the three ADMIN_* vars in the dotenv file (.env / DOTENV_FILE) and run npm run setup again."
   exit 0
 fi
 
@@ -133,7 +152,7 @@ MISSING_FIELDS=()
 if [ "${#MISSING_FIELDS[@]}" -gt 0 ]; then
   echo "⚠️  WARNING: ADMIN_* configuration is incomplete."
   echo "    Missing field(s): ${MISSING_FIELDS[*]}"
-  echo "    Provide every field in .env or remove all ADMIN_* entries to skip initialization."
+  echo "    Provide every field in the dotenv file (.env / DOTENV_FILE) or remove all ADMIN_* entries to skip initialization."
   echo "    Nothing was created and no Skill was published."
   exit 0
 fi

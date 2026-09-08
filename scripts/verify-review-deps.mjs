@@ -15,6 +15,7 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadDotEnvIfPresent } from "@skill-platform/storage";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
@@ -212,6 +213,10 @@ function checkVirusTotal() {
 }
 
 function run() {
+  // Standalone entry: load dotenv with the unified semantics
+  // (DOTENV_FILE > .env > .env.rapid) so provider config from the repo
+  // dotenv file is visible without going through setup.sh.
+  loadDotEnvIfPresent();
   console.log("=== Review provider dependency preflight ===");
   checkSkillSpector();
   checkHaluCatch();

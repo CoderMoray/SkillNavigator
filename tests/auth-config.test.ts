@@ -74,4 +74,53 @@ describe("loadDotEnvIfPresent 的 DOTENV_FILE", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("无参调用：仅存在 .env.rapid 时回退读取它", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "skillnav-dotenv-"));
+    writeFileSync(path.join(dir, ".env.rapid"), "DOTENV_PROBE_RAPID=from-rapid\n");
+    vi.stubEnv("INIT_CWD", dir);
+
+    try {
+      loadDotEnvIfPresent();
+      expect(process.env.DOTENV_PROBE_RAPID).toBe("from-rapid");
+    } finally {
+      vi.unstubAllEnvs();
+      delete process.env.DOTENV_PROBE_RAPID;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("DOTENV_FILE 优先于已存在的 .env", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "skillnav-dotenv-"));
+    writeFileSync(path.join(dir, ".env"), "DOTENV_PROBE_FALLBACK=from-dot-env\n");
+    const custom = path.join(dir, "custom.env");
+    writeFileSync(custom, "DOTENV_PROBE_FALLBACK=from-custom\n");
+    vi.stubEnv("DOTENV_FILE", custom);
+    vi.stubEnv("INIT_CWD", dir);
+
+    try {
+      loadDotEnvIfPresent();
+      expect(process.env.DOTENV_PROBE_FALLBACK).toBe("from-custom");
+    } finally {
+      vi.unstubAllEnvs();
+      delete process.env.DOTENV_PROBE_FALLBACK;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("进程已设置的变量不被 dotenv 文件覆盖", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "skillnav-dotenv-"));
+    writeFileSync(path.join(dir, ".env"), "DOTENV_PROBE_OVERRIDE=from-file\n");
+    vi.stubEnv("INIT_CWD", dir);
+    vi.stubEnv("DOTENV_PROBE_OVERRIDE", "from-process");
+
+    try {
+      loadDotEnvIfPresent();
+      expect(process.env.DOTENV_PROBE_OVERRIDE).toBe("from-process");
+    } finally {
+      vi.unstubAllEnvs();
+      delete process.env.DOTENV_PROBE_OVERRIDE;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
