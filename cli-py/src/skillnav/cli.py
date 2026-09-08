@@ -40,7 +40,6 @@ from skillnav.output import (
     emit_error,
     emit_json,
     filter_skill_body_version,
-    find_version_entry,
     print_leaderboard,
     print_report_version,
     print_review_result,
@@ -403,10 +402,10 @@ def status_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
     version: Annotated[
         Optional[str],
-        typer.Option("--version", help="Show only this version (default: all versions)"),
+        typer.Option("--version", help="Version to show (default: latest)"),
     ] = None,
 ) -> None:
-    """Show publish status and version review summaries."""
+    """Show publish and review status for one skill version."""
     try:
         cli = _ctx()
         status, body = request_json(
@@ -415,12 +414,14 @@ def status_cmd(
             token=cli.token,
         )
         raise_for_api_status(status, body)
-        if version:
-            body = filter_skill_body_version(body, version)
+        target_version = version or body.get("latestVersion")
+        if not target_version:
+            raise SkillnavError(f"No versions found for skill '{slug}'")
+        body = filter_skill_body_version(body, str(target_version))
         if cli.json_output:
             emit_json(body)
         else:
-            print_skill_status(body, version=version)
+            print_skill_status(body, version=str(target_version))
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
 

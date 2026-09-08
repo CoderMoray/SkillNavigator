@@ -92,15 +92,15 @@ def test_print_skill_info(capsys) -> None:
 def test_print_skill_status(capsys) -> None:
     print_skill_status(SAMPLE_SKILL)
     out = capsys.readouterr().out
-    assert out.startswith("demo-skill@1.0.1")
+    assert out.startswith("demo-skill@1.0.1 (latest)")
     assert "Review status: review completed" in out
     assert "Verdict: published" in out
+    assert "Published: yes" in out
     assert "Visibility: public" in out
-    assert "Versions:" in out
-    assert "1.0.0  review=review completed  verdict=published" in out
-    assert "VT=0/0" in out
-    assert "1.0.1 (latest)  review=review completed  verdict=published" in out
-    assert "VT=0/1" in out
+    assert "Content hash:" in out
+    assert "VirusTotal: 0/1" in out
+    assert "Versions:" not in out
+    assert "1.0.0  review=" not in out
     assert "Tip: skillnav report demo-skill --version 1.0.1" in out
     assert "Description:" not in out
 
@@ -122,13 +122,15 @@ def test_print_skill_status_reviewing(capsys) -> None:
     }
     print_skill_status(skill)
     out = capsys.readouterr().out
+    assert out.startswith("demo-skill@1.0.1 (latest)")
     assert "Review status: in review" in out
+    assert "Review progress:" in out
     assert "HaluCatch: done" in out
     assert "SkillSpector: pending" in out
     assert "Verdict: pending" in out
+    assert "Published: no" in out
     assert "Visibility: unpublished" in out
-    assert "1.0.1 (latest)  review=in review  verdict=pending" in out
-    assert "    progress:" in out and "HaluCatch: done" in out
+    assert "Versions:" not in out
 
 
 def test_print_skill_status_failed(capsys) -> None:
@@ -153,16 +155,16 @@ def test_print_skill_status_failed(capsys) -> None:
     }
     print_skill_status(skill)
     out = capsys.readouterr().out
+    assert out.startswith("demo-skill@1.0.2 (latest)")
     assert "Review status: review failed" in out
     assert "VirusTotal: failed" in out
     assert "Review failure: VirusTotal: VirusTotal scan timed out" in out
     assert "Verdict: pending" in out
-    assert "1.0.2 (latest)  review=review failed  verdict=pending" in out
-    assert "failure: VirusTotal: VirusTotal scan timed out" in out
+    assert "Versions:" not in out
     assert "Tip: skillnav retry-publish demo-skill" in out
 
 
-def test_print_skill_status_multi_version_mixed_review(capsys) -> None:
+def test_print_skill_status_defaults_to_latest_version(capsys) -> None:
     skill = {
         **SAMPLE_SKILL,
         "reviewStatus": "reviewing",
@@ -189,9 +191,11 @@ def test_print_skill_status_multi_version_mixed_review(capsys) -> None:
     }
     print_skill_status(skill)
     out = capsys.readouterr().out
-    assert "1.0.0  review=review completed  verdict=published" in out
-    assert "1.0.1  review=review completed  verdict=rejected" in out
-    assert "1.0.2 (latest)  review=in review  verdict=pending" in out
+    assert out.startswith("demo-skill@1.0.2 (latest)")
+    assert "Review status: in review" in out
+    assert "1.0.0  review=" not in out
+    assert "1.0.1  review=" not in out
+    assert "Versions:" not in out
 
 
 def test_print_skill_status_single_version(capsys) -> None:

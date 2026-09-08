@@ -479,10 +479,15 @@ def _print_single_version_status(body: dict[str, Any], version: str) -> None:
     if entry.get("reviewEndedAt"):
         print(f"Review ended: {entry['reviewEndedAt']}")
 
-    if is_latest and str(body.get("reviewStatus") or "") == "failed":
-        print(f"\nTip: skillnav retry-publish {slug} to re-run review on the stored package")
-    else:
-        print(f"\nTip: skillnav report {slug} --version {version_id} for full review")
+    if is_latest:
+        version_review_status = str(
+            entry.get("reviewStatus") or body.get("reviewStatus") or ""
+        ).strip()
+        if version_review_status == "failed":
+            print(f"\nTip: skillnav retry-publish {slug} to re-run review on the stored package")
+            return
+
+    print(f"\nTip: skillnav report {slug} --version {version_id} for full review")
 
 
 def _virustotal_one_liner(review: dict[str, Any]) -> str:
@@ -598,43 +603,14 @@ def print_skill_info(body: dict[str, Any]) -> None:
 
 
 def print_skill_status(body: dict[str, Any], *, version: str | None = None) -> None:
-    """Human-readable publish and review status summary."""
+    """Human-readable publish and review status for a single version."""
+    target = version or body.get("latestVersion")
     slug = body.get("slug", "?")
-    if version:
-        _print_single_version_status(body, version)
+    if not target:
+        print(f"{slug}@?")
+        print("Review status: unknown")
         return
-
-    latest = body.get("latestVersion", "?")
-    review_status = str(body.get("reviewStatus") or "completed")
-    print(f"{slug}@{latest}")
-    print(f"Review status: {_skill_review_status_label(review_status)}")
-
-    completed_stages = body.get("reviewCompletedStages") or []
-    failed_stage_ids = (body.get("reviewFailure") or {}).get("stages") or []
-    if review_status in {"reviewing", "failed"}:
-        print(f"Review progress: {_format_review_stage_progress(completed_stages, failed_stage_ids)}")
-
-    failure = body.get("reviewFailure")
-    if review_status == "failed" and isinstance(failure, dict):
-        summary = _review_failure_summary(failure)
-        if summary:
-            print(f"Review failure: {summary}")
-
-    if review_status == "completed":
-        print(f"Verdict: {_resolve_latest_verdict(body)}")
-    else:
-        print("Verdict: pending")
-
-    print(f"Visibility: {_format_visibility(body.get('published'))}")
-    version_rows = _iter_version_rows(body)
-    if version_rows:
-        print("Versions:")
-        for vid, entry in version_rows:
-            _print_version_status_row(body, vid, entry)
-    if review_status == "failed":
-        print(f"\nTip: skillnav retry-publish {slug} to re-run review on the stored package")
-    elif latest and latest != "?":
-        print(f"\nTip: skillnav report {slug} --version {latest} for full review")
+    _print_single_version_status(body, str(target))
 
 
 def print_search_results(body: dict[str, Any]) -> None:
