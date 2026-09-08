@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { FileAuthStore } from "@skill-platform/storage";
-import { generatePassword, parseAdminConfig, runBootstrap } from "../scripts/bootstrap-admin.mjs";
+import { generatePassword, parseAdminConfig, runBootstrap } from "../scripts/bootstrap-admin-core.mjs";
 
 /**
  * A minimal RegistryStore fake backed by a slug -> skill map. It models the

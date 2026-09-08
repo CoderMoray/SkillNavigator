@@ -1,0 +1,139 @@
+/**
+ * Bootstrap logic exported for unit tests (no shebang; no heavy store imports).
+ */
+import { randomBytes } from "node:crypto";
+
+export const OFFICIAL_SLUG = "skillnav-skill";
+/** Dev-mode seed Skill (setup.sh ON_DEV=true) that must not survive production bootstrap. */
+export const DEMO_SLUG = "demo-skill";
+
+export function generatePassword() {
+  const bytes = randomBytes(24);
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let out = "";
+  for (const byte of bytes) {
+    out += alphabet[byte % alphabet.length];
+  }
+  return out;
+}
+
+export function parseAdminConfig(env) {
+  const username = env.ADMIN_USERNAME?.trim();
+  const email = env.ADMIN_EMAIL?.trim();
+  const displayName = env.ADMIN_DISPLAY_NAME?.trim();
+  if (!username || !email || !displayName) {
+    return null;
+  }
+  return { username, email, displayName };
+}
+
+/**
+ * Run the bootstrap and return a report object (never writes to stdout).
+ *
+ * @param deps.authStore       AuthStore-like (getUserByUsername, listUsers,
+ *                             register, login, updateProfile)
+ * @param deps.registryStore   RegistryStore-like (getSkill, publishSnapshot)
+ * @param deps.skillDir        official Skill directory (default repo example)
+ * @param deps.readPackage     snapshot loader
+ * @param deps.inspectSnapshot inspection function
+ */
+export async function runBootstrap(
+  { authStore, registryStore, skillDir, readPackage, inspectSnapshot },
+  { username, email, displayName } = {}
+) {
+  const missing = [username, email, displayName].some((value) => !value?.trim());
+  if (missing) {
+    return {
+      action: "error",
+      code: "missing-input",
+      message: "ADMIN_USERNAME / ADMIN_EMAIL / ADMIN_DISPLAY_NAME must all be set.",
+    };
+  }
+
+  const existing = await authStore.getUserByUsername(username);
+  let target = existing;
+  let createdPassword;
+
+  if (!existing) {
+    createdPassword = generatePassword();
+    const created = await authStore.register(username, createdPassword, email, {
+      autoVerifyEmail: true,
+    });
+    if (created.role !== "admin") {
+      await authStore.promoteToAdmin(created.id);
+    }
+    const session = await authStore.login(username, createdPassword);
+    await authStore.updateProfile(session.token, { displayName });
+    target = created;
+  }
+
+  const demoRemoved = await removeSkillPermanently(registryStore, DEMO_SLUG);
+
+  const official = await registryStore.getSkill(OFFICIAL_SLUG);
+  if (official && official.ownerUserId === target.id) {
+    const details = [];
+    if (demoRemoved) {
+      details.push(`dev-seed ${DEMO_SLUG} residue was removed`);
+    }
+    return {
+      action: "already-linked",
+      username: target.username,
+      email: target.email ?? email,
+      displayName,
+      cleanedDemo: demoRemoved,
+      message:
+        details.length > 0
+          ? `Administrator already owns ${OFFICIAL_SLUG}; ${details.join(" and ")}.`
+          : `Administrator account exists and already owns ${OFFICIAL_SLUG}; nothing to do.`,
+    };
+  }
+
+  const reassigned = official !== undefined;
+  if (reassigned) {
+    await removeSkillPermanently(registryStore, OFFICIAL_SLUG);
+  }
+
+  if (!readPackage || !inspectSnapshot) {
+    throw new Error("readPackage and inspectSnapshot are required when publishing the official skill");
+  }
+
+  const snapshot = await readPackage(skillDir);
+  const inspection = await inspectSnapshot(snapshot);
+  const version = await registryStore.publishSnapshot(snapshot, inspection, undefined, {
+    owner: { userId: target.id, username: target.username },
+  });
+
+  const details = [];
+  if (reassigned) {
+    details.push(`${OFFICIAL_SLUG} was owned by another account and has been re-assigned to this admin`);
+  }
+  if (demoRemoved) {
+    details.push(`dev-seed ${DEMO_SLUG} residue was removed`);
+  }
+
+  const base = {
+    username: target.username,
+    email: target.email ?? email,
+    displayName,
+    version: version.version,
+    cleanedDemo: demoRemoved,
+    message: details.length > 0 ? `${details.join("; ")}.` : undefined,
+  };
+  return createdPassword
+    ? { action: "created-linked", ...base, password: createdPassword }
+    : { action: "linked", ...base };
+}
+
+async function removeSkillPermanently(registryStore, slug) {
+  try {
+    await registryStore.deleteSkill(slug);
+  } catch {
+    // Not present as an active Skill — fall through so recycle-bin residue is still purged.
+  }
+  try {
+    await registryStore.purgeRecycleBinSkill(slug);
+    return true;
+  } catch {
+    return false;
+  }
+}

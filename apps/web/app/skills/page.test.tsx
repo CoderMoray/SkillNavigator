@@ -11,6 +11,10 @@ vi.mock("next/link", () => ({
   )
 }));
 
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(window.location.search),
+}));
+
 vi.mock("../../components/AppShell", () => ({
   AppShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>
 }));
