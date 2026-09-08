@@ -5,6 +5,7 @@ import { assertPublishPreflight } from "../publish-preflight.js";
 import {
   REVIEW_INTERRUPTED_MESSAGE,
   REVIEW_STALE_MESSAGE,
+  REVIEW_SUPERSEDED_MESSAGE,
   readReviewStaleMs,
 } from "../review-status.js";
 import type {
@@ -303,6 +304,18 @@ export abstract class JsonRegistryStore implements RegistryStore {
       updatedAt: now,
     };
     skill.uploadedAt = now;
+    for (const [existingVersion, entry] of Object.entries(skill.versions)) {
+      if (
+        existingVersion !== version &&
+        resolveVersionReviewStatus(entry) === "reviewing"
+      ) {
+        entry.reviewStatus = "failed";
+        entry.reviewFailure = { stages: [], message: REVIEW_SUPERSEDED_MESSAGE };
+        entry.status = "rejected";
+        entry.reviewEndedAt = now;
+        entry.updatedAt = now;
+      }
+    }
     skill.latestVersion = version;
     skill.updatedAt = now;
     syncSkillReviewDenormFromLatest(skill);
@@ -873,6 +886,21 @@ export abstract class JsonRegistryStore implements RegistryStore {
         if (resolveVersionReviewStatus(version) !== "reviewing") {
           continue;
         }
+
+        const isLatest = version.version === skill.latestVersion;
+        if (!isLatest) {
+          version.reviewStatus = "failed";
+          version.reviewFailure = {
+            stages: [],
+            message: REVIEW_SUPERSEDED_MESSAGE,
+          };
+          version.status = "rejected";
+          version.reviewEndedAt = new Date().toISOString();
+          version.updatedAt = version.reviewEndedAt;
+          recovered += 1;
+          continue;
+        }
+
         if (!recoverAll && new Date(version.updatedAt).getTime() > cutoff) {
           continue;
         }

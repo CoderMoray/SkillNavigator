@@ -33,12 +33,27 @@ export function assertPublishPreflight(input: PublishPreflightInput): void {
 
   const targetVersion = existingSkill?.versions[version];
   const targetReviewStatus = targetVersion ? resolveVersionReviewStatus(targetVersion) : null;
+  const latestEntry = existingSkill?.versions[existingSkill.latestVersion];
+  const latestReviewStatus = latestEntry ? resolveVersionReviewStatus(latestEntry) : null;
+
   if (
     targetReviewStatus === "reviewing" &&
     !allowReviewInProgress &&
     !allowFailedReviewRetry
   ) {
     throw new PublishPreflightError("skill_review_in_progress", 409);
+  }
+
+  if (
+    existingSkill &&
+    latestReviewStatus === "reviewing" &&
+    !allowReviewInProgress &&
+    !allowFailedReviewRetry
+  ) {
+    const compared = compareSemver(version, existingSkill.latestVersion);
+    if (compared !== null && compared <= 0) {
+      throw new PublishPreflightError("skill_review_in_progress", 409);
+    }
   }
 
   if (existingSkill && user && !isSkillContributor(existingSkill, user)) {

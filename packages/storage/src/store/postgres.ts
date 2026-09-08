@@ -37,6 +37,7 @@ import {
   parseSkillReviewStages,
   REVIEW_INTERRUPTED_MESSAGE,
   REVIEW_STALE_MESSAGE,
+  REVIEW_SUPERSEDED_MESSAGE,
   readReviewStaleMs,
 } from "../review-status.js";
 import { skillRecyclePurgeAt, skillRecycleRetentionMs } from "../recycle-bin";
@@ -1604,6 +1605,24 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     };
 
     await this.db.transaction(async (tx) => {
+      await tx
+        .update(schema.skillVersions)
+        .set({
+          reviewStatus: "failed",
+          reviewFailedStages: [],
+          reviewFailedMessage: REVIEW_SUPERSEDED_MESSAGE,
+          reviewEndedAt: now,
+          status: "rejected",
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(schema.skillVersions.skillSlug, slug),
+            ne(schema.skillVersions.version, version),
+            eq(schema.skillVersions.reviewStatus, "reviewing")
+          )
+        );
+
       const [skillRow] = await tx
         .select({ slug: schema.skills.slug })
         .from(schema.skills)
@@ -2027,6 +2046,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         and(
           isNull(schema.skills.deletedAt),
           memberMatch,
+          eq(schema.skillVersions.version, schema.skills.latestVersion),
           or(
             eq(schema.skillVersions.reviewStatus, "reviewing"),
             eq(schema.skillVersions.reviewStatus, "failed")
@@ -2503,18 +2523,37 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       .select({
         slug: schema.skillVersions.skillSlug,
         version: schema.skillVersions.version,
+        latestVersion: schema.skills.latestVersion,
+        updatedAt: schema.skillVersions.updatedAt,
       })
       .from(schema.skillVersions)
       .innerJoin(schema.skills, eq(schema.skills.slug, schema.skillVersions.skillSlug))
       .where(
         and(
           isNull(schema.skills.deletedAt),
-          eq(schema.skillVersions.reviewStatus, "reviewing"),
-          ...(recoverAll ? [] : [lte(schema.skillVersions.updatedAt, staleBefore)])
+          eq(schema.skillVersions.reviewStatus, "reviewing")
         )
       );
 
+    let recovered = 0;
     for (const row of rows) {
+      const isLatest = row.version === row.latestVersion;
+      if (!isLatest) {
+        await this.markSkillReviewStatus(row.slug, "failed", {
+          version: row.version,
+          failure: {
+            stages: [],
+            message: REVIEW_SUPERSEDED_MESSAGE,
+          },
+        });
+        recovered += 1;
+        continue;
+      }
+
+      if (!recoverAll && row.updatedAt > staleBefore) {
+        continue;
+      }
+
       await this.markSkillReviewStatus(row.slug, "failed", {
         version: row.version,
         failure: {
@@ -2522,9 +2561,10 @@ export class PostgresRegistryStore extends JsonRegistryStore {
           message: recoverAll ? REVIEW_INTERRUPTED_MESSAGE : REVIEW_STALE_MESSAGE,
         },
       });
+      recovered += 1;
     }
 
-    return rows.length;
+    return recovered;
   }
 
   async purgeAccountData(userId: string): Promise<void> {

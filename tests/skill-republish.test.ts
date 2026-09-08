@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertSkillRepublishAllowed,
   assertSkillVersionRepublishAllowed,
+  canRetryVersionReview,
   getSkillRepublishBlockReason,
   isSkillUnlisted,
 } from "../packages/storage/src/utils.js";
@@ -84,6 +85,21 @@ describe("skill republish policy", () => {
     expect(isSkillUnlisted(unpublished)).toBe(true);
     expect(getSkillRepublishBlockReason(unpublished)).toBeNull();
     expect(() => assertSkillRepublishAllowed(unpublished)).not.toThrow();
+  });
+
+  it("only allows retry review on latest failed version", () => {
+    const multiVersion = skill({
+      latestVersion: "1.1.0",
+      reviewStatus: "failed",
+      published: false,
+      versions: {
+        "1.0.0": version({ version: "1.0.0", reviewStatus: "failed", published: false }),
+        "1.1.0": version({ version: "1.1.0", reviewStatus: "failed", published: false }),
+      },
+    });
+
+    expect(canRetryVersionReview(multiVersion, "1.1.0")).toBe(true);
+    expect(canRetryVersionReview(multiVersion, "1.0.0")).toBe(false);
   });
 
   it("blocks republish for rejected version rows", () => {

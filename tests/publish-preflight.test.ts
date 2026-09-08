@@ -165,7 +165,7 @@ describe("assertPublishPreflight", () => {
     ).toThrow(/skill_review_in_progress/);
   });
 
-  it("allows publishing a newer version while another version is reviewing", () => {
+  it("allows publishing a newer version while latest is reviewing", () => {
     expect(() =>
       assertPublishPreflight({
         slug: "demo-skill",

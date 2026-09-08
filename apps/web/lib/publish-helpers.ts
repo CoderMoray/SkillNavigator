@@ -202,6 +202,9 @@ export function canRetryStoredReview(
   version: string = skill.latestVersion,
   hasStoredPackage?: boolean
 ): boolean {
+  if (version !== skill.latestVersion) {
+    return false;
+  }
   const entry = skill.versions[version];
   return (
     resolveVersionReviewStatus(entry, skill) === "failed" &&

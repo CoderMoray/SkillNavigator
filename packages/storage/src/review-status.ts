@@ -121,3 +121,5 @@ export function readReviewRecoverAllOnStartup(): boolean {
 
 export const REVIEW_INTERRUPTED_MESSAGE = "审查任务因服务重启中断，请重试未完成或失败的审查环节。";
 export const REVIEW_STALE_MESSAGE = "审查超时未完成，请重试未完成或失败的审查环节。";
+export const REVIEW_SUPERSEDED_MESSAGE =
+  "该版本审查已被更新的 latest 版本取代，无需重审；请查看当前 latest 版本的审查状态。";

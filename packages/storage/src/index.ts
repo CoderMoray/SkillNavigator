@@ -20,6 +20,7 @@ export {
   readReviewRecoverAllOnStartup,
   REVIEW_INTERRUPTED_MESSAGE,
   REVIEW_STALE_MESSAGE,
+  REVIEW_SUPERSEDED_MESSAGE,
   SKILL_REVIEW_STAGES,
   SKILL_REVIEW_STATUSES,
 } from "./review-status.js";
@@ -131,7 +132,9 @@ export {
   resolveLatestApprovedVersion,
   resolveVersionReference,
   canRepublishFailedVersion,
+  canRetryVersionReview,
   hasStoredPendingPackage,
+  isLatestReviewTarget,
   assertSkillRepublishAllowed,
   assertSkillVersionRepublishAllowed,
   getSkillRepublishBlockReason,

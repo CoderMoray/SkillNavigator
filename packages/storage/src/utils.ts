@@ -161,6 +161,24 @@ export function resolveVersionReviewStatus(
   return version.reviewStatus ?? DEFAULT_SKILL_REVIEW_STATUS;
 }
 
+export function isLatestReviewTarget(
+  skill: Pick<RegistrySkill, "latestVersion">,
+  version: string
+): boolean {
+  return skill.latestVersion === version;
+}
+
+export function canRetryVersionReview(
+  skill: RegistrySkill,
+  version: string
+): boolean {
+  const entry = skill.versions[version];
+  if (!entry || !isLatestReviewTarget(skill, version)) {
+    return false;
+  }
+  return resolveVersionReviewStatus(entry) === "failed";
+}
+
 export function getVersionRepublishBlockReason(
   skill: Pick<RegistrySkill, "latestVersion" | "versions">,
   version: string

@@ -920,6 +920,9 @@ export function buildServer() {
       try {
         ({ review, evaluation, failedStages } = await executeStagedPublishReview(store, prepared));
       } catch (error) {
+        if (error instanceof ReviewSupersededError) {
+          return reply.code(409).send({ error: "review_superseded" });
+        }
         await markPublishReviewFailed(store, prepared.slug, prepared.version, error);
         throw error;
       }
@@ -934,6 +937,8 @@ export function buildServer() {
           reviewFailure: buildSkillReviewFailureFromStages(failedStages),
         });
       }
+
+      await ensureLatestReviewTarget(store, prepared.slug, prepared.version);
 
       const registryVersion = await publishReviewedSnapshot(
         store,
@@ -957,6 +962,9 @@ export function buildServer() {
         changelog: registryVersion.changelog
       });
     } catch (error) {
+      if (error instanceof ReviewSupersededError) {
+        return reply.code(409).send({ error: "review_superseded" });
+      }
       return sendPublishError(reply, error);
     }
   });
@@ -1059,6 +1067,9 @@ export function buildServer() {
           reviewOptions
         ));
       } catch (error) {
+        if (error instanceof ReviewSupersededError) {
+          return reply.code(409).send({ error: "review_superseded" });
+        }
         await markPublishReviewFailed(store, prepared.slug, prepared.version, error);
         throw error;
       }
@@ -1073,6 +1084,8 @@ export function buildServer() {
           reviewFailure: buildSkillReviewFailureFromStages(failedStages),
         });
       }
+
+      await ensureLatestReviewTarget(store, prepared.slug, prepared.version);
 
       const registryVersion = await publishReviewedSnapshot(
         store,
@@ -1096,6 +1109,9 @@ export function buildServer() {
         changelog: registryVersion.changelog
       });
     } catch (error) {
+      if (error instanceof ReviewSupersededError) {
+        return reply.code(409).send({ error: "review_superseded" });
+      }
       return sendPublishError(reply, error);
     }
   });
@@ -1692,6 +1708,24 @@ interface StagedPublishReviewOptions {
   initialState?: Partial<ReviewPipelineState>;
 }
 
+class ReviewSupersededError extends Error {
+  constructor() {
+    super("review_superseded");
+    this.name = "ReviewSupersededError";
+  }
+}
+
+async function ensureLatestReviewTarget(
+  store: RegistryStore,
+  slug: string,
+  version: string
+): Promise<void> {
+  const skill = await store.getSkill(slug);
+  if (!skill || skill.latestVersion !== version) {
+    throw new ReviewSupersededError();
+  }
+}
+
 function buildReviewPipelineInitialState(
   skill: RegistrySkill | undefined,
   version: string
@@ -1754,6 +1788,7 @@ async function executeStagedPublishReview(
     skipStages: options.skipStages,
     initialState: options.initialState,
     onStageComplete: async ({ state, review, evaluation }) => {
+      await ensureLatestReviewTarget(store, prepared.slug, prepared.version);
       await store.persistReviewStageResults(
         prepared.slug,
         prepared.version,
@@ -1778,11 +1813,13 @@ async function runBackgroundPublishReview(
 ): Promise<void> {
   console.info(`Background publish review started for ${prepared.slug}@${prepared.version}`);
   try {
+    await ensureLatestReviewTarget(store, prepared.slug, prepared.version);
     const { review, evaluation, failedStages } = await executeStagedPublishReview(
       store,
       prepared,
       reviewOptions
     );
+    await ensureLatestReviewTarget(store, prepared.slug, prepared.version);
     if (failedStages.length > 0) {
       await markPublishReviewFailed(store, prepared.slug, prepared.version, failedStages);
       return;
@@ -1798,6 +1835,12 @@ async function runBackgroundPublishReview(
     );
     console.info(`Background publish review completed for ${prepared.slug}@${prepared.version}`);
   } catch (error) {
+    if (error instanceof ReviewSupersededError) {
+      console.info(
+        `Background publish review abandoned for ${prepared.slug}@${prepared.version} (no longer latest)`
+      );
+      return;
+    }
     console.error(
       `Background publish review failed for ${prepared.slug}@${prepared.version}:`,
       error
