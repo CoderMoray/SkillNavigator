@@ -19,7 +19,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readSkillPackage } from "@skill-platform/skill-spec";
-import { inspectSkillSnapshot } from "@skill-platform/inspection-engine";
+import { inspectAndEvaluateSkillSnapshot } from "@skill-platform/inspection-engine";
 import {
   createAuthStoreFromEnv,
   createRegistryStoreFromEnv,
@@ -50,7 +50,7 @@ async function defaultReadPackage(skillDir) {
 }
 
 async function defaultInspect(snapshot) {
-  return inspectSkillSnapshot(snapshot);
+  return inspectAndEvaluateSkillSnapshot(snapshot);
 }
 
 async function main() {

@@ -102,8 +102,8 @@ export async function runBootstrap(
   }
 
   const snapshot = await readPackage(skillDir);
-  const inspection = await inspectSnapshot(snapshot);
-  const version = await registryStore.publishSnapshot(snapshot, inspection, undefined, {
+  const { inspection, evaluation } = await inspectSnapshot(snapshot);
+  const version = await registryStore.publishSnapshot(snapshot, inspection, evaluation, {
     owner: { userId: target.id, username: target.username },
   });
 
@@ -172,8 +172,8 @@ export async function runDemoSeed(
   }
 
   const snapshot = await readPackage(skillDir);
-  const inspection = await inspectSnapshot(snapshot);
-  await registryStore.publishSnapshot(snapshot, inspection, undefined, {
+  const { inspection, evaluation } = await inspectSnapshot(snapshot);
+  await registryStore.publishSnapshot(snapshot, inspection, evaluation, {
     owner: { userId: target.id, username: target.username },
   });
 

@@ -16,6 +16,7 @@ class FakeRegistryStore {
     this.skills = new Map(Object.entries(entries)); // slug -> { slug, ownerUserId }
     this.recycle = new Set();
     this.publishes = [];
+    this.evaluations = []; // evaluation payloads passed to publishSnapshot
     this.deletions = []; // slugs that were permanently purged
   }
 
@@ -44,9 +45,10 @@ class FakeRegistryStore {
     throw new Error(`Skill not in recycle bin: ${slug}`);
   }
 
-  async publishSnapshot(snapshot, inspection, _evaluation, options) {
+  async publishSnapshot(snapshot, inspection, evaluation, options) {
     const slug = snapshot.manifest.slug;
     this.publishes.push({ owner: options.owner, version: inspection.version });
+    this.evaluations.push(evaluation ?? null);
     this.skills.set(slug, { slug, ownerUserId: options.owner.userId, latestVersion: inspection.version });
     return { version: inspection.version };
   }
@@ -59,6 +61,7 @@ const fakeSnapshot = () => ({
 });
 
 const fakeInspection = () => ({ version: "1.0.0", verdict: "approved", findings: [] });
+const fakeEvaluation = () => ({ provider: "halucatch-adapter", score: 80 });
 
 async function emptyAuthStore() {
   const dir = mkdtempSync(path.join(tmpdir(), "skillnav-bootstrap-"));
@@ -104,7 +107,7 @@ describe("runBootstrap (auth store = FileAuthStore)", () => {
     authStore: auth,
     registryStore: registry,
     readPackage: async () => fakeSnapshot(),
-    inspectSnapshot: async () => fakeInspection(),
+    inspectSnapshot: async () => ({ inspection: fakeInspection(), evaluation: fakeEvaluation() }),
   });
 
   const aliceConfig = { username: "alice", email: "alice@example.com", displayName: "Alice Admin" };
@@ -305,7 +308,10 @@ describe("runDemoSeed (auth store = FileAuthStore)", () => {
       contentHash: "fake-demo-hash",
       files: [],
     }),
-    inspectSnapshot: async () => ({ version: "1.0.0", verdict: "published", findings: [] }),
+    inspectSnapshot: async () => ({
+      inspection: { version: "1.0.0", verdict: "published", findings: [] },
+      evaluation: fakeEvaluation(),
+    }),
   });
 
   test("missing account -> demo-created-linked (alice created, demo-skill published)", async () => {
@@ -314,6 +320,9 @@ describe("runDemoSeed (auth store = FileAuthStore)", () => {
     expect(result.action).toBe("demo-created-linked");
     expect(registry.publishes).toHaveLength(1);
     expect(registry.publishes[0].owner.username).toBe("alice");
+    // The evaluation (HaluCatch report) must be persisted, not dropped.
+    expect(registry.evaluations).toHaveLength(1);
+    expect(registry.evaluations[0]?.provider).toBe("halucatch-adapter");
     const users = await auth.listUsers();
     expect(users.find((user) => user.username === "alice")).toBeTruthy();
   });
