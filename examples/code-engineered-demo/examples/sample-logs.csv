@@ -1,0 +1,6 @@
+timestamp,level,message
+2026-01-01T10:00:00Z,INFO,Worker started
+2026-01-01T10:00:05Z,WARN,Retry queue depth exceeded threshold
+2026-01-01T10:00:10Z,ERROR,Database connection timeout
+2026-01-01T10:00:15Z,ERROR,Database connection timeout
+2026-01-01T10:00:20Z,INFO,Worker heartbeat

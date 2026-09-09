@@ -124,7 +124,8 @@ npm run test:e2e       # Playwright 浏览器端到端测试（e2e/site.e2e.ts�
 - `apps/worker`：审查 Worker。
 - `apps/web`：Next.js Web UI（Skill 广场、详情、审查报告、HaluCatch、社区、榜单、账户设置、站内文档）。
 - `cli-py/`：对外 Python CLI **skillnav**（PyPI 发布，见 `.github/workflows/pypi.yml`）。
-- `examples/demo-skill/`：本地验证用 Demo Skill。
+- `examples/demo-skill/`：本地验证用 Demo Skill（HaluCatch 方法论型权重）。
+- `examples/code-engineered-demo/`：含 Python 脚本与 CSV 样例，用于验证 HaluCatch 代码/工程型权重。
 - `examples/skillnav-skill/`：Agent 专用 CLI 命令参考 Skill。
 
 ## API（节选）

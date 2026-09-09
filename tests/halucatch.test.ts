@@ -1,7 +1,11 @@
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
-import { evaluateSkillSnapshot } from "@skill-platform/evaluator";
+import {
+  evaluateSkillSnapshot,
+  HALUCATCH_CODE_ENGINEERED_WEIGHTS,
+  normalizeHaluCatchSkillType
+} from "@skill-platform/evaluator";
 import { readSkillPackage } from "@skill-platform/skill-spec";
 
 const pythonCommand =
@@ -44,5 +48,14 @@ describe("HaluCatch evaluator adapter", () => {
       expect(markdown).not.toMatch(/skill-platform-halucatch/i);
       expect(markdown).not.toMatch(/AppData[\\/]Local[\\/]Temp/i);
     }
+  });
+
+  evaluate("classifies code-engineered-demo as code-engineered and applies matching weights", async () => {
+    const snapshot = await readSkillPackage(resolve("examples/code-engineered-demo"));
+    const report = await evaluateSkillSnapshot(snapshot);
+
+    expect(normalizeHaluCatchSkillType(report.haluCatchReport?.skillType)).toBe("code-engineered");
+    expect(report.haluCatchReport?.weightProfile).toBe("code-engineered");
+    expect(report.haluCatchReport?.dimensionWeights).toEqual(HALUCATCH_CODE_ENGINEERED_WEIGHTS);
   });
 });
