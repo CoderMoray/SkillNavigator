@@ -134,12 +134,17 @@ def print_virustotal_summary(summary: dict[str, Any]) -> None:
             print(f"  ... and {len(flagged) - 20} more")
 
 
+def _print_inspection_section_header(name: str, inspection_type: str) -> None:
+    print(f"\n=== {name} ===")
+    print(f"Inspection Type: {inspection_type}")
+
+
 def _print_inspection_sections(review: dict[str, Any]) -> None:
     print(f"Verdict: {review.get('verdict', '?')}")
     skillspector_findings, virustotal_findings = _partition_inspection_findings(
         review.get("findings") or []
     )
-    print("\n=== SkillSpector（Security）===")
+    _print_inspection_section_header("SkillSpector", "Security")
     scores = review.get("scores") or {}
     print(
         "Scores: "
@@ -151,7 +156,7 @@ def _print_inspection_sections(review: dict[str, Any]) -> None:
 
     virustotal_summary = review.get("virusTotal")
     if virustotal_summary or virustotal_findings:
-        print("\n=== VirusTotal（Security）===")
+        _print_inspection_section_header("VirusTotal", "Security")
         if isinstance(virustotal_summary, dict):
             print_virustotal_summary(virustotal_summary)
         _print_findings_list(virustotal_findings)
@@ -198,7 +203,7 @@ def print_inspection_result(payload: dict[str, Any]) -> None:
         print("No inspection or evaluation data.")
         return
     if evaluation:
-        print("\n=== HaluCatch（Quality）===")
+        _print_inspection_section_header("HaluCatch", "Quality")
         print_evaluation(evaluation)
     _print_failed_stages(payload.get("failedStages"))
 
@@ -711,7 +716,7 @@ def print_report_version(body: dict[str, Any], *, slug: str | None = None) -> No
     if inspection:
         _print_inspection_sections(inspection)
     if evaluation:
-        print("\n=== HaluCatch（Quality）===")
+        _print_inspection_section_header("HaluCatch", "Quality")
         print_evaluation(evaluation)
     if not inspection and not evaluation:
         print("No inspection or evaluation data for this version.")

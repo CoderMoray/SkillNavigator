@@ -441,10 +441,12 @@ def test_print_inspection_result_includes_sections(capsys) -> None:
     print_inspection_result(payload)
     out = capsys.readouterr().out
     assert "Inspection: Demo Skill@0.1.0" in out
-    assert "=== SkillSpector（Security）===" in out
-    assert "=== VirusTotal（Security）===" in out
+    assert "=== SkillSpector ===" in out
+    assert "Inspection Type: Security" in out
+    assert "=== VirusTotal ===" in out
     assert "Detections: 0 malicious, 0 suspicious" in out
-    assert "=== HaluCatch（Quality）===" in out
+    assert "=== HaluCatch ===" in out
+    assert "Inspection Type: Quality" in out
     assert "Missing structured steps" in out
     assert "=== Pipeline warnings ===" in out
     assert "halucatch: adapter timeout" in out
@@ -470,7 +472,8 @@ def test_print_inspection_partitions_skillspector_findings(capsys) -> None:
     )
     out = capsys.readouterr().out
     assert "Inspection: Demo Skill@0.1.0" in out
-    assert "=== SkillSpector（Security）===" in out
+    assert "=== SkillSpector ===" in out
+    assert "Inspection Type: Security" in out
     assert "SkillSpector note" in out
     assert "=== HaluCatch" not in out
 
@@ -535,18 +538,20 @@ def test_print_report_version_includes_virustotal(capsys) -> None:
     print_report_version(body, slug="demo-skill")
     out = capsys.readouterr().out
     assert "Report: demo-skill@1.0.0" in out
-    assert out.index("Verdict: approved") < out.index("=== SkillSpector（Security）===")
-    assert "=== SkillSpector（Security）===" in out
+    assert out.index("Verdict: approved") < out.index("=== SkillSpector ===")
+    assert "=== SkillSpector ===" in out
+    assert "Inspection Type: Security" in out
     assert "SkillSpector note" in out
-    assert "VirusTotal (malicious)" not in out.split("=== VirusTotal（Security）===")[0]
-    assert "=== VirusTotal（Security）===" in out
+    assert "VirusTotal (malicious)" not in out.split("=== VirusTotal ===")[0]
+    assert "=== VirusTotal ===" in out
     assert "Detections: 1 malicious, 0 suspicious" in out
     assert "Engines scanned: 76" in out
     assert "SHA256: deadbeef" in out
     assert "Report URL: https://www.virustotal.com/gui/file/deadbeef" in out
     assert "VendorA: malicious" in out
     assert "VirusTotal (malicious)" in out
-    assert "=== HaluCatch（Quality）===" in out
+    assert "=== HaluCatch ===" in out
+    assert "Inspection Type: Quality" in out
 
 
 def test_print_virustotal_summary_failed(capsys) -> None:
@@ -584,6 +589,6 @@ def test_print_report_version_virustotal_findings_none(capsys) -> None:
     }
     print_report_version(body, slug="demo-skill")
     out = capsys.readouterr().out
-    vt_section = out.split("=== VirusTotal（Security）===", 1)[1]
+    vt_section = out.split("=== VirusTotal ===", 1)[1]
     assert "Findings: none" in vt_section
     assert "=== HaluCatch" not in vt_section or vt_section.index("Findings: none") < vt_section.find("=== HaluCatch")
