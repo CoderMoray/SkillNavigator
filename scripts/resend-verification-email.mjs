@@ -17,7 +17,7 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 
-loadDotEnvIfPresent(path.join(repoRoot, ".env"));
+loadDotEnvIfPresent();
 
 const username = process.argv[2]?.trim();
 if (!username) {

@@ -9,13 +9,10 @@
  * (one SHA-256 id) vs per file inside a ZIP archive.
  */
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
-import { loadEnvFile } from "node:process";
 import { resolve } from "node:path";
+import { loadDotEnvIfPresent } from "@skill-platform/storage";
 
-if (existsSync(".env")) {
-  loadEnvFile(".env");
-}
+loadDotEnvIfPresent();
 
 const apiKey = process.env.VIRUSTOTAL_API_KEY?.trim();
 if (!apiKey) {

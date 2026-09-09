@@ -32,7 +32,7 @@
     "inspection:benchmark:full": "tsx scripts/review-benchmark.ts --unlimited --vt-cold --sizes 1,10,50",
     "inspection:export-examples": "tsx scripts/export-benchmark-examples.ts --sizes 1,10,50",
     "test:watch": "vitest",
-    "verify:inspection-deps": "node scripts/verify-review-deps.mjs",
+    "verify:inspection-deps": "tsx scripts/verify-inspection-deps.mjs",
     "skillnav:test": "pip install -e \"cli-py[dev]\" && pytest tests/skillnav -v",
     "skillnav:lint": "python3 -m ruff check cli-py tests/skillnav && python3 -m mypy cli-py/src/skillnav",
     "setup": "bash scripts/setup.sh",

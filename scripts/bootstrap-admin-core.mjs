@@ -6,6 +6,10 @@ import { randomBytes } from "node:crypto";
 export const OFFICIAL_SLUG = "skillnav-skill";
 /** Dev-mode seed Skill (setup.sh ON_DEV=true) that must not survive production bootstrap. */
 export const DEMO_SLUG = "demo-skill";
+/** Demo deployment account (fixed credentials, mirrors the historical dev seed). */
+export const DEMO_USERNAME = "alice";
+export const DEMO_EMAIL = "alice@example.com";
+export const DEMO_PASSWORD = "password123";
 
 export function generatePassword() {
   const bytes = randomBytes(24);
@@ -122,6 +126,65 @@ export async function runBootstrap(
   return createdPassword
     ? { action: "created-linked", ...base, password: createdPassword }
     : { action: "linked", ...base };
+}
+
+/**
+ * Demo seeding (setup.sh ON_DEV=false without ADMIN_*): make sure the shared
+ * demo account owns the demo Skill — idempotently. The account is created
+ * with fixed well-known credentials when missing; an existing 'alice' is
+ * reused untouched (never resets passwords or profile).
+ *
+ * stdout actions: "demo-created-linked" | "demo-linked" | "demo-already-linked"
+ */
+export async function runDemoSeed(
+  { authStore, registryStore, skillDir, readPackage, inspectSnapshot },
+  { username = DEMO_USERNAME, email = DEMO_EMAIL, password = DEMO_PASSWORD } = {}
+) {
+  const existing = await authStore.getUserByUsername(username);
+  let target;
+  let created = false;
+  if (!existing) {
+    target = await authStore.register(username, password, email, {
+      autoVerifyEmail: true,
+    });
+    created = true;
+  } else {
+    target = existing;
+  }
+
+  const demo = await registryStore.getSkill(DEMO_SLUG);
+  if (demo && demo.ownerUserId === target.id) {
+    return {
+      action: "demo-already-linked",
+      username,
+      email: target.email ?? email,
+      message: `Account '${username}' already owns ${DEMO_SLUG}; nothing to do.`,
+    };
+  }
+
+  const reassigned = demo !== undefined;
+  if (reassigned) {
+    await removeSkillPermanently(registryStore, DEMO_SLUG);
+  }
+
+  if (!readPackage || !inspectSnapshot) {
+    throw new Error("readPackage and inspectSnapshot are required when publishing the demo skill");
+  }
+
+  const snapshot = await readPackage(skillDir);
+  const inspection = await inspectSnapshot(snapshot);
+  await registryStore.publishSnapshot(snapshot, inspection, undefined, {
+    owner: { userId: target.id, username: target.username },
+  });
+
+  const base = {
+    username,
+    email: target.email ?? email,
+    message: reassigned
+      ? `${DEMO_SLUG} was owned by another account and has been re-assigned to '${username}'.`
+      : undefined,
+  };
+  return created ? { action: "demo-created-linked", ...base } : { action: "demo-linked", ...base };
 }
 
 async function removeSkillPermanently(registryStore, slug) {
