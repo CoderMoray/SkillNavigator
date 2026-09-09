@@ -1,35 +1,40 @@
 #!/usr/bin/env node
 /**
- * Production bootstrap helper (tsx): make sure the configured administrator
- * owns the official skillnav-skill in the registry — idempotently.
+ * Bootstrap helper (tsx): seed the registry for both deployment modes.
  *
- * CLI reads from the environment (setup.sh loads these from .env):
- *   ADMIN_USERNAME      — login username (required)
- *   ADMIN_EMAIL         — login email (required)
- *   ADMIN_DISPLAY_NAME  — display name (required, applied only on creation)
+ * CLI reads from the environment (setup.sh loads these from .env).
  *
- * Behaviour (never rebuilds or resets an existing account, never clears data):
- *   1. Resolve the account (ADMIN_* username is the only anchor):
- *        - username already exists  -> reused as-is (any role, password untouched)
- *        - missing                  -> created unconditionally and promoted to
- *          admin (works even when other admins exist, e.g. admin handover);
- *          auto-verified, display name applied. A fresh strong password is
- *          generated and returned in "password" so setup.sh can email it.
- *   2. Normalize the registry for production:
- *        - remove the dev-seed demo-skill (seeded by ON_DEV=true under alice;
- *          it must not survive production bootstrap)
- *        - skillnav-skill: already owned by this admin -> nothing; owned by a
- *          different account or in the recycle bin -> deleted (full cascade
- *          purge) and re-published under this admin; absent -> published.
+ * Mode A — ADMIN_USERNAME / ADMIN_EMAIL / ADMIN_DISPLAY_NAME all set:
+ *   make sure the configured administrator owns the official skillnav-skill,
+ *   idempotently (never rebuilds an existing account, never clears data):
+ *     1. Resolve the account (ADMIN_* username is the only anchor):
+ *          - username already exists  -> reused as-is (any role, password untouched)
+ *          - missing                  -> created unconditionally and promoted to
+ *            admin (works even when other admins exist, e.g. admin handover);
+ *            auto-verified, display name applied. A fresh strong password is
+ *            generated and returned in "password" so setup.sh can email it.
+ *     2. Normalize the registry:
+ *          - remove the demo-skill residue (demo seeding must not survive a
+ *            production bootstrap)
+ *          - skillnav-skill: already owned by this admin -> nothing; owned by
+ *            a different account or in the recycle bin -> deleted (full
+ *            cascade purge) and re-published under this admin; absent -> published.
+ *
+ * Mode B — no ADMIN_* configured (used with --demo by setup.sh):
+ *   ON_DEV=false: make sure the shared demo account ('alice', fixed
+ *   well-known credentials) owns the demo Skill, idempotently.
+ *   ON_DEV=true (or unset): nothing is initialized — {"action":"skipped"}.
  *
  * stdout is one JSON line consumed by scripts/setup.sh:
  *   {"action":"created-linked", password, username, email}
  *   {"action":"linked", ...} | {"action":"already-linked", ...}
+ *   {"action":"demo-created-linked" | "demo-linked" | "demo-already-linked", ...}
+ *   {"action":"skipped", message}
  *   {"action":"error", code, message}
  * Linked results include "cleanedDemo"/"message" when residues were handled.
  *
- * The core logic is exported (runBootstrap) so it can be unit-tested with
- * injected store implementations.
+ * The core logic is exported (runBootstrap / runDemoSeed) so it can be
+ * unit-tested with injected store implementations.
  */
 import { randomBytes } from "node:crypto";
 import path from "node:path";
@@ -45,9 +50,14 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const OFFICIAL_SKILL_DIR = path.join(repoRoot, "examples", "skillnav-skill");
+const DEMO_SKILL_DIR = path.join(repoRoot, "examples", "demo-skill");
 export const OFFICIAL_SLUG = "skillnav-skill";
-/** Dev-mode seed Skill (setup.sh ON_DEV=true) that must not survive production bootstrap. */
+/** Demo-mode seed Skill (setup.sh ON_DEV=false without ADMIN_*). */
 export const DEMO_SLUG = "demo-skill";
+/** Demo deployment account (fixed credentials, mirrors the historical dev seed). */
+export const DEMO_USERNAME = "alice";
+export const DEMO_EMAIL = "alice@example.com";
+export const DEMO_PASSWORD = "password123";
 
 export function generatePassword() {
   const bytes = randomBytes(24);
@@ -183,6 +193,63 @@ export async function runBootstrap(
 }
 
 /**
+ * Demo seeding (setup.sh ON_DEV=false without ADMIN_*): make sure the shared
+ * demo account owns the demo Skill — idempotently. The account is created
+ * with fixed well-known credentials when missing; an existing 'alice' is
+ * reused untouched (never resets passwords or profile).
+ *
+ * stdout actions: "demo-created-linked" | "demo-linked" | "demo-already-linked"
+ */
+export async function runDemoSeed(
+  { authStore, registryStore, skillDir = DEMO_SKILL_DIR, readPackage = defaultReadPackage, reviewSnapshot = defaultReview },
+  { username = DEMO_USERNAME, email = DEMO_EMAIL, password = DEMO_PASSWORD } = {}
+) {
+  const existing = await authStore.getUserByUsername(username);
+  let target;
+  let created = false;
+  if (!existing) {
+    target = await authStore.register(username, password, email, {
+      autoVerifyEmail: true,
+    });
+    created = true;
+  } else {
+    target = existing;
+  }
+
+  const demo = await registryStore.getSkill(DEMO_SLUG);
+  if (demo && demo.ownerUserId === target.id) {
+    return {
+      action: "demo-already-linked",
+      username,
+      email: target.email ?? email,
+      message: `Account '${username}' already owns ${DEMO_SLUG}; nothing to do.`,
+    };
+  }
+
+  // Demo Skill absent, in the recycle bin, or owned by someone else —
+  // normalize: remove it (if present) and publish it under the demo account.
+  const reassigned = demo !== undefined;
+  if (reassigned) {
+    await removeSkillPermanently(registryStore, DEMO_SLUG);
+  }
+
+  const snapshot = await readPackage(skillDir);
+  const review = await reviewSnapshot(snapshot);
+  await registryStore.publishSnapshot(snapshot, review, undefined, {
+    owner: { userId: target.id, username: target.username },
+  });
+
+  const base = {
+    username,
+    email: target.email ?? email,
+    message: reassigned
+      ? `${DEMO_SLUG} was owned by another account and has been re-assigned to '${username}'.`
+      : undefined,
+  };
+  return created ? { action: "demo-created-linked", ...base } : { action: "demo-linked", ...base };
+}
+
+/**
  * Permanently remove a Skill: soft-delete to the recycle bin, then purge. The
  * purge deletes every associated row (reviews/findings/evaluations/files/tags/
  * versions) in one transaction and cleans MinIO artifacts; contributors,
@@ -207,7 +274,9 @@ async function removeSkillPermanently(registryStore, slug) {
 async function main() {
   loadDotEnvIfPresent();
 
-  // The seed review must run offline and deterministically.
+  // Seed reviews must run offline and deterministically (both admin and demo
+  // paths): SkillSpector / VirusTotal stay disabled; HaluCatch runs from the
+  // vendored source.
   process.env.SKILLSPECTOR_ENABLED = "false";
   process.env.VIRUSTOTAL_ENABLED = "false";
 
@@ -227,9 +296,40 @@ async function main() {
     return;
   }
 
+  const admin = parseAdminConfig(process.env);
+
+  if (admin) {
+    try {
+      const result = await runBootstrap({ authStore, registryStore }, admin);
+      console.log(JSON.stringify(result));
+    } catch (error) {
+      console.error(error instanceof Error ? error.stack : String(error));
+      console.log(
+        JSON.stringify({
+          action: "error",
+          code: "bootstrap-failed",
+          message: `Admin bootstrap failed: ${error instanceof Error ? error.message : String(error)}`,
+        })
+      );
+    }
+    return;
+  }
+
+  // No ADMIN_* configured.
+  const onDev = process.env.ON_DEV?.trim().toLowerCase() !== "false";
+  if (onDev) {
+    console.log(
+      JSON.stringify({
+        action: "skipped",
+        message:
+          "No ADMIN_* configured — development mode initializes no Skill. Set ADMIN_USERNAME / ADMIN_EMAIL / ADMIN_DISPLAY_NAME to seed skillnav-skill, or run with ON_DEV=false to seed the demo Skill.",
+      })
+    );
+    return;
+  }
+
   try {
-    const admin = parseAdminConfig(process.env);
-    const result = await runBootstrap({ authStore, registryStore }, admin ?? {});
+    const result = await runDemoSeed({ authStore, registryStore }, {});
     console.log(JSON.stringify(result));
   } catch (error) {
     console.error(error instanceof Error ? error.stack : String(error));
@@ -237,7 +337,7 @@ async function main() {
       JSON.stringify({
         action: "error",
         code: "bootstrap-failed",
-        message: `Admin bootstrap failed: ${error instanceof Error ? error.message : String(error)}`,
+        message: `Demo bootstrap failed: ${error instanceof Error ? error.message : String(error)}`,
       })
     );
   }

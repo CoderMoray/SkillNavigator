@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { FileAuthStore } from "@skill-platform/storage";
-import { generatePassword, parseAdminConfig, runBootstrap } from "../scripts/bootstrap-admin.mjs";
+import { generatePassword, parseAdminConfig, runBootstrap, runDemoSeed } from "../scripts/bootstrap-admin.mjs";
 
 /**
  * A minimal RegistryStore fake backed by a slug -> skill map. It models the
@@ -282,5 +282,81 @@ describe("runBootstrap (auth store = FileAuthStore)", () => {
     expect(second.action).toBe("already-linked");
     expect(registry.publishes).toHaveLength(1);
     expect((await auth.listUsers())).toHaveLength(1);
+  });
+});
+
+describe("runDemoSeed (auth store = FileAuthStore)", () => {
+  let auth;
+  let dir;
+
+  beforeEach(async () => {
+    ({ store: auth, dir } = await emptyAuthStore());
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  const demoDeps = (registry) => ({
+    authStore: auth,
+    registryStore: registry,
+    readPackage: async () => ({
+      manifest: { slug: "demo-skill", name: "Demo Skill", version: "1.0.0" },
+      contentHash: "fake-demo-hash",
+      files: [],
+    }),
+    reviewSnapshot: async () => ({ version: "1.0.0", verdict: "published", findings: [] }),
+  });
+
+  test("missing account -> demo-created-linked (alice created, demo-skill published)", async () => {
+    const registry = new FakeRegistryStore();
+    const result = await runDemoSeed(demoDeps(registry));
+    expect(result.action).toBe("demo-created-linked");
+    expect(registry.publishes).toHaveLength(1);
+    expect(registry.publishes[0].owner.username).toBe("alice");
+    const users = await auth.listUsers();
+    expect(users.find((user) => user.username === "alice")).toBeTruthy();
+  });
+
+  test("existing account without the Skill -> demo-linked, credentials untouched", async () => {
+    const alice = await auth.register("alice", "existing-secret-1", "other@example.com", {
+      autoVerifyEmail: true,
+    });
+    const registry = new FakeRegistryStore();
+
+    const result = await runDemoSeed(demoDeps(registry));
+    expect(result.action).toBe("demo-linked");
+    expect(registry.publishes).toHaveLength(1);
+    expect(registry.publishes[0].owner.userId).toBe(alice.id);
+    // Existing account is reused as-is: password and email are untouched.
+    const login = await auth.login("alice", "existing-secret-1");
+    expect(login.token).toBeTruthy();
+    const users = await auth.listUsers();
+    expect(users.find((user) => user.username === "alice")?.email).toBe("other@example.com");
+  });
+
+  test("idempotent: second run reports demo-already-linked without publishing", async () => {
+    const registry = new FakeRegistryStore();
+    const first = await runDemoSeed(demoDeps(registry));
+    expect(first.action).toBe("demo-created-linked");
+
+    const second = await runDemoSeed(demoDeps(registry));
+    expect(second.action).toBe("demo-already-linked");
+    expect(registry.publishes).toHaveLength(1);
+    expect((await auth.listUsers())).toHaveLength(1);
+  });
+
+  test("demo-skill owned by someone else -> purged and re-published under alice", async () => {
+    const someone = await auth.register("someone", "password456", "s@example.com", {
+      autoVerifyEmail: true,
+    });
+    const registry = new FakeRegistryStore();
+    registry.skills.set("demo-skill", { slug: "demo-skill", ownerUserId: someone.id });
+
+    const result = await runDemoSeed(demoDeps(registry));
+    expect(result.action).toBe("demo-created-linked");
+    expect(registry.deletions).toContain("demo-skill");
+    expect(registry.publishes).toHaveLength(1);
+    expect(registry.publishes[0].owner.username).toBe("alice");
   });
 });
