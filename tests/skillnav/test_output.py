@@ -518,6 +518,15 @@ def test_print_report_version_includes_virustotal(capsys) -> None:
                     "category": "security",
                     "title": "VirusTotal (malicious)",
                     "message": "VendorA classified this package as malicious.",
+                    "evidence": (
+                        "SHA-256: deadbeef\n"
+                        "Total engines: 76\n"
+                        "Category: malicious\n"
+                        "Result:\n"
+                        "\tVendorA: Trojan.Test\n"
+                        "\tVendorB: EICAR-Test-File\n"
+                        "Report: https://www.virustotal.com/gui/file/deadbeef"
+                    ),
                 },
             ],
             "virusTotal": {
@@ -537,7 +546,13 @@ def test_print_report_version_includes_virustotal(capsys) -> None:
                         "category": "malicious",
                         "result": "Trojan.Test",
                         "method": "blacklist",
-                    }
+                    },
+                    {
+                        "engine": "VendorB",
+                        "category": "malicious",
+                        "result": "EICAR-Test-File",
+                        "method": "blacklist",
+                    },
                 ],
             },
         },
@@ -567,8 +582,11 @@ def test_print_report_version_includes_virustotal(capsys) -> None:
     assert out.index("Security Vendors Scanned: 76") < out.index("Status: completed")
     assert "SHA256: deadbeef" in out
     assert "Report URL: https://www.virustotal.com/gui/file/deadbeef" in out
-    assert "VendorA: malicious" in out
-    assert "VirusTotal (malicious)" in out
+    assert "- VirusTotal (malicious)" in out
+    assert "Result:" in out
+    assert "\tVendorA: Trojan.Test" in out
+    assert "\tVendorB: EICAR-Test-File" in out
+    assert "Flagged engines:" not in out
     assert "=== HaluCatch ===" in out
     assert "Inspection Type: Quality" in out
     assert "Weighted Total Score: 85/100" in out
@@ -652,6 +670,31 @@ def test_print_inspection_result_omits_prompt(capsys) -> None:
     )
     out = capsys.readouterr().out
     assert "=== Prompt ===" not in out
+
+
+def test_print_virustotal_findings_shows_titles_and_results(capsys) -> None:
+    from skillnav.output import _print_virustotal_findings
+
+    _print_virustotal_findings(
+        [
+            {
+                "id": "virustotal-malicious-deadbeef01234567",
+                "title": "VirusTotal (malicious)",
+                "evidence": "Result:\n\tKaspersky: EICAR-Test-File\n",
+            },
+            {
+                "id": "virustotal-suspicious-deadbeef01234567",
+                "title": "VirusTotal (suspicious)",
+                "evidence": "Result:\n\tElastic: Malicious (score: 99)\n",
+            },
+        ],
+        None,
+    )
+    out = capsys.readouterr().out
+    assert "- VirusTotal (malicious)" in out
+    assert "- VirusTotal (suspicious)" in out
+    assert "\tKaspersky: EICAR-Test-File" in out
+    assert "\tElastic: Malicious (score: 99)" in out
 
 
 def test_print_virustotal_summary_failed(capsys) -> None:

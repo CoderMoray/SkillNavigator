@@ -83,6 +83,96 @@ def _resolve_virustotal_engine_total(summary: dict[str, Any]) -> int:
     return sum(int(summary.get(key) or 0) for key in ("malicious", "suspicious", "harmless", "undetected"))
 
 
+def _virustotal_finding_category(finding: dict[str, Any]) -> str | None:
+    finding_id = str(finding.get("id") or "").lower()
+    if "malicious" in finding_id:
+        return "malicious"
+    if "suspicious" in finding_id:
+        return "suspicious"
+    title = str(finding.get("title") or "").lower()
+    if "malicious" in title:
+        return "malicious"
+    if "suspicious" in title:
+        return "suspicious"
+    return None
+
+
+def _format_virustotal_result_lines(
+    engine_results: list[dict[str, Any]],
+    category: str | None = None,
+) -> list[str]:
+    flagged = [
+        engine
+        for engine in engine_results
+        if engine.get("category") in {"malicious", "suspicious"}
+        and (category is None or engine.get("category") == category)
+    ]
+    flagged.sort(
+        key=lambda engine: (
+            0 if engine.get("category") == "malicious" else 1,
+            str(engine.get("engine") or ""),
+        )
+    )
+    return [f"\t{engine.get('engine', '?')}: {engine.get('result', '?')}" for engine in flagged]
+
+
+def _extract_virustotal_result_from_evidence(evidence: str) -> str | None:
+    marker = "Result:\n"
+    if marker not in evidence:
+        return None
+    block = evidence.split(marker, 1)[1]
+    lines: list[str] = []
+    for line in block.splitlines():
+        if line.startswith(("Method:", "Engine update:", "Report:", "SHA-256:", "Total engines:", "Category:", "Threat verdict:")):
+            break
+        if line.strip():
+            lines.append(line)
+    return "\n".join(lines).rstrip() if lines else None
+
+
+def _print_virustotal_findings(
+    findings: list[dict[str, Any]],
+    summary: dict[str, Any] | None,
+) -> None:
+    engine_results = summary.get("engineResults") or [] if isinstance(summary, dict) else []
+
+    if not findings:
+        result_lines = _format_virustotal_result_lines(engine_results)
+        if not result_lines:
+            print("Findings: none")
+            return
+        print("Findings:")
+        print("Result:")
+        for line in result_lines:
+            print(line)
+        return
+
+    print("Findings:")
+    for finding in findings:
+        title = finding.get("title", "?")
+        print(f"- {title}")
+
+        evidence = finding.get("evidence")
+        result_block = (
+            _extract_virustotal_result_from_evidence(str(evidence))
+            if isinstance(evidence, str) and evidence.strip()
+            else None
+        )
+        if not result_block:
+            category = _virustotal_finding_category(finding)
+            result_lines = _format_virustotal_result_lines(engine_results, category)
+            result_block = "\n".join(result_lines) if result_lines else None
+
+        if result_block:
+            print("Result:")
+            print(result_block)
+        elif finding.get("message"):
+            print(f"  {finding['message']}")
+
+        if finding.get("recommendation"):
+            print(f"  Recommendation: {finding['recommendation']}")
+
+
 def print_virustotal_summary(summary: dict[str, Any]) -> None:
     status = summary.get("status", "?")
     total_engines = _resolve_virustotal_engine_total(summary)
@@ -116,24 +206,6 @@ def print_virustotal_summary(summary: dict[str, Any]) -> None:
     if analysis_url:
         print(f"Report URL: {analysis_url}")
 
-    engine_results = summary.get("engineResults") or []
-    flagged = [
-        engine
-        for engine in engine_results
-        if engine.get("category") in {"malicious", "suspicious"}
-    ]
-    if flagged:
-        print("Flagged engines:")
-        for engine in flagged[:20]:
-            name = engine.get("engine", "?")
-            category = engine.get("category", "?")
-            result = engine.get("result", "?")
-            method = engine.get("method")
-            suffix = f", method={method}" if method else ""
-            print(f"  - {name}: {category} ({result}{suffix})")
-        if len(flagged) > 20:
-            print(f"  ... and {len(flagged) - 20} more")
-
 
 def _print_inspection_section_header(name: str, inspection_type: str) -> None:
     print(f"\n=== {name} ===")
@@ -165,7 +237,7 @@ def _print_inspection_sections(
         _print_inspection_section_header("VirusTotal", "Security")
         if isinstance(virustotal_summary, dict):
             print_virustotal_summary(virustotal_summary)
-        _print_findings_list(virustotal_findings)
+        _print_virustotal_findings(virustotal_findings, virustotal_summary)
 
 
 def _print_failed_stages(failed_stages: Any) -> None:
