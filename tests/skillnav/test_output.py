@@ -456,9 +456,9 @@ def test_print_inspection_result_includes_sections(capsys) -> None:
     assert "Detections: 0 malicious, 0 suspicious" in out
     assert "=== HaluCatch ===" in out
     assert "Inspection Type: Quality" in out
-    assert "Weighted Total Score: 62" in out
+    assert "Weighted Total Score: 62/100" in out
     assert "Detailed Score:" in out
-    assert "- 规则与方法论: 60" in out
+    assert "- 规则与方法论: 60/100" in out
     assert "Status: partial" not in out
     assert "Evaluation: halucatch-adapter" not in out
     assert "Missing structured steps" in out
@@ -569,9 +569,9 @@ def test_print_report_version_includes_virustotal(capsys) -> None:
     assert "VirusTotal (malicious)" in out
     assert "=== HaluCatch ===" in out
     assert "Inspection Type: Quality" in out
-    assert "Weighted Total Score: 85" in out
+    assert "Weighted Total Score: 85/100" in out
     assert "Detailed Score:" in out
-    assert "- 地基与数据管线: 80" in out
+    assert "- 地基与数据管线: 80/100" in out
 
 
 def test_print_virustotal_summary_failed(capsys) -> None:

@@ -228,6 +228,15 @@ def _extract_halucatch_task_label(task_name: str) -> str | None:
     return label
 
 
+def _format_score_out_of_100(score: Any) -> str:
+    if score is None or score == "?":
+        return "?"
+    try:
+        return f"{int(score)}/100"
+    except (TypeError, ValueError):
+        return "?"
+
+
 def _halucatch_dimension_scores(report: dict[str, Any]) -> list[tuple[str, int]]:
     scores_by_label: dict[str, int] = {}
     for task in report.get("taskResults") or []:
@@ -240,10 +249,10 @@ def _halucatch_dimension_scores(report: dict[str, Any]) -> list[tuple[str, int]]
 
 
 def print_evaluation(report: dict[str, Any]) -> None:
-    print(f"Weighted Total Score: {report.get('score', '?')}")
+    print(f"Weighted Total Score: {_format_score_out_of_100(report.get('score'))}")
     print("Detailed Score:")
     for label, score in _halucatch_dimension_scores(report):
-        print(f"- {label}: {score}")
+        print(f"- {label}: {_format_score_out_of_100(score)}")
     findings = report.get("findings") or []
     if not findings:
         print("Evaluation findings: none")
