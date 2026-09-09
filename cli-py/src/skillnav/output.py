@@ -435,18 +435,6 @@ def _normalize_inspection_status(status: str | None) -> str:
     return "completed"
 
 
-def _format_virustotal_progress(inspection: dict[str, Any]) -> str:
-    summary = inspection.get("virusTotal")
-    if not isinstance(summary, dict):
-        return "0/0"
-    status = summary.get("status")
-    if status in {"failed", "not_found"}:
-        return "0/0"
-    malicious = int(summary.get("malicious") or 0)
-    suspicious = int(summary.get("suspicious") or 0)
-    return f"{malicious}/{suspicious}"
-
-
 def _finding_rejects(finding: dict[str, Any]) -> bool:
     return str(finding.get("severity") or "") in {"critical", "high"}
 
@@ -473,10 +461,8 @@ def _success_stage_status(
     inspection: dict[str, Any],
     evaluation: dict[str, Any] | None,
 ) -> str:
-    if stage == "skillspector":
+    if stage in {"skillspector", "virustotal"}:
         return "passed"
-    if stage == "virustotal":
-        return _format_virustotal_progress(inspection)
     return "done"
 
 

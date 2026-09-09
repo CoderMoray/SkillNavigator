@@ -104,7 +104,7 @@ def test_print_skill_status(capsys) -> None:
     assert out.startswith("demo-skill@1.0.1 (latest)")
     assert "Inspection progress:" in out
     assert "SkillSpector: passed" in out
-    assert "VirusTotal: 0/1" in out
+    assert "VirusTotal: passed" in out
     assert "HaluCatch: done" in out
     assert "Inspection status: completed" in out
     assert "Published: yes" in out
@@ -365,7 +365,7 @@ def test_print_skill_status_single_version(capsys) -> None:
     assert out.startswith("demo-skill@1.0.0")
     assert "Inspection status: completed" in out
     assert "SkillSpector: passed" in out
-    assert "VirusTotal: 0/0" in out
+    assert "VirusTotal: passed" in out
     assert "Published: yes" in out
     assert "Verdict:" not in out
     assert "Content hash:" not in out
@@ -376,7 +376,45 @@ def test_print_skill_status_single_version_latest(capsys) -> None:
     print_skill_status(SAMPLE_SKILL, version="1.0.1")
     out = capsys.readouterr().out
     assert out.startswith("demo-skill@1.0.1 (latest)")
-    assert "VirusTotal: 0/1" in out
+    assert "VirusTotal: passed" in out
+
+
+def test_print_skill_status_virustotal_rejected_on_malicious(capsys) -> None:
+    skill = {
+        **SAMPLE_SKILL,
+        "latestVersion": "1.0.2",
+        "versions": {
+            "1.0.2": {
+                "version": "1.0.2",
+                "published": True,
+                "contentHash": "abc123",
+                "inspectionStatus": "completed",
+                "inspectionCompletedStages": ["skillspector", "virustotal", "halucatch"],
+                "inspection": {
+                    "verdict": "rejected",
+                    "findings": [
+                        {
+                            "id": "virustotal-malicious-deadbeef01234567",
+                            "severity": "high",
+                            "category": "security",
+                            "title": "VirusTotal (malicious)",
+                            "message": "VendorA classified this package as malicious.",
+                        }
+                    ],
+                    "virusTotal": {
+                        "status": "completed",
+                        "malicious": 1,
+                        "suspicious": 0,
+                    },
+                },
+                "evaluation": {"status": "passed", "score": 90},
+            }
+        },
+    }
+    print_skill_status(skill)
+    out = capsys.readouterr().out
+    assert "VirusTotal: rejected" in out
+    assert "Inspection status: rejected" in out
 
 
 def test_find_version_entry_by_key_and_semver() -> None:
