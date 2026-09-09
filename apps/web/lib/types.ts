@@ -101,6 +101,11 @@ export interface FunctionalEvaluationTaskResult {
 
 export interface HaluCatchReportBundle {
   skillType: string;
+  weightProfile?: "code-engineered" | "methodology";
+  dimensionWeights?: Record<
+    "foundation" | "code" | "rules" | "guardrails" | "complexity",
+    number
+  >;
   language: "zh-CN" | "en";
   professional: string;
   simple: string;

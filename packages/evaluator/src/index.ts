@@ -5,6 +5,14 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { SkillFile, SkillSnapshot } from "@skill-platform/skill-spec";
 import { isSkillEntryPath } from "@skill-platform/skill-spec/skill-format";
+import {
+  HALUCATCH_DIMENSIONS,
+  type HaluCatchDimensionDefinition,
+  type HaluCatchDimensionKey,
+  normalizeHaluCatchSkillType,
+  resolveHaluCatchDimensionWeights,
+  weightedHaluCatchScore
+} from "./halucatch-weights.js";
 
 export type EvaluationProvider = "static-taskset" | "halucatch-adapter";
 export type EvaluationStatus = "passed" | "partial" | "failed" | "not-configured";
@@ -33,6 +41,8 @@ export interface FunctionalEvaluationTaskResult {
 
 export interface HaluCatchReportBundle {
   skillType: string;
+  weightProfile: "code-engineered" | "methodology";
+  dimensionWeights: Record<HaluCatchDimensionKey, number>;
   language: "zh-CN" | "en";
   professional: string;
   simple: string;
@@ -52,8 +62,17 @@ export interface FunctionalEvaluationReport {
   createdAt: string;
 }
 
-type HaluCatchDimensionKey = "foundation" | "code" | "rules" | "guardrails" | "complexity";
 type HaluCatchIssueStatus = "pass" | "warn" | "fail" | "info" | "skip";
+
+export type { HaluCatchDimensionKey, HaluCatchSkillType } from "./halucatch-weights.js";
+export {
+  HALUCATCH_CODE_ENGINEERED_WEIGHTS,
+  HALUCATCH_DIMENSIONS,
+  HALUCATCH_METHODOLOGY_WEIGHTS,
+  normalizeHaluCatchSkillType,
+  resolveHaluCatchDimensionWeights,
+  weightedHaluCatchScore
+} from "./halucatch-weights.js";
 
 interface HaluCatchIssue {
   message: string;
@@ -82,18 +101,6 @@ interface ProcessOutput {
   stdout: string;
   stderr: string;
 }
-
-const HALUCATCH_DIMENSIONS: ReadonlyArray<{
-  key: HaluCatchDimensionKey;
-  name: string;
-  weight: number;
-}> = [
-  { key: "foundation", name: "地基与数据管线", weight: 0.25 },
-  { key: "code", name: "代码风险", weight: 0.2 },
-  { key: "rules", name: "规则与方法论", weight: 0.25 },
-  { key: "guardrails", name: "解读护栏", weight: 0.25 },
-  { key: "complexity", name: "复杂度与可维护性", weight: 0.05 }
-];
 
 const evaluatorDirectory = dirname(fileURLToPath(import.meta.url));
 const defaultHaluCatchDirectory = resolve(evaluatorDirectory, "../../halucatch-1.8.8");
@@ -161,12 +168,10 @@ async function evaluateWithHaluCatch(snapshot: SkillSnapshot): Promise<Functiona
       buildHaluCatchTaskResult(dimension, payload.results?.[dimension.key])
     );
     const findings = taskResults.flatMap((result) => result.findings);
-    const score = Math.round(
-      taskResults.reduce(
-        (total, result, index) => total + result.score * HALUCATCH_DIMENSIONS[index]!.weight,
-        0
-      )
-    );
+    const dimensionScores = Object.fromEntries(
+      HALUCATCH_DIMENSIONS.map((dimension, index) => [dimension.key, taskResults[index]!.score])
+    ) as Record<HaluCatchDimensionKey, number>;
+    const score = weightedHaluCatchScore(dimensionScores, payload.skillType);
     const tasksPassed = taskResults.filter((result) => result.score >= 80).length;
     const haluCatchReport = buildHaluCatchReportBundle(payload);
 
@@ -395,8 +400,13 @@ function buildHaluCatchReportBundle(payload: HaluCatchPayload): HaluCatchReportB
     throw new Error("HaluCatch did not return the full markdown report bundle.");
   }
 
+  const weightProfile = normalizeHaluCatchSkillType(payload.skillType);
+  const resolvedProfile = weightProfile === "unknown" ? "methodology" : weightProfile;
+
   return {
     skillType: payload.skillType ?? "unknown",
+    weightProfile: resolvedProfile,
+    dimensionWeights: { ...resolveHaluCatchDimensionWeights(payload.skillType) },
     language: "zh-CN",
     professional: payload.reports.professional,
     simple: payload.reports.simple,
@@ -424,7 +434,7 @@ function normalizeHaluCatchDimension(value: unknown): HaluCatchDimension | undef
 }
 
 function buildHaluCatchTaskResult(
-  dimension: (typeof HALUCATCH_DIMENSIONS)[number],
+  dimension: HaluCatchDimensionDefinition,
   result: HaluCatchDimension | undefined
 ): FunctionalEvaluationTaskResult {
   if (!result) {
