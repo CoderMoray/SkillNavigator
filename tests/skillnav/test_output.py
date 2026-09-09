@@ -16,6 +16,14 @@ from skillnav.output import (
     unwrap_resource_id,
 )
 
+SAMPLE_HALUCATCH_TASK_RESULTS = [
+    {"name": "HaluCatch · 地基与数据管线 (B)", "score": 80, "findings": []},
+    {"name": "HaluCatch · 代码风险 (C)", "score": 55, "findings": []},
+    {"name": "HaluCatch · 规则与方法论 (C)", "score": 60, "findings": []},
+    {"name": "HaluCatch · 解读护栏 (B)", "score": 70, "findings": []},
+    {"name": "HaluCatch · 复杂度与可维护性 (B)", "score": 65, "findings": []},
+]
+
 SAMPLE_SKILL = {
     "slug": "demo-skill",
     "name": "Demo Skill",
@@ -427,6 +435,7 @@ def test_print_inspection_result_includes_sections(capsys) -> None:
             "score": 62,
             "tasksPassed": 2,
             "tasksTotal": 5,
+            "taskResults": SAMPLE_HALUCATCH_TASK_RESULTS,
             "findings": [
                 {
                     "severity": "medium",
@@ -447,6 +456,11 @@ def test_print_inspection_result_includes_sections(capsys) -> None:
     assert "Detections: 0 malicious, 0 suspicious" in out
     assert "=== HaluCatch ===" in out
     assert "Inspection Type: Quality" in out
+    assert "Weighted Total Score: 62" in out
+    assert "Detailed Score:" in out
+    assert "- 规则与方法论: 60" in out
+    assert "Status: partial" not in out
+    assert "Evaluation: halucatch-adapter" not in out
     assert "Missing structured steps" in out
     assert "=== Pipeline warnings ===" in out
     assert "halucatch: adapter timeout" in out
@@ -527,11 +541,12 @@ def test_print_report_version_includes_virustotal(capsys) -> None:
             },
         },
         "evaluation": {
-            "provider": "halucatch",
+            "provider": "halucatch-adapter",
             "status": "passed",
             "score": 85,
             "tasksPassed": 4,
-            "tasksTotal": 4,
+            "tasksTotal": 5,
+            "taskResults": SAMPLE_HALUCATCH_TASK_RESULTS,
             "findings": [],
         },
     }
@@ -554,6 +569,9 @@ def test_print_report_version_includes_virustotal(capsys) -> None:
     assert "VirusTotal (malicious)" in out
     assert "=== HaluCatch ===" in out
     assert "Inspection Type: Quality" in out
+    assert "Weighted Total Score: 85" in out
+    assert "Detailed Score:" in out
+    assert "- 地基与数据管线: 80" in out
 
 
 def test_print_virustotal_summary_failed(capsys) -> None:

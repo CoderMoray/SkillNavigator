@@ -209,13 +209,41 @@ def print_inspection_result(payload: dict[str, Any]) -> None:
     _print_failed_stages(payload.get("failedStages"))
 
 
+_HALUCATCH_DIMENSION_LABELS = (
+    "地基与数据管线",
+    "代码风险",
+    "规则与方法论",
+    "解读护栏",
+    "复杂度与可维护性",
+)
+
+
+def _extract_halucatch_task_label(task_name: str) -> str | None:
+    prefix = "HaluCatch · "
+    if not task_name.startswith(prefix):
+        return None
+    label = task_name[len(prefix) :]
+    if " (" in label:
+        label = label.split(" (", 1)[0]
+    return label
+
+
+def _halucatch_dimension_scores(report: dict[str, Any]) -> list[tuple[str, int]]:
+    scores_by_label: dict[str, int] = {}
+    for task in report.get("taskResults") or []:
+        if not isinstance(task, dict):
+            continue
+        label = _extract_halucatch_task_label(str(task.get("name") or ""))
+        if label:
+            scores_by_label[label] = int(task.get("score") or 0)
+    return [(label, scores_by_label.get(label, 0)) for label in _HALUCATCH_DIMENSION_LABELS]
+
+
 def print_evaluation(report: dict[str, Any]) -> None:
-    print(f"Evaluation: {report.get('provider', '?')}")
-    print(
-        f"Status: {report.get('status', '?')}, "
-        f"score={report.get('score', '?')}, "
-        f"tasks={report.get('tasksPassed', '?')}/{report.get('tasksTotal', '?')}"
-    )
+    print(f"Weighted Total Score: {report.get('score', '?')}")
+    print("Detailed Score:")
+    for label, score in _halucatch_dimension_scores(report):
+        print(f"- {label}: {score}")
     findings = report.get("findings") or []
     if not findings:
         print("Evaluation findings: none")
