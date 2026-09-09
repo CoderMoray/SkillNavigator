@@ -74,7 +74,18 @@ export async function runBootstrap(
     target = created;
   }
 
-  const demoRemoved = await removeSkillPermanently(registryStore, DEMO_SLUG);
+  // Production bootstrap: the demo-skill seeded by the demo path (owned by
+  // the shared 'alice' account) must not survive. Only alice's copy is
+  // removed — a user-published Skill that happens to use the slug is left
+  // untouched, whoever owns it.
+  let demoRemoved = false;
+  const demoOwner = await authStore.getUserByUsername(DEMO_USERNAME);
+  if (demoOwner) {
+    const demo = await registryStore.getSkill(DEMO_SLUG);
+    if (demo && demo.ownerUserId === demoOwner.id) {
+      demoRemoved = await removeSkillPermanently(registryStore, DEMO_SLUG);
+    }
+  }
 
   // --refresh: force a re-publish so the current seed artifact (frozen
   // SkillSpector/VT results) replaces whatever report the Skill carried

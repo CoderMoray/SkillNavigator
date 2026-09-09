@@ -203,6 +203,21 @@ describe("runBootstrap (auth store = FileAuthStore)", () => {
     expect(registry.publishes).toHaveLength(0);
   });
 
+  test("demo-skill owned by a real user is NOT touched (only alice's copy is residue)", async () => {
+    const someone = await auth.register("someone", "password456", "s@example.com", {
+      autoVerifyEmail: true,
+    });
+    const registry = new FakeRegistryStore({
+      "demo-skill": { slug: "demo-skill", ownerUserId: someone.id },
+    });
+
+    const result = await runBootstrap(deps(registry), aliceConfig);
+
+    expect(result.cleanedDemo).toBe(false);
+    expect(registry.deletions).toEqual([]);
+    expect(registry.skills.get("demo-skill")?.ownerUserId).toBe(someone.id);
+  });
+
   test("no account, no admin -> created-linked (first user admin, verified, display name applied)", async () => {
     const registry = new FakeRegistryStore();
     const result = await runBootstrap(
