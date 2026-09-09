@@ -3,6 +3,8 @@ import {
   buildSkillInspectionFailureFromError,
   buildSkillInspectionFailureFromStages,
   classifyInspectionFailureStatus,
+  isInspectionInFlight,
+  resolveInspectionAggregateStatus,
   DEFAULT_SKILL_INSPECTION_STATUS,
   formatSkillInspectionFailureSummary,
   isSkillInspectionStatus,
@@ -34,6 +36,44 @@ describe("skill inspection status", () => {
 
   it("normalizes legacy failed values", () => {
     expect(normalizeSkillInspectionStatus("failed")).toBe("interrupted");
+  });
+
+  it("treats in-flight inspection as inspecting until ended", () => {
+    expect(
+      isInspectionInFlight({
+        inspectionStatus: "inspecting",
+        inspectionStartedAt: "2026-09-08T00:00:00.000Z",
+      })
+    ).toBe(true);
+    expect(
+      resolveInspectionAggregateStatus({
+        inspectionStatus: "inspecting",
+        inspectionStartedAt: "2026-09-08T00:00:00.000Z",
+      })
+    ).toBe("inspecting");
+    expect(
+      resolveInspectionAggregateStatus({
+        inspectionStatus: "completed",
+        inspectionStartedAt: "2026-09-08T00:00:00.000Z",
+        inspectionEndedAt: "2026-09-08T00:05:00.000Z",
+        verdict: "published",
+      })
+    ).toBe("completed");
+    expect(
+      resolveInspectionAggregateStatus({
+        inspectionStatus: "completed",
+        inspectionStartedAt: "2026-09-08T00:00:00.000Z",
+        inspectionEndedAt: "2026-09-08T00:05:00.000Z",
+        verdict: "rejected",
+      })
+    ).toBe("rejected");
+    expect(
+      resolveInspectionAggregateStatus({
+        inspectionStatus: "interrupted",
+        inspectionStartedAt: "2026-09-08T00:00:00.000Z",
+        inspectionEndedAt: "2026-09-08T00:01:00.000Z",
+      })
+    ).toBe("interrupted");
   });
 
   it("classifies pipeline failures as interrupted (inspection did not complete)", () => {

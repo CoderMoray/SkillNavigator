@@ -360,6 +360,14 @@ def _success_stage_status(
     return "done"
 
 
+def _is_inspection_in_flight(version_status: str, entry: dict[str, Any]) -> bool:
+    if version_status == "inspecting":
+        return True
+    started = entry.get("inspectionStartedAt")
+    ended = entry.get("inspectionEndedAt")
+    return bool(started and not ended)
+
+
 def _effective_version_status(
     version_status: str,
     entry: dict[str, Any],
@@ -388,8 +396,10 @@ def _resolve_stage_statuses(
     failed_exec = set(failed_stages or [])
     statuses: dict[str, str] = {}
 
+    in_flight = _is_inspection_in_flight(version_status, entry)
+
     for stage in _INSPECTION_STAGE_ORDER:
-        if version_status == "inspecting":
+        if in_flight:
             if stage in completed:
                 statuses[stage] = (
                     "interrupted"
@@ -429,11 +439,12 @@ def _resolve_aggregate_inspection_status(
     entry: dict[str, Any],
     inspection: dict[str, Any],
 ) -> str:
+    if _is_inspection_in_flight(version_status, entry):
+        return "inspecting"
+
     values = list(stage_statuses.values())
     verdict = str(inspection.get("verdict") or entry.get("status") or "").strip()
 
-    if version_status == "inspecting" or any(value == "processing" for value in values):
-        return "processing"
     if version_status in {"interrupted", "failed"} or any(value == "interrupted" for value in values):
         return "interrupted"
     if verdict == "rejected" or any(value == "rejected" for value in values):

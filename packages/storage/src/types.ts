@@ -14,6 +14,8 @@ export {
   parseSkillInspectionStages,
   skillInspectionStageLabel,
   skillInspectionStatusLabel,
+  inspectionAggregateStatusLabel,
+  resolveInspectionAggregateStatus,
   SKILL_INSPECTION_STAGES,
   SKILL_INSPECTION_STATUSES,
 } from "./inspection-status.js";

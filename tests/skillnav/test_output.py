@@ -112,6 +112,7 @@ def test_print_skill_status_inspecting(capsys) -> None:
         "inspectionStatus": "inspecting",
         "published": False,
         "inspectionCompletedStages": ["halucatch"],
+        "inspectionStartedAt": "2026-09-08T00:00:00.000Z",
         "versions": {
             "1.0.1": {
                 "version": "1.0.1",
@@ -120,19 +121,51 @@ def test_print_skill_status_inspecting(capsys) -> None:
                 "contentHash": "fedcba9876543210",
                 "inspectionStatus": "inspecting",
                 "inspectionCompletedStages": ["halucatch"],
+                "inspectionStartedAt": "2026-09-08T00:00:00.000Z",
             }
         },
     }
     print_skill_status(skill)
     out = capsys.readouterr().out
     assert out.startswith("demo-skill@1.0.1 (latest)")
-    assert "Inspection status: processing" in out
+    assert "Inspection status: inspecting" in out
     assert "Inspection progress:" in out
     assert "HaluCatch: done" in out
     assert "SkillSpector: processing" in out
     assert "Published: yes" in out
     assert "Visibility: private" in out
     assert "Versions:" not in out
+
+
+def test_print_skill_status_inspecting_until_inspection_ended(capsys) -> None:
+    skill = {
+        **SAMPLE_SKILL,
+        "inspectionStatus": "inspecting",
+        "published": False,
+        "inspectionStartedAt": "2026-09-08T00:00:00.000Z",
+        "versions": {
+            "1.0.2": {
+                "version": "1.0.2",
+                "published": False,
+                "contentHash": "abc123",
+                "inspectionStatus": "inspecting",
+                "inspectionStartedAt": "2026-09-08T00:00:00.000Z",
+                "inspectionCompletedStages": ["skillspector"],
+                "inspection": {
+                    "verdict": "needs-inspection",
+                    "findings": [],
+                    "virusTotal": {"status": "completed", "malicious": 0, "suspicious": 0},
+                },
+            }
+        },
+        "latestVersion": "1.0.2",
+    }
+    print_skill_status(skill)
+    out = capsys.readouterr().out
+    assert "Inspection status: inspecting" in out
+    assert "SkillSpector: passed" in out
+    assert "VirusTotal: processing" in out
+    assert "Inspection status: completed" not in out
 
 
 def test_print_skill_status_pipeline_incomplete(capsys) -> None:
@@ -311,7 +344,7 @@ def test_print_skill_status_interrupted(capsys) -> None:
     print_skill_status(skill)
     out = capsys.readouterr().out
     assert out.startswith("demo-skill@1.0.2 (latest)")
-    assert "Inspection status: processing" in out
+    assert "Inspection status: inspecting" in out
     assert "1.0.0  inspection=" not in out
     assert "1.0.1  inspection=" not in out
     assert "Versions:" not in out

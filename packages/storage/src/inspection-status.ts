@@ -5,7 +5,7 @@ export type SkillInspectionStatus = (typeof SKILL_INSPECTION_STATUSES)[number];
 /** @deprecated Legacy DB/API value; normalized to interrupted or rejected at read time. */
 export const LEGACY_SKILL_INSPECTION_FAILED = "failed" as const;
 
-export type InspectionAggregateDisplayStatus = "completed" | "interrupted" | "rejected" | "processing";
+export type InspectionAggregateDisplayStatus = "inspecting" | "completed" | "interrupted" | "rejected";
 
 export type InspectionStageDisplayStatus =
   | "passed"
@@ -67,6 +67,57 @@ export function skillInspectionStatusLabel(status: SkillInspectionStatus): strin
     case "rejected":
       return "审查拒绝";
   }
+}
+
+export function inspectionAggregateStatusLabel(status: InspectionAggregateDisplayStatus): string {
+  return skillInspectionStatusLabel(status);
+}
+
+export function isInspectionInFlight(input: {
+  inspectionStatus: string | undefined | null;
+  inspectionStartedAt?: string | null;
+  inspectionEndedAt?: string | null;
+}): boolean {
+  const status = normalizeSkillInspectionStatus(input.inspectionStatus);
+  if (status === "inspecting") {
+    return true;
+  }
+  return Boolean(input.inspectionStartedAt && !input.inspectionEndedAt);
+}
+
+/** User-facing aggregate status for skillnav / API (inspecting while in-flight). */
+export function resolveInspectionAggregateStatus(input: {
+  inspectionStatus: string | undefined | null;
+  inspectionStartedAt?: string | null;
+  inspectionEndedAt?: string | null;
+  versionStatus?: string | null;
+  verdict?: string | null;
+  failedStages?: readonly SkillInspectionStage[];
+}): InspectionAggregateDisplayStatus {
+  if (
+    isInspectionInFlight({
+      inspectionStatus: input.inspectionStatus,
+      inspectionStartedAt: input.inspectionStartedAt,
+      inspectionEndedAt: input.inspectionEndedAt,
+    })
+  ) {
+    return "inspecting";
+  }
+
+  const status = normalizeSkillInspectionStatus(input.inspectionStatus);
+  const verdict = String(input.verdict ?? input.versionStatus ?? "").trim();
+  const failedStages = new Set(input.failedStages ?? []);
+
+  if (status === "interrupted") {
+    return "interrupted";
+  }
+  if (status === "rejected" || verdict === "rejected") {
+    return "rejected";
+  }
+  if (failedStages.size > 0) {
+    return "interrupted";
+  }
+  return "completed";
 }
 
 /** Pipeline / runtime failures mean the inspection did not finish — never "rejected". */
