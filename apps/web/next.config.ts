@@ -7,7 +7,19 @@ import type { NextConfig } from "next";
 const webDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(webDir, "../..");
 
-for (const envFile of [path.join(repoRoot, ".env"), path.join(webDir, ".env")]) {
+// Same dotenv resolution as packages/storage/src/env.ts (DOTENV_FILE > .env >
+// .env.rapid, plus the legacy webDir/.env) — otherwise Rapid-style deployments
+// that only ship .env.rapid get no build-time env at all.
+const dotenvOverride = process.env.DOTENV_FILE?.trim();
+const dotenvCandidates = dotenvOverride
+  ? [path.resolve(repoRoot, dotenvOverride), dotenvOverride, path.join(webDir, ".env")]
+  : [
+      path.join(repoRoot, ".env"),
+      path.join(repoRoot, ".env.rapid"),
+      path.join(webDir, ".env"),
+    ];
+
+for (const envFile of dotenvCandidates) {
   try {
     loadEnvFile(envFile);
   } catch {
@@ -18,10 +30,7 @@ for (const envFile of [path.join(repoRoot, ".env"), path.join(webDir, ".env")]) 
 // .env is a required bootstrap file (see .env.example). Fail fast — running
 // without it silently falls back to development defaults, which produce
 // broken install guides on deployed instances.
-const dotenvOverride = process.env.DOTENV_FILE?.trim();
-const hasDotenv = dotenvOverride
-  ? existsSync(path.resolve(repoRoot, dotenvOverride)) || existsSync(dotenvOverride)
-  : existsSync(path.join(repoRoot, ".env")) || existsSync(path.join(repoRoot, ".env.rapid"));
+const hasDotenv = dotenvCandidates.some(existsSync);
 if (!hasDotenv) {
   console.error("❌ Missing .env — copy .env.example to .env and configure it before running the web app.");
   console.error("   See .env.example for the full list of deployment variables.");
