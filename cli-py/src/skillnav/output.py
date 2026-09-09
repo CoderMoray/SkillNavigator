@@ -140,8 +140,13 @@ def _print_inspection_section_header(name: str, inspection_type: str) -> None:
     print(f"Inspection Type: {inspection_type}")
 
 
-def _print_inspection_sections(review: dict[str, Any]) -> None:
-    print(f"Verdict: {review.get('verdict', '?')}")
+def _print_inspection_sections(
+    review: dict[str, Any],
+    *,
+    status_label: str = "Verdict",
+    status_value: str | None = None,
+) -> None:
+    print(f"{status_label}: {status_value if status_value is not None else review.get('verdict', '?')}")
     skillspector_findings, virustotal_findings = _partition_inspection_findings(
         review.get("findings") or []
     )
@@ -564,6 +569,15 @@ def _collect_version_inspection_context(
     }
 
 
+def _resolve_inspection_aggregate_status(
+    entry: dict[str, Any],
+    skill: dict[str, Any] | None = None,
+) -> str:
+    skill_context = skill if skill is not None else entry
+    version_id = str(entry.get("version") or "?")
+    return _collect_version_inspection_context(skill_context, version_id, entry)["aggregate_status"]
+
+
 def _print_version_status_row(
     skill: dict[str, Any],
     version_id: str,
@@ -786,7 +800,11 @@ def print_report_version(body: dict[str, Any], *, slug: str | None = None) -> No
     version = body.get("version", "?")
     print(f"Report: {resolved_slug}@{version}")
     if inspection:
-        _print_inspection_sections(inspection)
+        _print_inspection_sections(
+            inspection,
+            status_label="Inspection status",
+            status_value=_resolve_inspection_aggregate_status(body),
+        )
     if evaluation:
         _print_inspection_section_header("HaluCatch", "Quality")
         print_evaluation(evaluation)

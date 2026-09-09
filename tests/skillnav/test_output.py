@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from skillnav.output import (
+    _resolve_inspection_aggregate_status,
     filter_skill_body_version,
     find_version_entry,
     print_report_version,
@@ -553,7 +554,8 @@ def test_print_report_version_includes_virustotal(capsys) -> None:
     print_report_version(body, slug="demo-skill")
     out = capsys.readouterr().out
     assert "Report: demo-skill@1.0.0" in out
-    assert out.index("Verdict: approved") < out.index("=== SkillSpector ===")
+    assert out.index("Inspection status: rejected") < out.index("=== SkillSpector ===")
+    assert "Verdict:" not in out
     assert "=== SkillSpector ===" in out
     assert "Inspection Type: Security" in out
     assert "SkillSpector note" in out
@@ -579,6 +581,56 @@ def test_print_report_version_includes_virustotal(capsys) -> None:
     assert "VirusTotal（安全）" in out
     assert "HaluCatch（质量）" in out
     assert "先核实 finding 真实性" in out
+
+
+def test_report_inspection_status_matches_status_command(capsys) -> None:
+    skill = {
+        **SAMPLE_SKILL,
+        "inspectionStatus": "completed",
+        "latestVersion": "1.0.1",
+        "versions": {
+            **SAMPLE_SKILL["versions"],
+            "1.0.1": {
+                **SAMPLE_SKILL["versions"]["1.0.1"],
+                "inspectionStatus": "completed",
+                "inspectionCompletedStages": ["skillspector", "virustotal", "halucatch"],
+                "inspection": {
+                    "verdict": "published",
+                    "findings": [
+                        {
+                            "id": "virustotal-malicious",
+                            "severity": "high",
+                            "category": "security",
+                            "title": "VirusTotal (malicious)",
+                            "message": "Flagged",
+                        }
+                    ],
+                    "virusTotal": {
+                        "status": "completed",
+                        "malicious": 1,
+                        "suspicious": 0,
+                    },
+                },
+                "evaluation": {
+                    "provider": "halucatch-adapter",
+                    "status": "passed",
+                    "score": 90,
+                    "taskResults": SAMPLE_HALUCATCH_TASK_RESULTS,
+                    "findings": [],
+                },
+            },
+        },
+    }
+    version_entry = skill["versions"]["1.0.1"]
+    expected = _resolve_inspection_aggregate_status(version_entry, skill)
+
+    print_skill_status(skill, version="1.0.1")
+    status_out = capsys.readouterr().out
+    assert f"Inspection status: {expected}" in status_out
+
+    print_report_version({**version_entry, "slug": "demo-skill", "version": "1.0.1"}, slug="demo-skill")
+    report_out = capsys.readouterr().out
+    assert f"Inspection status: {expected}" in report_out
 
 
 def test_print_inspection_result_omits_prompt(capsys) -> None:
