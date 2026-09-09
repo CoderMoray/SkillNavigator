@@ -19,10 +19,8 @@ command -v skillnav && skillnav --version
 - 未安装 → 执行安装：
 
 ```bash
-pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/
+pip install skillnav -i {{pip_index_url}}
 ```
-
-源码开发者可在 monorepo 根目录执行：`pip install -e "cli-py[dev]"`。
 
 > 沙箱限网时需以允许联网的权限执行 `pip`。
 
@@ -43,11 +41,11 @@ pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/
 
 ### Registry 与 API 密钥
 
-1. 向用户确认 Registry API 地址（部署方提供的 API URL；本地开发默认 `http://127.0.0.1:3000`，子路径部署时 URL 可含前缀，如 `https://host/{{brand_name}}/api`）。
-2. 引导用户在 Web **设置 → API 密钥** 创建 `sk_…`，然后执行：
+1. Registry API 地址：**{{registry_api_url}}**（本实例的 Registry API，下方命令已填入，无需向用户询问）。
+2. 引导用户在 Web **设置 → API 密钥**（{{web_url}}）创建 `sk_…`，然后执行：
 
 ```bash
-skillnav config add default --registry <REGISTRY_API_URL>
+skillnav config add default --registry {{registry_api_url}}
 skillnav config use default
 skillnav login --api-key sk_…
 skillnav whoami
@@ -73,8 +71,8 @@ skillnav download <slug> -o <输出.zip>              # 仅下载 ZIP
 指定非默认 Registry（单次）：
 
 ```bash
-skillnav --registry <REGISTRY_API_URL> search <关键词>
-skillnav --registry <REGISTRY_API_URL> install <slug> --dir <skills 目录>
+skillnav --registry {{registry_api_url}} search <关键词>
+skillnav --registry {{registry_api_url}} install <slug> --dir <skills 目录>
 ```
 
 ## 四、安装目录
@@ -110,6 +108,6 @@ skillnav report <slug>          # 完整安全/质量报告
 
 ## 文档
 
-- CLI 全流程：`/docs/cli-guide`
-- 平台 Agent 系统提示词：`/docs/platform-agent-prompt`
-- Skill 格式规范：`/docs/skill-format`
+- CLI 全流程：{{web_url}}/docs/cli-guide
+- 平台 Agent 系统提示词：{{web_url}}/docs/platform-agent-prompt
+- Skill 格式规范：{{web_url}}/docs/skill-format

@@ -7,11 +7,6 @@ import { SuccessToast } from "../SuccessToast";
 import { copyTextToClipboard } from "../../lib/copy-text";
 import { resolveRegistryStoreInstallPrompt } from "../../lib/registry-install-guide";
 
-const HAS_CONFIGURED_INSTALL_URL = Boolean(
-  process.env.NEXT_PUBLIC_REGISTRY_INSTALL_GUIDE_URL?.trim() ||
-    process.env.NEXT_PUBLIC_WEB_URL?.trim()
-);
-
 function subscribeOrigin(onStoreChange: () => void): () => void {
   // origin 在页面生命周期内不变；订阅仅为满足 useSyncExternalStore 的契约。
   window.addEventListener("popstate", onStoreChange);
@@ -23,10 +18,9 @@ export function HomeAgentInstallBar() {
 
   // window.location.origin 在 SSR 首帧不可用：以空字符串为服务端快照，
   // hydration 后自动拿到真实 origin（useSyncExternalStore），替代“挂载后 effect 里 setState”。
+  // 未配置部署 env 时（生产构建）prompt 为显式的“联系维护者”说明，不输出 127.0.0.1。
   const origin = useSyncExternalStore(subscribeOrigin, () => window.location.origin, () => "");
-  const prompt = HAS_CONFIGURED_INSTALL_URL
-    ? resolveRegistryStoreInstallPrompt()
-    : resolveRegistryStoreInstallPrompt(origin || undefined);
+  const prompt = resolveRegistryStoreInstallPrompt(origin || undefined);
 
   async function handleCopy() {
     try {
