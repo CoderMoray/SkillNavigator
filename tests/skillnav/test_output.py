@@ -545,7 +545,9 @@ def test_print_report_version_includes_virustotal(capsys) -> None:
     assert "VirusTotal (malicious)" not in out.split("=== VirusTotal ===")[0]
     assert "=== VirusTotal ===" in out
     assert "Detections: 1 malicious, 0 suspicious" in out
-    assert "Engines scanned: 76" in out
+    assert "Security Vendors Scanned: 76" in out
+    assert out.index("Inspection Type: Security") < out.index("Security Vendors Scanned: 76")
+    assert out.index("Security Vendors Scanned: 76") < out.index("Status: completed")
     assert "SHA256: deadbeef" in out
     assert "Report URL: https://www.virustotal.com/gui/file/deadbeef" in out
     assert "VendorA: malicious" in out

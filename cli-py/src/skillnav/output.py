@@ -85,6 +85,10 @@ def _resolve_virustotal_engine_total(summary: dict[str, Any]) -> int:
 
 def print_virustotal_summary(summary: dict[str, Any]) -> None:
     status = summary.get("status", "?")
+    total_engines = _resolve_virustotal_engine_total(summary)
+    if status not in {"failed", "not_found", "?"} and total_engines:
+        print(f"Security Vendors Scanned: {total_engines}")
+
     print(f"Status: {status}")
 
     if status == "failed":
@@ -98,10 +102,7 @@ def print_virustotal_summary(summary: dict[str, Any]) -> None:
 
     malicious = int(summary.get("malicious") or 0)
     suspicious = int(summary.get("suspicious") or 0)
-    total_engines = _resolve_virustotal_engine_total(summary)
     print(f"Detections: {malicious} malicious, {suspicious} suspicious")
-    if total_engines:
-        print(f"Engines scanned: {total_engines}")
 
     threat_verdict = summary.get("threatVerdict")
     if threat_verdict:
