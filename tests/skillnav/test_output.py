@@ -572,6 +572,34 @@ def test_print_report_version_includes_virustotal(capsys) -> None:
     assert "Weighted Total Score: 85/100" in out
     assert "Detailed Score:" in out
     assert "- 地基与数据管线: 80/100" in out
+    assert "=== Prompt ===" in out
+    assert out.index("=== HaluCatch ===") < out.index("=== Prompt ===")
+    assert "demo-skill@1.0.0" in out
+    assert "SkillSpector（安全）" in out
+    assert "VirusTotal（安全）" in out
+    assert "HaluCatch（质量）" in out
+    assert "先核实 finding 真实性" in out
+
+
+def test_print_inspection_result_omits_prompt(capsys) -> None:
+    print_inspection_result(
+        {
+            "inspection": {
+                "skillName": "Demo Skill",
+                "version": "0.1.0",
+                "verdict": "published",
+                "findings": [],
+            },
+            "evaluation": {
+                "provider": "halucatch-adapter",
+                "score": 80,
+                "taskResults": SAMPLE_HALUCATCH_TASK_RESULTS,
+                "findings": [],
+            },
+        }
+    )
+    out = capsys.readouterr().out
+    assert "=== Prompt ===" not in out
 
 
 def test_print_virustotal_summary_failed(capsys) -> None:

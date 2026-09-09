@@ -731,6 +731,40 @@ def print_leaderboard(body: dict[str, Any]) -> None:
         print(f"{index}. {slug}: {name} ({score})")
 
 
+def _build_skill_improvement_prompt(slug: str, version: str) -> str:
+    skill_ref = f"{slug}@{version}"
+    return f"""请根据上方审查报告，修改 Skill 包 `{skill_ref}`。以上方报告为唯一依据，不要臆造未列出的问题。
+
+## 目标
+修复阻塞项与高影响问题，补齐报告中明确指出的质量缺口，使包可再次发布。保持 `slug` 不变；实质性修改后按 SemVer 提升 `version`。
+
+## SkillSpector（安全）——精准定位，再修改
+- 逐条处理上方列出的 SkillSpector finding，不要遗漏或合并敷衍。
+- 对每一条：打开报告指向或暗示的文件/路径，在当前包内确认问题真实存在，再做最小且正确的修复（frontmatter、边界说明、措辞、脚本规范、权限声明等）。
+- 不要忽略、拖延或用泛泛的安全加固替代具体修复；不要添加 finding 未要求的无关联改动。
+
+## VirusTotal（安全）——精准定位，再修改
+- 结合上方 VirusTotal 摘要与被标记引擎结果，将每条检出映射到包内具体对象（文件内容、嵌入字符串、压缩包成员、构建产物等）。
+- 移除或替换触发检出的内容，优先采用透明、可解释的修复，避免混淆或重打包规避。
+- 若判断为误报，仍须在包内核实对应对象；在成本低时优先无害重命名/结构调整，并在变更说明中写明理由。
+
+## HaluCatch（质量）——先核实 finding 真实性，再修改
+- 对每条 HaluCatch finding：修改前先在 Skill（`SKILL.md`、`examples/`、`scripts/`、`tests/` 及随包代码）中查找，确认所述缺口或风险是否确实影响当前包。
+- 若 finding 不成立（已修复、误读或不适用于本 Skill 类型），说明原因并跳过，不要为了凑分而堆砌内容。
+- 若成立，按 finding 所属维度做针对性修改（流程/规则、解读护栏、地基与数据管线、代码风险、复杂度与可维护性）。
+- 参考上方加权总分与各维度分数，优先处理得分最低的维度。
+
+## 交付要求
+- 输出简洁变更清单：文件 → 对应的 finding/消息 → 具体改动。
+- 保留必填 frontmatter 字段；除非 finding 明确要求合并，不要删除 examples/tests。
+- 编辑过程中不要对网络或用户文件系统执行包内脚本。"""
+
+
+def _print_skill_improvement_prompt(slug: str, version: str) -> None:
+    print("\n=== Prompt ===")
+    print(_build_skill_improvement_prompt(slug, version))
+
+
 def _resolve_report_slug(body: dict[str, Any], slug: str | None = None) -> str:
     if slug:
         return slug
@@ -758,3 +792,5 @@ def print_report_version(body: dict[str, Any], *, slug: str | None = None) -> No
         print_evaluation(evaluation)
     if not inspection and not evaluation:
         print("No inspection or evaluation data for this version.")
+        return
+    _print_skill_improvement_prompt(resolved_slug, str(version))
