@@ -25,7 +25,10 @@ import {
   createRegistryStoreFromEnv,
   loadDotEnvIfPresent,
 } from "@skill-platform/storage";
+import { loadSeedArtifact, validateSeedArtifact } from "./seed-artifact.mjs";
 import {
+  DEMO_SLUG,
+  OFFICIAL_SLUG,
   parseAdminConfig,
   runBootstrap,
   runDemoSeed,
@@ -56,10 +59,8 @@ async function defaultInspect(snapshot) {
 async function main() {
   loadDotEnvIfPresent();
 
-  // Seed inspections must run offline and deterministically (both admin and demo
-  // paths): SkillSpector / VirusTotal stay disabled; HaluCatch runs from the
-  // vendored source.
-  process.env.SKILLSPECTOR_ENABLED = "false";
+  // VirusTotal never runs at seed time (API quota); the report link/summary
+  // comes from the committed seed artifact instead.
   process.env.VIRUSTOTAL_ENABLED = "false";
 
   let authStore;
@@ -81,6 +82,31 @@ async function main() {
   const admin = parseAdminConfig(process.env);
 
   if (admin) {
+    // skillnav-skill: SkillSpector results and scores/verdict are frozen in
+    // the committed seed artifact; only HaluCatch re-runs live (offline).
+    // VT is disabled — the artifact carries the report link.
+    process.env.SKILLSPECTOR_ENABLED = "false";
+    const artifact = loadSeedArtifact(OFFICIAL_SLUG);
+    const inspectSnapshot = async (snapshot) => {
+      const live = await defaultInspect(snapshot);
+      const check = validateSeedArtifact(artifact, snapshot);
+      if (!check.ok) {
+        if (!artifact) {
+          // Missing artifact: degrade to a live offline scan so setup still
+          // works, but make the gap loud — the report then lacks the frozen
+          // SkillSpector/VT results.
+          console.error(
+            "⚠️  No seed inspection artifact for skillnav-skill — falling back to a live offline scan (SkillSpector/VT disabled)."
+          );
+          console.error("   Generate it with: tsx scripts/seed-inspection.mjs --skill skillnav-skill");
+          return live;
+        }
+        throw new Error(`Seed inspection artifact mismatch: ${check.reason}`);
+      }
+      console.error("ℹ️  Using the pre-generated seed inspection (SkillSpector + VT link); HaluCatch re-ran live.");
+      return { inspection: artifact.inspection, evaluation: live.evaluation };
+    };
+
     try {
       const result = await runBootstrap(
         {
@@ -88,7 +114,7 @@ async function main() {
           registryStore,
           skillDir: OFFICIAL_SKILL_DIR,
           readPackage: defaultReadPackage,
-          inspectSnapshot: defaultInspect,
+          inspectSnapshot,
         },
         admin
       );
@@ -119,6 +145,20 @@ async function main() {
     return;
   }
 
+  // Demo seeding: SkillSpector + HaluCatch run live; VT stays disabled (quota)
+  // and the artifact's report link is attached to the live inspection instead.
+  const demoArtifact = loadSeedArtifact(DEMO_SLUG);
+  const demoInspectSnapshot = async (snapshot) => {
+    const live = await defaultInspect(snapshot);
+    const check = validateSeedArtifact(demoArtifact, snapshot);
+    if (check.ok && demoArtifact.virusTotal) {
+      live.inspection.virusTotal = demoArtifact.virusTotal;
+    } else if (demoArtifact && !check.ok) {
+      console.error(`⚠️  demo-skill seed artifact mismatch (${check.reason}) — VT link not attached.`);
+    }
+    return live;
+  };
+
   try {
     const result = await runDemoSeed(
       {
@@ -126,7 +166,7 @@ async function main() {
         registryStore,
         skillDir: DEMO_SKILL_DIR,
         readPackage: defaultReadPackage,
-        inspectSnapshot: defaultInspect,
+        inspectSnapshot: demoInspectSnapshot,
       },
       {}
     );

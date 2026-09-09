@@ -36,7 +36,8 @@
     "skillnav:test": "pip install -e \"cli-py[dev]\" && pytest tests/skillnav -v",
     "skillnav:lint": "python3 -m ruff check cli-py tests/skillnav && python3 -m mypy cli-py/src/skillnav",
     "setup": "bash scripts/setup.sh",
-    "setup:skillspector": "bash scripts/install-skillspector.sh"
+    "setup:skillspector": "bash scripts/install-skillspector.sh",
+    "seed:inspection": "tsx scripts/seed-inspection.mjs --skill skillnav-skill"
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",
