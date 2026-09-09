@@ -44,6 +44,7 @@ import {
   isSkillOwner,
   isInspectionPendingSkillStatus,
   listCreators,
+  findDotEnvFilePath,
   loadDotEnvIfPresent,
   mergeOwnerUnpublishedSkills,
   mergeOwnerRejectedSkills,
@@ -83,6 +84,13 @@ import {
 } from "@skill-platform/storage";
 
 loadDotEnvIfPresent();
+
+// .env is a required bootstrap file (see .env.example) — fail fast instead of
+// running with development fallbacks on a mis-deployed instance.
+if (!findDotEnvFilePath()) {
+  console.error("❌ Missing .env — copy .env.example to .env and configure DATABASE_URL before starting the API.");
+  process.exit(1);
+}
 
 interface PublishBody {
   snapshot?: SkillSnapshot;

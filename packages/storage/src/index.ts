@@ -65,6 +65,7 @@ export {
   createRegistryStoreFromEnv,
   createArtifactStoreFromEnv,
   getApiBodyLimitBytes,
+  findDotEnvFilePath,
   getRegistrationUnverifiedRetentionDays,
   isOnDev,
   isLoginErrorStrict,

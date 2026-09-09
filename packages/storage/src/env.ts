@@ -95,6 +95,47 @@ export function createRegistryStoreFromEnv(env: NodeJS.ProcessEnv = process.env)
  * Note: NEXT_PUBLIC_* variables are build-time (injected at `next build`),
  * so runtime dotenv files never affect them.
  */
+/**
+ * Path of the dotenv file loadDotEnvIfPresent() would load, or null when none
+ * of the candidates exists. Same resolution order: DOTENV_FILE (exact) >
+ * .env > .env.rapid, searched from INIT_CWD then upward from cwd.
+ */
+export function findDotEnvFilePath(): string | null {
+  const explicit = process.env.DOTENV_FILE?.trim() || "";
+  const candidates = explicit ? [explicit] : [".env", ".env.rapid"];
+
+  const findIn = (baseDir: string): string | null => {
+    for (const name of candidates) {
+      const absolutePath = path.resolve(baseDir, name);
+      if (existsSync(absolutePath)) {
+        return absolutePath;
+      }
+    }
+    return null;
+  };
+
+  if (process.env.INIT_CWD) {
+    const found = findIn(process.env.INIT_CWD);
+    if (found) {
+      return found;
+    }
+  }
+
+  let dir = process.cwd();
+  for (let depth = 0; depth < 6; depth += 1) {
+    const found = findIn(dir);
+    if (found) {
+      return found;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      break;
+    }
+    dir = parent;
+  }
+  return null;
+}
+
 export function loadDotEnvIfPresent(filePath = ""): void {
   const seen = new Set<string>();
 

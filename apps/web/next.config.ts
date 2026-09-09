@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +13,19 @@ for (const envFile of [path.join(repoRoot, ".env"), path.join(webDir, ".env")]) 
   } catch {
     // Missing env file is fine.
   }
+}
+
+// .env is a required bootstrap file (see .env.example). Fail fast — running
+// without it silently falls back to development defaults, which produce
+// broken install guides on deployed instances.
+const dotenvOverride = process.env.DOTENV_FILE?.trim();
+const hasDotenv = dotenvOverride
+  ? existsSync(path.resolve(repoRoot, dotenvOverride)) || existsSync(dotenvOverride)
+  : existsSync(path.join(repoRoot, ".env")) || existsSync(path.join(repoRoot, ".env.rapid"));
+if (!hasDotenv) {
+  console.error("❌ Missing .env — copy .env.example to .env and configure it before running the web app.");
+  console.error("   See .env.example for the full list of deployment variables.");
+  process.exit(1);
 }
 
 const configuredWebUrl =
@@ -29,6 +43,8 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_WEB_URL: configuredWebUrl,
     NEXT_PUBLIC_REGISTRY_INSTALL_GUIDE_URL:
       process.env.NEXT_PUBLIC_REGISTRY_INSTALL_GUIDE_URL?.trim() || "",
+    NEXT_PUBLIC_REGISTRY_API_URL: process.env.NEXT_PUBLIC_REGISTRY_API_URL?.trim() || "",
+    NEXT_PUBLIC_PIP_INDEX_URL: process.env.NEXT_PUBLIC_PIP_INDEX_URL?.trim() || "",
     NEXT_PUBLIC_BRAND_NAME: configuredBrandName,
   },
   basePath: process.env.NEXT_PUBLIC_BASE_PATH ?? "",
