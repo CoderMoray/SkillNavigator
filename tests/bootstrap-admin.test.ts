@@ -286,6 +286,19 @@ describe("runBootstrap (auth store = FileAuthStore)", () => {
     expect(registry.publishes).toHaveLength(1);
     expect((await auth.listUsers())).toHaveLength(1);
   });
+
+  test("refresh re-publishes an already-linked Skill (purge + publish with current artifact)", async () => {
+    const registry = new FakeRegistryStore();
+    const admin = { username: "root", email: "root@example.com", displayName: "Root Admin" };
+    await runBootstrap(deps(registry), admin);
+    expect(registry.publishes).toHaveLength(1);
+
+    const refreshed = await runBootstrap(deps(registry), { ...admin, refresh: true });
+    expect(refreshed.action).toBe("linked");
+    expect(registry.publishes).toHaveLength(2);
+    expect(registry.deletions).toContain("skillnav-skill");
+    expect(registry.publishes[1].owner.username).toBe("root");
+  });
 });
 
 describe("runDemoSeed (auth store = FileAuthStore)", () => {

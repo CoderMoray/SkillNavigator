@@ -86,6 +86,13 @@ async function main() {
     // the committed seed artifact; only HaluCatch re-runs live (offline).
     // VT is disabled — the artifact carries the report link.
     process.env.SKILLSPECTOR_ENABLED = "false";
+    // --refresh: purge the already-linked official Skill so it is re-published
+    // with the current seed artifact (maintainer action; cascades community
+    // data on that Skill).
+    const refresh = process.argv.includes("--refresh");
+    if (refresh) {
+      console.error("ℹ️  --refresh: the existing skillnav-skill will be purged and re-published with the current seed artifact.");
+    }
     const artifact = loadSeedArtifact(OFFICIAL_SLUG);
     const inspectSnapshot = async (snapshot) => {
       const live = await defaultInspect(snapshot);
@@ -116,7 +123,7 @@ async function main() {
           readPackage: defaultReadPackage,
           inspectSnapshot,
         },
-        admin
+        { ...admin, refresh }
       );
       console.log(JSON.stringify(result));
     } catch (error) {

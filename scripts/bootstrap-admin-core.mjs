@@ -40,10 +40,13 @@ export function parseAdminConfig(env) {
  * @param deps.skillDir        official Skill directory (default repo example)
  * @param deps.readPackage     snapshot loader
  * @param deps.inspectSnapshot inspection function
+ * @param opts.refresh         purge the official Skill first so it is
+ *                             re-published with the current seed artifact
+ *                             (cascades: bookmarks, ratings, issues, files)
  */
 export async function runBootstrap(
   { authStore, registryStore, skillDir, readPackage, inspectSnapshot },
-  { username, email, displayName } = {}
+  { username, email, displayName, refresh = false } = {}
 ) {
   const missing = [username, email, displayName].some((value) => !value?.trim());
   if (missing) {
@@ -72,6 +75,14 @@ export async function runBootstrap(
   }
 
   const demoRemoved = await removeSkillPermanently(registryStore, DEMO_SLUG);
+
+  // --refresh: force a re-publish so the current seed artifact (frozen
+  // SkillSpector/VT results) replaces whatever report the Skill carried
+  // before. Cascades away community data on the official Skill (bookmarks,
+  // ratings, issues) — a maintainer action, never part of plain `npm run setup`.
+  if (refresh) {
+    await removeSkillPermanently(registryStore, OFFICIAL_SLUG);
+  }
 
   const official = await registryStore.getSkill(OFFICIAL_SLUG);
   if (official && official.ownerUserId === target.id) {
