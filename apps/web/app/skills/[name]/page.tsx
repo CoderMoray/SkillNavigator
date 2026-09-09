@@ -52,6 +52,7 @@ import { SuccessToast } from "../../../components/SuccessToast";
 import { UsernameSuggestInput } from "../../../components/UsernameSuggestInput";
 import { HaluCatchRadar } from "../../../components/HaluCatchRadar";
 import { FindingConfidenceBadge } from "../../../components/FindingConfidenceBadge";
+import { FindingSourceBadge } from "../../../components/FindingSourceBadge";
 import { SkillCategoryLabel } from "../../../components/SkillCategoryIcon";
 import { EvaluationBadge, SeverityBadge, SkillInspectionStatusBadge, VerdictBadge } from "../../../components/StatusBadge";
 import { findSkillContributorByHandle, isSkillContributor, isSkillOwner } from "../../../lib/skill-contributors";
@@ -1849,6 +1850,7 @@ export default function SkillDetailPage() {
                         <div className="card-head">
                           <strong>{displayFinding.title}</strong>
                           <div className="tag-row" style={{ marginTop: 0 }}>
+                            <FindingSourceBadge finding={finding} />
                             <SeverityBadge severity={finding.severity} />
                             <FindingConfidenceBadge finding={finding} />
                           </div>
