@@ -22,8 +22,8 @@ import {
   type VirusTotalScanSummary
 } from "./virustotal.js";
 import { collectSkillLicenseFindings, isSkillLicenseValidationEnabled } from "./license-compliance.js";
-import { calculateInspectionVerdict } from "./inspection-verdict.js";
-
+import { calculateInspectionVerdict, type InspectionVerdict } from "./inspection-verdict.js";
+export type { InspectionVerdict } from "./inspection-verdict.js";
 export {
   collectSkillLicenseFindings,
   isSkillLicenseValidationEnabled
@@ -37,7 +37,6 @@ export type InspectionCategory =
   | "security"
   | "reliability";
 export type InspectionSeverity = "low" | "medium" | "high" | "critical";
-export type InspectionVerdict = "published" | "needs-inspection" | "rejected";
 export type InspectionStage = "skillspector" | "virustotal" | "halucatch";
 
 /**
@@ -248,7 +247,6 @@ export async function inspectAndEvaluateSkillSnapshot(
   }
 
   const scores = calculateScores(findings, evaluation, skillSpector);
-  const verdict = calculateInspectionVerdict(findings);
 
   const inspection: InspectionReport = {
     id: `inspection_${snapshot.contentHash.slice(0, 16)}_${Date.now()}`,
@@ -256,7 +254,7 @@ export async function inspectAndEvaluateSkillSnapshot(
     skillName: snapshot.manifest.name,
     version,
     contentHash: snapshot.contentHash,
-    verdict,
+    verdict: calculateInspectionVerdict(findings),
     scores,
     findings,
     skillSpector,
@@ -437,13 +435,16 @@ function calculateScores(
 }
 
 export {
-  calculateInspectionVerdict,
+  calculateCompletedInspectionStatus,
+  type CompletedInspectionStatus,
   isSkillSpectorInspectionFinding,
   isVirusTotalInspectionFinding,
   shouldRejectInspectionInfrastructureFinding,
   shouldRejectSkillSpectorFinding,
   shouldRejectVirusTotalFinding,
-} from "./inspection-verdict.js";
+} from "./inspection-completed-status.js";
+
+export { calculateInspectionVerdict } from "./inspection-verdict.js";
 
 export {
   getConfiguredInspectionStages,

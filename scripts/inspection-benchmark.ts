@@ -59,7 +59,7 @@ interface PackageBenchmark {
   parallelSecurityMs: number;
   estimatedUserWaitMs: number;
   totalPipelineMs: number;
-  verdict?: string;
+  inspectionStatus?: string;
   findingCount?: number;
   failedStages?: string[];
 }
@@ -202,12 +202,12 @@ async function benchmarkPackage(
     : parsed;
 
   const pipelineStart = performance.now();
-  let verdict: string | undefined;
+  let inspectionStatus: string | undefined;
   let findingCount: number | undefined;
   let failedStages: string[] | undefined;
   try {
     const result = await inspectAndEvaluateSkillSnapshot(pipelineParsed);
-    verdict = result.inspection.verdict;
+    inspectionStatus = result.failedStages.length > 0 ? "interrupted" : "completed";
     findingCount = result.inspection.findings.length;
     failedStages = result.failedStages.map((failure) => failure.stage);
   } catch (error) {
@@ -245,7 +245,7 @@ async function benchmarkPackage(
     parallelSecurityMs,
     estimatedUserWaitMs,
     totalPipelineMs,
-    verdict,
+    inspectionStatus,
     findingCount,
     failedStages
   };
@@ -268,7 +268,7 @@ function printReport(results: PackageBenchmark[], options: { unlimited: boolean;
     console.log(`  文件数: ${result.fileCount}`);
     console.log(`  解压文本总量: ${formatBytes(result.uncompressedBytes)}`);
     console.log(`  ZIP 体积: ${formatBytes(result.zipBytes)}`);
-    console.log(`  审查结论: ${result.verdict ?? "n/a"} (${result.findingCount ?? 0} findings)`);
+    console.log(`  审查状态: ${result.inspectionStatus ?? "n/a"} (${result.findingCount ?? 0} findings)`);
     if (result.failedStages?.length) {
       console.log(`  失败阶段: ${result.failedStages.join(", ")}`);
     }

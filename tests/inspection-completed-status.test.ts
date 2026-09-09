@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
-  calculateInspectionVerdict,
+  calculateCompletedInspectionStatus,
   shouldRejectSkillSpectorFinding,
   shouldRejectVirusTotalFinding,
   type InspectionFinding
@@ -19,12 +19,12 @@ function finding(
   };
 }
 
-describe("calculateInspectionVerdict", () => {
+describe("calculateCompletedInspectionStatus", () => {
   test("rejects SkillSpector high severity findings", () => {
-    const verdict = calculateInspectionVerdict([
+    const status = calculateCompletedInspectionStatus([
       finding({ id: "skillspector-ss01-skill-md-0", severity: "high" })
     ]);
-    expect(verdict).toBe("rejected");
+    expect(status).toBe("rejected");
   });
 
   test("rejects SkillSpector medium findings with confidence >= 90%", () => {
@@ -40,11 +40,11 @@ describe("calculateInspectionVerdict", () => {
     ).toBe(false);
   });
 
-  test("marks other SkillSpector findings as needs-inspection", () => {
-    const verdict = calculateInspectionVerdict([
+  test("marks other SkillSpector findings as completed", () => {
+    const status = calculateCompletedInspectionStatus([
       finding({ id: "skillspector-ss03-skill-md-0", severity: "medium", confidence: 0.5 })
     ]);
-    expect(verdict).toBe("needs-inspection");
+    expect(status).toBe("completed");
   });
 
   test("rejects VirusTotal high severity findings", () => {
@@ -55,42 +55,42 @@ describe("calculateInspectionVerdict", () => {
     ).toBe(true);
   });
 
-  test("marks VirusTotal medium findings as needs-inspection", () => {
-    const verdict = calculateInspectionVerdict([
+  test("marks VirusTotal medium findings as completed", () => {
+    const status = calculateCompletedInspectionStatus([
       finding({ id: "virustotal-suspicious-deadbeef-elastic", severity: "medium" })
     ]);
-    expect(verdict).toBe("needs-inspection");
+    expect(status).toBe("completed");
   });
 
-  test("marks platform high findings as needs-inspection instead of rejecting", () => {
-    const verdict = calculateInspectionVerdict([
+  test("marks platform high findings as completed instead of rejecting", () => {
+    const status = calculateCompletedInspectionStatus([
       finding({ id: "environment-dump-skill-md", severity: "high", category: "privacy" })
     ]);
-    expect(verdict).toBe("needs-inspection");
+    expect(status).toBe("completed");
   });
 
-  test("returns published when there are no findings", () => {
-    expect(calculateInspectionVerdict([])).toBe("published");
+  test("returns completed when there are no findings", () => {
+    expect(calculateCompletedInspectionStatus([])).toBe("completed");
   });
 
   test("rejects publish when SkillSpector is unavailable", () => {
-    const verdict = calculateInspectionVerdict([
+    const status = calculateCompletedInspectionStatus([
       finding({ id: "skillspector-unavailable", severity: "high" })
     ]);
-    expect(verdict).toBe("rejected");
+    expect(status).toBe("rejected");
   });
 
   test("rejects publish when VirusTotal scan fails", () => {
-    const verdict = calculateInspectionVerdict([
+    const status = calculateCompletedInspectionStatus([
       finding({ id: "virustotal-scan-failed", severity: "high" })
     ]);
-    expect(verdict).toBe("rejected");
+    expect(status).toBe("rejected");
   });
 
   test("rejects publish when HaluCatch is unavailable", () => {
-    const verdict = calculateInspectionVerdict([
+    const status = calculateCompletedInspectionStatus([
       finding({ id: "inspection-halucatch-unavailable", severity: "high", category: "reliability" })
     ]);
-    expect(verdict).toBe("rejected");
+    expect(status).toBe("rejected");
   });
 });

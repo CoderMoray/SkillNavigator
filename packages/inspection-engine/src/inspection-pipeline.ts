@@ -15,13 +15,13 @@ import type {
   InspectionStage,
   InspectionStageFailure,
 } from "./index.js";
-import { calculateInspectionVerdict } from "./inspection-verdict.js";
 import { isSkillSpectorEnabled, runSkillSpectorSecurityScan } from "./skillspector.js";
 import {
   formatVirusTotalError,
   isVirusTotalEnabled,
   runVirusTotalScan,
 } from "./virustotal.js";
+import { calculateInspectionVerdict } from "./inspection-verdict.js";
 
 export interface InspectionPipelineState {
   findings: InspectionFinding[];
