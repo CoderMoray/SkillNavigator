@@ -1,0 +1,54 @@
+{
+  "skill": "skillnav-skill",
+  "contentHash": "57d3c1f656a099d37e060231b3e1ccec9b31fe94bdbb8263311cbf8c5ff0dcf0",
+  "generatedAt": "2026-09-09T10:40:45.738Z",
+  "generator": {
+    "note": "Full inspection frozen (platform rules + SkillSpector + scores/verdict). HaluCatch re-runs live at seed time; VT never runs at seed time."
+  },
+  "virusTotal": {
+    "provider": "virustotal",
+    "sha256": "5e2ec3577cbf7c00e738998d4e47516f28ae3c7d6574ec90a19916c8851df8a8",
+    "status": "completed",
+    "malicious": 0,
+    "suspicious": 0,
+    "harmless": 0,
+    "undetected": 64,
+    "totalEngines": 75,
+    "analysisUrl": "https://www.virustotal.com/gui/file/5e2ec3577cbf7c00e738998d4e47516f28ae3c7d6574ec90a19916c8851df8a8",
+    "engineResults": []
+  },
+  "inspection": {
+    "id": "inspection_57d3c1f656a099d3_1788950445738",
+    "skillSlug": "skillnav-skill",
+    "skillName": "skillnav CLI",
+    "version": "1.0.0",
+    "contentHash": "57d3c1f656a099d37e060231b3e1ccec9b31fe94bdbb8263311cbf8c5ff0dcf0",
+    "verdict": "published",
+    "scores": {
+      "qualityScore": 100,
+      "securityScore": 100,
+      "reliabilityScore": 100
+    },
+    "findings": [],
+    "skillSpector": {
+      "provider": "skillspector-static",
+      "riskScore": 0,
+      "riskSeverity": "LOW",
+      "recommendation": "SAFE",
+      "scanMode": "static-only"
+    },
+    "virusTotal": {
+      "provider": "virustotal",
+      "sha256": "5e2ec3577cbf7c00e738998d4e47516f28ae3c7d6574ec90a19916c8851df8a8",
+      "status": "completed",
+      "malicious": 0,
+      "suspicious": 0,
+      "harmless": 0,
+      "undetected": 64,
+      "totalEngines": 75,
+      "analysisUrl": "https://www.virustotal.com/gui/file/5e2ec3577cbf7c00e738998d4e47516f28ae3c7d6574ec90a19916c8851df8a8",
+      "engineResults": []
+    },
+    "createdAt": "2026-09-09T10:40:45.738Z"
+  }
+}
