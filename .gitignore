@@ -49,8 +49,10 @@ pgdata/
 # Drizzle (SQL 文件需提交，meta 是本地缓存)
 packages/storage/drizzle/meta/
 
-# MailManager runtime artifacts
+# MailManager runtime artifacts (maildrop queue dirs are recreated at runtime;
+# only .gitkeep stays tracked)
 packages/MailManager/maildrop/*.pkl*
+packages/MailManager/maildrop/run-*/
 packages/MailManager/__pycache__/
 
 # CodeGraph (本地索引，不提交)
