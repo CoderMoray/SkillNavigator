@@ -39,4 +39,16 @@ describe("resolveInspectionStagesToRun", () => {
       })
     ).toEqual([]);
   });
+
+  it("retries processing stages after an in-process restart", () => {
+    expect(
+      resolveInspectionStagesToRun({
+        configuredStages: ["skillspector", "virustotal", "halucatch"],
+        stageStatuses: {
+          skillspector: "passed",
+          virustotal: "processing",
+        },
+      })
+    ).toEqual(["virustotal", "halucatch"]);
+  });
 });

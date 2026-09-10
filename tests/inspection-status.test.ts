@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildInspectionFailureFromStageStatuses,
   buildSkillInspectionFailureFromError,
   buildSkillInspectionFailureFromStages,
   classifyInspectionFailureStatus,
+  inspectionStageStatusLabel,
+  interruptInFlightStageStatuses,
   isInspectionInFlight,
+  mapStageStatusesToColumns,
+  parseInspectionStageStatuses,
   resolveInspectionAggregateStatus,
   DEFAULT_SKILL_INSPECTION_STATUS,
   formatSkillInspectionFailureSummary,
@@ -131,5 +136,86 @@ describe("skill inspection status", () => {
 
     expect(failure.stages).toEqual(["skillspector"]);
     expect(failure.message).toContain("SkillSpector");
+  });
+});
+
+describe("persisted stage status columns", () => {
+  it("parses DB columns into stage statuses and maps them back", () => {
+    expect(
+      parseInspectionStageStatuses({
+        skillspector: "passed",
+        virustotal: "invalid",
+        halucatch: "done",
+      })
+    ).toEqual({
+      skillspector: "passed",
+      halucatch: "done",
+    });
+
+    expect(
+      mapStageStatusesToColumns({
+        skillspector: "processing",
+        virustotal: "interrupted",
+        halucatch: "done",
+      })
+    ).toEqual({
+      inspectionSkillspectorStatus: "processing",
+      inspectionVirustotalStatus: "interrupted",
+      inspectionHalucatchStatus: "done",
+    });
+  });
+
+  it("labels stage display statuses in zh-CN", () => {
+    expect(inspectionStageStatusLabel("skillspector", "passed")).toBe("通过");
+    expect(inspectionStageStatusLabel("halucatch", "done")).toBe("完成");
+    expect(inspectionStageStatusLabel("virustotal", "processing")).toBe("审查中");
+    expect(inspectionStageStatusLabel("virustotal", "interrupted")).toBe("中断");
+    expect(inspectionStageStatusLabel("skillspector", "rejected")).toBe("未通过");
+  });
+
+  it("converts in-flight processing stages to interrupted on recovery", () => {
+    expect(
+      interruptInFlightStageStatuses({
+        skillspector: "passed",
+        virustotal: "processing",
+        halucatch: "processing",
+      })
+    ).toEqual({
+      skillspector: "passed",
+      virustotal: "interrupted",
+      halucatch: "interrupted",
+    });
+  });
+});
+
+describe("buildInspectionFailureFromStageStatuses", () => {
+  it("derives failure stages and messages from interrupted stage statuses", () => {
+    const failure = buildInspectionFailureFromStageStatuses(
+      {
+        skillspector: "passed",
+        virustotal: "interrupted",
+        halucatch: "interrupted",
+      },
+      undefined,
+      {
+        virustotal: "VirusTotal scan timed out",
+        halucatch: "HaluCatch adapter unavailable",
+      }
+    );
+
+    expect(failure).toEqual({
+      stages: ["virustotal", "halucatch"],
+      message: "VirusTotal：VirusTotal scan timed out；HaluCatch：HaluCatch adapter unavailable",
+    });
+  });
+
+  it("returns undefined when there are no interrupted stages and no message", () => {
+    expect(
+      buildInspectionFailureFromStageStatuses({
+        skillspector: "passed",
+        virustotal: "passed",
+        halucatch: "done",
+      })
+    ).toBeUndefined();
   });
 });

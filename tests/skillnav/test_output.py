@@ -540,6 +540,29 @@ def test_print_inspection_result_includes_sections(capsys) -> None:
     assert "halucatch: adapter timeout" in out
 
 
+def test_print_inspection_result_pipeline_incomplete_from_stage_statuses(capsys) -> None:
+    print_inspection_result(
+        {
+            "inspection": {
+                "skillName": "Demo Skill",
+                "version": "0.1.0",
+                "verdict": "needs-inspection",
+                "findings": [],
+            },
+            "stageStatuses": {
+                "skillspector": "passed",
+                "virustotal": "interrupted",
+            },
+            "stageFailureMessages": {
+                "virustotal": "analysis did not complete",
+            },
+        }
+    )
+    out = capsys.readouterr().out
+    assert "=== Pipeline warnings ===" in out
+    assert "virustotal: analysis did not complete" in out
+
+
 def test_print_inspection_partitions_skillspector_findings(capsys) -> None:
     print_inspection(
         {
