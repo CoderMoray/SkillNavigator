@@ -1,4 +1,4 @@
-import { resolveBrandName } from "./brand-name";
+import { applyBrandName, resolveBrandName } from "./brand-name";
 
 export const REGISTRY_API_URL_PLACEHOLDER = "{{registry_api_url}}";
 export const WEB_URL_PLACEHOLDER = "{{web_url}}";
@@ -35,8 +35,11 @@ export function resolveDeploymentConfig(): DeploymentConfig {
 
 /** Inject deployment values into guide/prompt templates ({{...}} placeholders). */
 export function applyDeploymentConfig(content: string, config = resolveDeploymentConfig()): string {
-  return content
-    .replaceAll(REGISTRY_API_URL_PLACEHOLDER, config.registryApiUrl)
-    .replaceAll(WEB_URL_PLACEHOLDER, config.webUrl)
-    .replaceAll(PIP_INDEX_URL_PLACEHOLDER, config.pipIndexUrl);
+  return applyBrandName(
+    content
+      .replaceAll(REGISTRY_API_URL_PLACEHOLDER, config.registryApiUrl)
+      .replaceAll(WEB_URL_PLACEHOLDER, config.webUrl)
+      .replaceAll(PIP_INDEX_URL_PLACEHOLDER, config.pipIndexUrl),
+    config.brandName
+  );
 }
