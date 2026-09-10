@@ -1,11 +1,16 @@
 import type { FunctionalEvaluationReport } from "@skill-platform/evaluator";
-import type { InspectionReport } from "@skill-platform/inspection-engine";
+import {
+  getConfiguredInspectionStages,
+  resolvePipelineInspectionStatus,
+  type InspectionReport,
+} from "@skill-platform/inspection-engine";
 import { getSkillSlug, type SkillSnapshot } from "@skill-platform/skill-spec";
 import { assertPublishPreflight } from "../publish-preflight.js";
 import {
   INSPECTION_INTERRUPTED_MESSAGE,
   INSPECTION_STALE_MESSAGE,
   INSPECTION_SUPERSEDED_MESSAGE,
+  buildInspectionFailureFromStageStatuses,
   isInspectionFailureStatus,
   readInspectionStaleMs,
 } from "../inspection-status.js";
@@ -77,7 +82,6 @@ function syncSkillInspectionDenormFromLatest(skill: RegistrySkill): void {
   skill.inspectionFailure = isInspectionFailureStatus(inspectionStatus)
     ? (latest.inspectionFailure ?? { stages: [], message: "审查流程未完成" })
     : undefined;
-  skill.inspectionCompletedStages = latest.inspectionCompletedStages;
   skill.inspectionStageStatuses = latest.inspectionStageStatuses;
   skill.inspectionStartedAt = latest.inspectionStartedAt;
   skill.inspectionEndedAt = latest.inspectionEndedAt;
@@ -137,7 +141,6 @@ export abstract class JsonRegistryStore implements RegistryStore {
           if (inspectionStatus === "inspecting") {
             version.inspectionStartedAt = now;
             version.inspectionEndedAt = undefined;
-            version.inspectionCompletedStages = [];
             version.inspectionStageStatuses = {};
           } else if (inspectionStatus === "completed" || isInspectionFailureStatus(inspectionStatus)) {
             version.inspectionEndedAt = now;
@@ -297,7 +300,6 @@ export abstract class JsonRegistryStore implements RegistryStore {
       published: false,
       inspection: {} as RegistryVersion["inspection"],
       inspectionStatus: "inspecting",
-      inspectionCompletedStages: [],
       inspectionStageStatuses: {},
       uploadedAt: now,
       inspectionStartedAt: now,
@@ -472,12 +474,18 @@ export abstract class JsonRegistryStore implements RegistryStore {
     if (!registryVersion) {
       return;
     }
-    if (options.completedStages) {
-      registryVersion.inspectionCompletedStages = [...new Set(options.completedStages)];
-    }
     registryVersion.inspectionStageStatuses = { ...options.stageStatuses };
-    if (options.finalize) {
-      registryVersion.inspectionStatus = "completed";
+    const configuredStages = options.configuredStages ?? getConfiguredInspectionStages();
+    registryVersion.inspectionStatus = options.finalize
+      ? "completed"
+      : resolvePipelineInspectionStatus(options.stageStatuses, configuredStages);
+    if (registryVersion.inspectionStatus === "interrupted") {
+      registryVersion.inspectionFailure = buildInspectionFailureFromStageStatuses(
+        options.stageStatuses,
+        undefined,
+        options.stageFailureMessages
+      );
+    } else if (options.finalize || registryVersion.inspectionStatus === "completed") {
       registryVersion.inspectionFailure = undefined;
     }
     syncSkillInspectionDenormFromLatest(skill);

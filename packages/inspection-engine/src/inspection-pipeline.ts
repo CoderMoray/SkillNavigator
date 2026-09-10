@@ -13,7 +13,6 @@ import type {
   InspectionFinding,
   InspectionReport,
   InspectionStage,
-  InspectionStageFailure,
 } from "./index.js";
 import { isSkillSpectorEnabled, runSkillSpectorSecurityScan } from "./skillspector.js";
 import {
@@ -35,8 +34,7 @@ export interface InspectionPipelineState {
   skillSpectorAvailable: boolean;
   virusTotal?: InspectionReport["virusTotal"];
   evaluation?: FunctionalEvaluationReport;
-  failedStages: InspectionStageFailure[];
-  completedStages: InspectionStage[];
+  stageFailureMessages: Partial<Record<InspectionStage, string>>;
   stageStatuses: InspectionStageStatuses;
 }
 
@@ -60,8 +58,7 @@ function createInitialPipelineState(initial?: Partial<InspectionPipelineState>):
     skillSpectorAvailable: initial?.skillSpectorAvailable ?? false,
     virusTotal: initial?.virusTotal,
     evaluation: initial?.evaluation,
-    failedStages: initial?.failedStages ?? [],
-    completedStages: initial?.completedStages ?? [],
+    stageFailureMessages: { ...(initial?.stageFailureMessages ?? {}) },
     stageStatuses: { ...(initial?.stageStatuses ?? {}) },
   };
 }
@@ -149,14 +146,10 @@ async function runSkillSpectorStage(
     state.skillSpectorAvailable = false;
     interrupted = true;
     // Environment problem → stage failure (retryable), not a review finding.
-    state.failedStages.push({ stage: "skillspector", message });
+    state.stageFailureMessages.skillspector = message;
   }
 
   state.stageStatuses.skillspector = resolveSkillSpectorStageStatus(state.findings, interrupted);
-
-  if (!state.completedStages.includes("skillspector")) {
-    state.completedStages.push("skillspector");
-  }
   await emitStageComplete(snapshot, version, state, "skillspector", onStageComplete);
 }
 
@@ -182,14 +175,10 @@ async function runVirusTotalStage(
     const message = formatVirusTotalError(error);
     interrupted = true;
     // Integration error → stage failure, not a fabricated scan finding.
-    state.failedStages.push({ stage: "virustotal", message });
+    state.stageFailureMessages.virustotal = message;
   }
 
   state.stageStatuses.virustotal = resolveVirusTotalStageStatus(state.findings, interrupted);
-
-  if (!state.completedStages.includes("virustotal")) {
-    state.completedStages.push("virustotal");
-  }
   await emitStageComplete(snapshot, version, state, "virustotal", onStageComplete);
 }
 
@@ -220,14 +209,10 @@ async function runHaluCatchStage(
     // "inspection-halucatch-unavailable" finding.
     evaluation = evaluateStaticTaskSet(snapshot);
     interrupted = true;
-    state.failedStages.push({ stage: "halucatch", message: truncateError(error) });
+    state.stageFailureMessages.halucatch = truncateError(error);
   }
   state.evaluation = evaluation;
   state.stageStatuses.halucatch = resolveHaluCatchStageStatus(interrupted);
-
-  if (!state.completedStages.includes("halucatch")) {
-    state.completedStages.push("halucatch");
-  }
   await emitStageComplete(snapshot, version, state, "halucatch", onStageComplete);
 }
 
@@ -268,7 +253,8 @@ export async function runInspectionPipeline(
   return {
     inspection,
     evaluation,
-    failedStages: state.failedStages,
+    stageStatuses: state.stageStatuses,
+    stageFailureMessages: state.stageFailureMessages,
   };
 }
 

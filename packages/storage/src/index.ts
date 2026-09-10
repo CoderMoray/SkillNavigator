@@ -6,6 +6,7 @@ export {
 } from "./brand-name.js";
 
 export {
+  buildInspectionFailureFromStageStatuses,
   buildSkillInspectionFailureFromError,
   buildSkillInspectionFailureFromStages,
   DEFAULT_SKILL_INSPECTION_STATUS,

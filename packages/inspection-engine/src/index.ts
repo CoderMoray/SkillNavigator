@@ -23,6 +23,13 @@ import {
 } from "./virustotal.js";
 import { collectSkillLicenseFindings, isSkillLicenseValidationEnabled } from "./license-compliance.js";
 import { calculateInspectionVerdict, type InspectionVerdict } from "./inspection-verdict.js";
+import {
+  resolveHaluCatchStageStatus,
+  resolveSkillSpectorStageStatus,
+  resolveVirusTotalStageStatus,
+  type InspectionStageStatuses,
+} from "./stage-status.js";
+import { getConfiguredInspectionStages } from "./inspection-pipeline.js";
 export type { InspectionVerdict } from "./inspection-verdict.js";
 export {
   collectSkillLicenseFindings,
@@ -84,7 +91,8 @@ export interface InspectionReport {
 export interface InspectionAndEvaluationResult {
   inspection: InspectionReport;
   evaluation: FunctionalEvaluationReport;
-  failedStages: InspectionStageFailure[];
+  stageStatuses: InspectionStageStatuses;
+  stageFailureMessages: Partial<Record<InspectionStage, string>>;
 }
 
 export type { SkillSpectorScanSummary } from "./skillspector.js";
@@ -208,7 +216,7 @@ export async function inspectAndEvaluateSkillSnapshot(
   }
 
   let skillSpectorAvailable = false;
-  const failedStages: InspectionStageFailure[] = [];
+  const configuredStages = getConfiguredInspectionStages();
 
   const [skillSpectorResult, virusTotalResult] = await Promise.all([
     runSkillSpectorInspectionStep(snapshot),
@@ -219,27 +227,41 @@ export async function inspectAndEvaluateSkillSnapshot(
   skillSpectorAvailable = skillSpectorResult.skillSpectorAvailable;
   const virusTotal = virusTotalResult.virusTotal;
   findings.push(...skillSpectorResult.findings, ...virusTotalResult.findings);
-  for (const failure of [skillSpectorResult.failure, virusTotalResult.failure]) {
-    if (failure) {
-      failedStages.push(failure);
-    }
-  }
 
   let evaluation = evaluationOverride;
+  let haluCatchInterrupted = false;
+  let haluCatchFailureMessage: string | undefined;
   if (!evaluation) {
     try {
       evaluation = await evaluateSkillSnapshot(snapshot);
     } catch (error) {
       // Environment problem (Python / vendored runtime) — never masquerade it
-      // as a review finding; record a stage failure so callers can retry after
+      // as a review finding; mark the stage interrupted so callers can retry after
       // fixing the environment (npm run verify:inspection-deps).
-      failedStages.push({ stage: "halucatch", message: truncateError(error) });
+      haluCatchInterrupted = true;
+      haluCatchFailureMessage = truncateError(error);
       evaluation = evaluateStaticTaskSet(snapshot);
     }
   }
   const haluCatchAvailable =
-    evaluation.provider === "halucatch-adapter" &&
-    !failedStages.some((failure) => failure.stage === "halucatch");
+    evaluation.provider === "halucatch-adapter" && !haluCatchInterrupted;
+
+  const stageStatuses: InspectionStageStatuses = {};
+  if (configuredStages.includes("skillspector")) {
+    stageStatuses.skillspector = resolveSkillSpectorStageStatus(
+      findings,
+      Boolean(skillSpectorResult.failure)
+    );
+  }
+  if (configuredStages.includes("virustotal")) {
+    stageStatuses.virustotal = resolveVirusTotalStageStatus(
+      findings,
+      Boolean(virusTotalResult.failure)
+    );
+  }
+  if (configuredStages.includes("halucatch")) {
+    stageStatuses.halucatch = resolveHaluCatchStageStatus(haluCatchInterrupted);
+  }
 
   const shouldRunPlatformRules = !haluCatchAvailable || !skillSpectorAvailable;
   if (shouldRunPlatformRules) {
@@ -262,7 +284,18 @@ export async function inspectAndEvaluateSkillSnapshot(
     createdAt: new Date().toISOString()
   };
 
-  return { inspection, evaluation, failedStages };
+  const stageFailureMessages: Partial<Record<InspectionStage, string>> = {};
+  if (skillSpectorResult.failure) {
+    stageFailureMessages.skillspector = skillSpectorResult.failure.message;
+  }
+  if (virusTotalResult.failure) {
+    stageFailureMessages.virustotal = virusTotalResult.failure.message;
+  }
+  if (haluCatchInterrupted && haluCatchFailureMessage) {
+    stageFailureMessages.halucatch = haluCatchFailureMessage;
+  }
+
+  return { inspection, evaluation, stageStatuses, stageFailureMessages };
 }
 
 export async function inspectSkillSnapshot(
@@ -456,12 +489,16 @@ export {
 } from "./inspection-pipeline.js";
 
 export {
+  interruptedStagesFromStatuses,
+  isPipelineIncomplete,
   resolveAggregateStatusFromStageStatuses,
   resolveHaluCatchStageStatus,
+  resolvePipelineInspectionStatus,
   resolveSkillSpectorStageStatus,
   resolveVirusTotalStageStatus,
   type HaluCatchStageStatus,
   type InspectionStageStatuses,
+  type PipelineInspectionStatus,
   type SkillSpectorStageStatus,
   type VirusTotalStageStatus,
 } from "./stage-status.js";

@@ -86,6 +86,57 @@ export function resolveHaluCatchStageStatus(interrupted: boolean): HaluCatchStag
   return interrupted ? "interrupted" : "done";
 }
 
+export type PipelineInspectionStatus = "inspecting" | "completed" | "interrupted";
+
+export function resolvePipelineInspectionStatus(
+  stageStatuses: Partial<InspectionStageStatuses>,
+  configuredStages: readonly InspectionStage[]
+): PipelineInspectionStatus {
+  if (configuredStages.length === 0) {
+    return "completed";
+  }
+
+  if (configuredStages.some((stage) => stageStatuses[stage] === "processing")) {
+    return "inspecting";
+  }
+
+  if (
+    configuredStages.some((stage) => {
+      const status = stageStatuses[stage];
+      return !status || status === "processing";
+    })
+  ) {
+    return "inspecting";
+  }
+
+  if (configuredStages.some((stage) => stageStatuses[stage] === "interrupted")) {
+    return "interrupted";
+  }
+
+  if (
+    configuredStages.every((stage) => isTerminalStageStatus(stage, stageStatuses[stage]))
+  ) {
+    return "completed";
+  }
+
+  return "interrupted";
+}
+
+export function isPipelineIncomplete(
+  stageStatuses: Partial<InspectionStageStatuses>,
+  configuredStages: readonly InspectionStage[]
+): boolean {
+  return resolvePipelineInspectionStatus(stageStatuses, configuredStages) === "interrupted";
+}
+
+export function interruptedStagesFromStatuses(
+  stageStatuses: Partial<InspectionStageStatuses>
+): InspectionStage[] {
+  return (["skillspector", "virustotal", "halucatch"] as const).filter(
+    (stage) => stageStatuses[stage] === "interrupted"
+  );
+}
+
 export function resolveInspectionStagesToRun(input: {
   configuredStages: InspectionStage[];
   stageStatuses: Partial<InspectionStageStatuses>;

@@ -46,12 +46,15 @@ program
   .option("--json", "Print raw JSON report")
   .action(async (input: string, options: { version?: string; json?: boolean }) => {
     const snapshot = await readSkillPackage(resolveUserPath(input));
-    const { inspection: report, failedStages } = await inspectAndEvaluateSkillSnapshot(snapshot, options.version);
+    const { inspection: report, stageStatuses, stageFailureMessages } = await inspectAndEvaluateSkillSnapshot(snapshot, options.version);
+    const interruptedStages = (["skillspector", "virustotal", "halucatch"] as const).filter(
+      (stage) => stageStatuses[stage] === "interrupted"
+    );
 
-    if (failedStages.length > 0) {
+    if (interruptedStages.length > 0) {
       console.error("Review could not complete — environment problem:");
-      for (const failure of failedStages) {
-        console.error(`  [${failure.stage}] ${failure.message}`);
+      for (const stage of interruptedStages) {
+        console.error(`  [${stage}] ${stageFailureMessages[stage] ?? "stage interrupted"}`);
       }
       console.error("Fix the providers (npm run verify:inspection-deps) or disable them with *_ENABLED=false, then retry.");
       process.exitCode = 1;

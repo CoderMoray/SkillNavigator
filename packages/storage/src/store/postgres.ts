@@ -1,5 +1,10 @@
 import type { FunctionalEvaluationFinding, FunctionalEvaluationReport, FunctionalEvaluationTaskResult, HaluCatchReportBundle } from "@skill-platform/evaluator";
-import type { InspectionFinding, InspectionReport } from "@skill-platform/inspection-engine";
+import {
+  getConfiguredInspectionStages,
+  resolvePipelineInspectionStatus,
+  type InspectionFinding,
+  type InspectionReport,
+} from "@skill-platform/inspection-engine";
 import {
   getSkillSlug,
   parseSkillMarkdown,
@@ -34,7 +39,7 @@ import type {
 import {
   isInspectionFailureStatus,
   normalizeSkillInspectionStatus,
-  parseSkillInspectionStages,
+  buildInspectionFailureFromStageStatuses,
   parseInspectionStageStatuses,
   mapStageStatusesToColumns,
   interruptInFlightStageStatuses,
@@ -71,24 +76,16 @@ function parseSkillInspectionStatus(value: string | null | undefined): SkillInsp
   return normalizeSkillInspectionStatus(value);
 }
 
-function mapReviewFailureFromRow(
+function mapInspectionFailureFromRow(
   inspectionStatus: SkillInspectionStatus,
-  stages: string[] | null | undefined,
+  stageStatuses: ReturnType<typeof parseInspectionStageStatuses>,
   message: string | null | undefined
 ): SkillInspectionFailureInfo | undefined {
   if (!isInspectionFailureStatus(inspectionStatus)) {
     return undefined;
   }
 
-  const parsedStages = parseSkillInspectionStages(stages);
-  if (!parsedStages.length && !message) {
-    return undefined;
-  }
-
-  return {
-    stages: parsedStages,
-    message: message ?? "审查流程未完成",
-  };
+  return buildInspectionFailureFromStageStatuses(stageStatuses, message);
 }
 
 function resolveMarkReviewTargetVersion(
@@ -104,30 +101,18 @@ function resolveMarkReviewLatestPointer(
   return options?.setLatestVersion ?? options?.latestVersion;
 }
 
-function inspectionFailurePatch(
+function inspectionFailureMessagePatch(
   inspectionStatus: SkillInspectionStatus,
   failure?: SkillInspectionFailureInfo
 ): {
-  inspectionFailedStages: string[];
   inspectionFailedMessage: string | null;
 } {
-  if (isInspectionFailureStatus(inspectionStatus) && failure) {
-    return {
-      inspectionFailedStages: failure.stages,
-      inspectionFailedMessage: failure.message,
-    };
-  }
-
   if (!isInspectionFailureStatus(inspectionStatus)) {
-    return {
-      inspectionFailedStages: [],
-      inspectionFailedMessage: null,
-    };
+    return { inspectionFailedMessage: null };
   }
 
   return {
-    inspectionFailedStages: [],
-    inspectionFailedMessage: "审查流程未完成",
+    inspectionFailedMessage: failure?.message?.trim() || "审查流程未完成",
   };
 }
 
@@ -971,16 +956,19 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         uploadedAt: mapOptionalTimestamp(v.uploadedAt),
         inspectionStartedAt: mapOptionalTimestamp(v.inspectionStartedAt),
         inspectionEndedAt: mapOptionalTimestamp(v.inspectionEndedAt),
-        inspectionCompletedStages: parseSkillInspectionStages(v.inspectionCompletedStages),
         inspectionStageStatuses: parseInspectionStageStatuses({
           skillspector: v.inspectionSkillspectorStatus,
           virustotal: v.inspectionVirustotalStatus,
           halucatch: v.inspectionHalucatchStatus,
         }),
         inspectionStatus: parseSkillInspectionStatus(v.inspectionStatus),
-        inspectionFailure: mapReviewFailureFromRow(
+        inspectionFailure: mapInspectionFailureFromRow(
           parseSkillInspectionStatus(v.inspectionStatus),
-          v.inspectionFailedStages,
+          parseInspectionStageStatuses({
+            skillspector: v.inspectionSkillspectorStatus,
+            virustotal: v.inspectionVirustotalStatus,
+            halucatch: v.inspectionHalucatchStatus,
+          }),
           v.inspectionFailedMessage
         ),
         createdAt: String(v.createdAt), updatedAt: String(v.updatedAt),
@@ -991,12 +979,15 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       slug: row.slug, name: row.name, description: row.description,
       ownerUserId: row.ownerUserId ?? undefined, latestVersion: row.latestVersion,
       inspectionStatus: parseSkillInspectionStatus(row.inspectionStatus),
-      inspectionFailure: mapReviewFailureFromRow(
+      inspectionFailure: mapInspectionFailureFromRow(
         parseSkillInspectionStatus(row.inspectionStatus),
-        row.inspectionFailedStages,
+        parseInspectionStageStatuses({
+          skillspector: row.inspectionSkillspectorStatus,
+          virustotal: row.inspectionVirustotalStatus,
+          halucatch: row.inspectionHalucatchStatus,
+        }),
         row.inspectionFailedMessage
       ),
-      inspectionCompletedStages: parseSkillInspectionStages(row.inspectionCompletedStages),
       inspectionStageStatuses: parseInspectionStageStatuses({
         skillspector: row.inspectionSkillspectorStatus,
         virustotal: row.inspectionVirustotalStatus,
@@ -1306,7 +1297,6 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         .set({
           status: inspection.verdict,
           inspectionStatus: "completed",
-          inspectionFailedStages: [],
           inspectionFailedMessage: null,
           updatedAt: new Date(),
         })
@@ -1325,9 +1315,17 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     options: PersistInspectionStageResultsOptions
   ): Promise<void> {
     await this.ensureSchema();
-    const completedStages = [...new Set(options.completedStages ?? [])];
     const finalize = options.finalize ?? false;
+    const configuredStages = options.configuredStages ?? getConfiguredInspectionStages();
     const stageStatusColumns = mapStageStatusesToColumns(options.stageStatuses);
+    const inspectionStatus = finalize
+      ? ("completed" as const)
+      : resolvePipelineInspectionStatus(options.stageStatuses, configuredStages);
+    const failure = buildInspectionFailureFromStageStatuses(
+      options.stageStatuses,
+      undefined,
+      options.stageFailureMessages
+    );
 
     await this.upsertInspection(slug, version, inspection, { finalize: false });
     if (evaluation) {
@@ -1336,16 +1334,11 @@ export class PostgresRegistryStore extends JsonRegistryStore {
 
     await this.db.update(schema.skillVersions)
       .set({
-        ...(options.completedStages ? { inspectionCompletedStages: completedStages } : {}),
         ...stageStatusColumns,
+        inspectionStatus,
+        inspectionFailedMessage:
+          inspectionStatus === "interrupted" ? (failure?.message ?? "审查流程未完成") : null,
         updatedAt: new Date(),
-        ...(finalize
-          ? {
-              inspectionStatus: "completed" as const,
-              inspectionFailedStages: [],
-              inspectionFailedMessage: null,
-            }
-          : {}),
       })
       .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
 
@@ -1365,9 +1358,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     const [versionRow] = await this.db
       .select({
         inspectionStatus: schema.skillVersions.inspectionStatus,
-        inspectionFailedStages: schema.skillVersions.inspectionFailedStages,
         inspectionFailedMessage: schema.skillVersions.inspectionFailedMessage,
-        inspectionCompletedStages: schema.skillVersions.inspectionCompletedStages,
         inspectionSkillspectorStatus: schema.skillVersions.inspectionSkillspectorStatus,
         inspectionVirustotalStatus: schema.skillVersions.inspectionVirustotalStatus,
         inspectionHalucatchStatus: schema.skillVersions.inspectionHalucatchStatus,
@@ -1390,9 +1381,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     await this.db.update(schema.skills)
       .set({
         inspectionStatus,
-        inspectionFailedStages: versionRow.inspectionFailedStages,
         inspectionFailedMessage: versionRow.inspectionFailedMessage,
-        inspectionCompletedStages: versionRow.inspectionCompletedStages,
         inspectionSkillspectorStatus: versionRow.inspectionSkillspectorStatus,
         inspectionVirustotalStatus: versionRow.inspectionVirustotalStatus,
         inspectionHalucatchStatus: versionRow.inspectionHalucatchStatus,
@@ -1442,7 +1431,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     await this.ensureSchema();
     const now = new Date();
     const timingPatch = skillReviewTimingPatch(inspectionStatus, now);
-    const failurePatch = inspectionFailurePatch(inspectionStatus, options?.failure);
+    const failurePatch = inspectionFailureMessagePatch(inspectionStatus, options?.failure);
     const [existing] = await this.db
       .select({
         slug: schema.skills.slug,
@@ -1526,9 +1515,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
           inspectionStatus,
           ...failurePatch,
           ...timingPatch,
-          ...(inspectionStatus === "inspecting"
-            ? { inspectionCompletedStages: [], ...mapStageStatusesToColumns({}) }
-            : {}),
+          ...(inspectionStatus === "inspecting" ? mapStageStatusesToColumns({}) : {}),
           ...(inspectionStatus === "rejected" ? { status: "rejected" as const } : {}),
           ...(stageStatusPatch ?? {}),
           updatedAt: now,
@@ -1658,9 +1645,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       inspectionStartedAt: null,
       inspectionEndedAt: null,
       inspectionStatus: "inspecting" as const,
-      inspectionFailedStages: [],
       inspectionFailedMessage: null,
-      inspectionCompletedStages: [],
       inspectionSkillspectorStatus: null,
       inspectionVirustotalStatus: null,
       inspectionHalucatchStatus: null,
@@ -1672,7 +1657,6 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         .update(schema.skillVersions)
         .set({
           inspectionStatus: "interrupted",
-          inspectionFailedStages: [],
           inspectionFailedMessage: INSPECTION_SUPERSEDED_MESSAGE,
           inspectionEndedAt: now,
           status: "rejected",
@@ -1700,7 +1684,6 @@ export class PostgresRegistryStore extends JsonRegistryStore {
           ownerUserId: options.ownerUserId ?? null,
           latestVersion: version,
           published: false,
-          inspectionCompletedStages: [],
           uploadedAt: now,
           createdAt: now,
           updatedAt: now,
@@ -1883,7 +1866,6 @@ export class PostgresRegistryStore extends JsonRegistryStore {
             latestVersion: releaseTags.includes("latest") ? version : existingSkill.latestVersion,
             published: publiclyListed,
             inspectionStatus: "completed",
-            inspectionFailedStages: [],
             inspectionFailedMessage: null,
             inspectionEndedAt: now,
             updatedAt: now
@@ -1893,7 +1875,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         await tx.insert(schema.skills).values({
           slug, name, description, ownerUserId: options.owner?.userId ?? null,
           latestVersion: version, published: publiclyListed, inspectionStatus: "completed",
-          inspectionFailedStages: [], inspectionFailedMessage: null,
+          inspectionFailedMessage: null,
           inspectionEndedAt: now,
           createdAt: now, updatedAt: now,
         });
@@ -2088,8 +2070,10 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         latestVersion: schema.skills.latestVersion,
         pendingVersion: schema.skillVersions.version,
         inspectionStatus: schema.skillVersions.inspectionStatus,
-        inspectionFailedStages: schema.skillVersions.inspectionFailedStages,
         inspectionFailedMessage: schema.skillVersions.inspectionFailedMessage,
+        inspectionSkillspectorStatus: schema.skillVersions.inspectionSkillspectorStatus,
+        inspectionVirustotalStatus: schema.skillVersions.inspectionVirustotalStatus,
+        inspectionHalucatchStatus: schema.skillVersions.inspectionHalucatchStatus,
         uploadedAt: schema.skillVersions.uploadedAt,
         inspectionStartedAt: schema.skillVersions.inspectionStartedAt,
         inspectionEndedAt: schema.skillVersions.inspectionEndedAt,
@@ -2144,9 +2128,13 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       description: row.description,
       latestVersion: row.pendingVersion ?? row.latestVersion,
       inspectionStatus,
-      inspectionFailure: mapReviewFailureFromRow(
+      inspectionFailure: mapInspectionFailureFromRow(
         inspectionStatus,
-        row.inspectionFailedStages,
+        parseInspectionStageStatuses({
+          skillspector: row.inspectionSkillspectorStatus,
+          virustotal: row.inspectionVirustotalStatus,
+          halucatch: row.inspectionHalucatchStatus,
+        }),
         row.inspectionFailedMessage
       ),
       uploadedAt: mapOptionalTimestamp(row.uploadedAt),

@@ -240,17 +240,37 @@ def _print_inspection_sections(
         _print_virustotal_findings(virustotal_findings, virustotal_summary)
 
 
-def _print_failed_stages(failed_stages: Any) -> None:
-    if not failed_stages:
+def _print_pipeline_incomplete(payload: dict[str, Any]) -> None:
+    failure = payload.get("inspectionFailure")
+    stage_messages = payload.get("stageFailureMessages")
+    stage_statuses = payload.get("stageStatuses")
+    entries: list[tuple[str, str]] = []
+
+    if isinstance(failure, dict):
+        stages = failure.get("stages") or []
+        if isinstance(stages, list):
+            for stage in stages:
+                if not isinstance(stage, str):
+                    continue
+                message = "?"
+                if isinstance(stage_messages, dict):
+                    message = str(stage_messages.get(stage) or failure.get("message") or "?")
+                else:
+                    message = str(failure.get("message") or "?")
+                entries.append((stage, message))
+    elif isinstance(stage_statuses, dict):
+        for stage, status in stage_statuses.items():
+            if status == "interrupted" and isinstance(stage, str):
+                message = "?"
+                if isinstance(stage_messages, dict):
+                    message = str(stage_messages.get(stage) or "?")
+                entries.append((stage, message))
+
+    if not entries:
         return
     print("\n=== Pipeline warnings ===")
-    for failure in failed_stages:
-        if isinstance(failure, dict):
-            stage = failure.get("stage", "?")
-            message = failure.get("message", "?")
-            print(f"- {stage}: {message}")
-        else:
-            print(f"- {failure}")
+    for stage, message in entries:
+        print(f"- {stage}: {message}")
 
 
 def print_inspection(report: dict[str, Any]) -> None:
@@ -283,7 +303,7 @@ def print_inspection_result(payload: dict[str, Any]) -> None:
     if evaluation:
         _print_inspection_section_header("HaluCatch", "Quality")
         print_evaluation(evaluation)
-    _print_failed_stages(payload.get("failedStages"))
+    _print_pipeline_incomplete(payload)
 
 
 _HALUCATCH_DIMENSION_LABELS = (

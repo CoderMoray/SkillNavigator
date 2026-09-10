@@ -3,7 +3,6 @@ import type {
   RegistryVersion,
   InspectionVerdict,
   SkillInspectionFailureInfo,
-  SkillInspectionStage,
   SkillInspectionStatus,
   SkillSearchResult,
 } from "./types";
@@ -62,22 +61,6 @@ export function resolveVersionInspectionFailure(
     return skill.inspectionFailure;
   }
   return undefined;
-}
-
-export function resolveVersionInspectionCompletedStages(
-  version: Pick<RegistryVersion, "inspectionCompletedStages" | "version"> | undefined,
-  skill: Pick<RegistrySkill, "inspectionCompletedStages" | "latestVersion">
-): SkillInspectionStage[] | undefined {
-  if (!version) {
-    return skill.inspectionCompletedStages;
-  }
-  if (version.inspectionCompletedStages?.length) {
-    return version.inspectionCompletedStages;
-  }
-  if (version.version === skill.latestVersion) {
-    return skill.inspectionCompletedStages;
-  }
-  return version.inspectionCompletedStages;
 }
 
 export function resolveVersionInspectionStageStatuses(

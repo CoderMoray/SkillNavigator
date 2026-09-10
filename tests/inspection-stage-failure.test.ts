@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { inspectAndEvaluateSkillSnapshot, type InspectionStageFailure } from "@skill-platform/inspection-engine";
+import {
+  inspectAndEvaluateSkillSnapshot,
+  interruptedStagesFromStatuses,
+} from "@skill-platform/inspection-engine";
 import type { FunctionalEvaluationReport } from "@skill-platform/evaluator";
 
 afterEach(() => {
@@ -41,18 +44,18 @@ const halucatchAdapterEvaluation = (): FunctionalEvaluationReport => ({
 });
 
 describe("review stage failures do not masquerade as findings", () => {
-  test("SkillSpector python missing -> failedStages only, no skillspector-unavailable finding", async () => {
+  test("SkillSpector python missing -> interrupted stage only, no skillspector-unavailable finding", async () => {
     vi.stubEnv("HALUCATCH_ENABLED", "false"); // isolate SkillSpector
     vi.stubEnv("SKILLSPECTOR_ENABLED", "true");
     vi.stubEnv("SKILLSPECTOR_PYTHON", "/nonexistent-python-for-test");
 
-    const { inspection, failedStages } = await inspectAndEvaluateSkillSnapshot(
+    const { inspection, stageStatuses } = await inspectAndEvaluateSkillSnapshot(
       baseSnapshot(),
       undefined,
       halucatchAdapterEvaluation()
     );
 
-    expect(failedStages.some((failure: InspectionStageFailure) => failure.stage === "skillspector")).toBe(true);
+    expect(interruptedStagesFromStatuses(stageStatuses)).toContain("skillspector");
     expect(
       inspection.findings.some((finding) => finding.id === "skillspector-unavailable")
     ).toBe(false);
@@ -61,15 +64,15 @@ describe("review stage failures do not masquerade as findings", () => {
     vi.unstubAllEnvs();
   });
 
-  test("HaluCatch python missing -> failedStages only, no inspection-halucatch-unavailable finding", async () => {
+  test("HaluCatch python missing -> interrupted stage only, no inspection-halucatch-unavailable finding", async () => {
     vi.stubEnv("HALUCATCH_ENABLED", "true");
     vi.stubEnv("HALUCATCH_PYTHON", "/nonexistent-python-for-test");
     vi.stubEnv("SKILLSPECTOR_ENABLED", "false");
     vi.stubEnv("VIRUSTOTAL_ENABLED", "false");
 
-    const { inspection, evaluation, failedStages } = await inspectAndEvaluateSkillSnapshot(baseSnapshot());
+    const { inspection, evaluation, stageStatuses } = await inspectAndEvaluateSkillSnapshot(baseSnapshot());
 
-    expect(failedStages.some((failure: InspectionStageFailure) => failure.stage === "halucatch")).toBe(true);
+    expect(interruptedStagesFromStatuses(stageStatuses)).toContain("halucatch");
     expect(
       inspection.findings.some((finding) => finding.id === "inspection-halucatch-unavailable")
     ).toBe(false);

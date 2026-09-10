@@ -169,32 +169,44 @@ export function inspectionStageStatusLabel(
 
 /** User-facing aggregate status for skillnav / API (inspecting while in-flight). */
 export function resolveInspectionAggregateStatus(input: {
-  inspectionStatus: string | undefined | null;
+  inspectionStatus?: string | undefined | null;
   inspectionStartedAt?: string | null;
   inspectionEndedAt?: string | null;
   versionStatus?: string | null;
   verdict?: string | null;
   stageStatuses?: Partial<InspectionStageStatuses>;
+  configuredStages?: readonly SkillInspectionStage[];
 }): InspectionAggregateDisplayStatus {
+  const stageValues = Object.values(input.stageStatuses ?? {}).filter(Boolean);
+  if (stageValues.some((value) => value === "processing")) {
+    return "inspecting";
+  }
+
   const inFlight = isInspectionInFlight({
     inspectionStatus: input.inspectionStatus,
     inspectionStartedAt: input.inspectionStartedAt,
     inspectionEndedAt: input.inspectionEndedAt,
   });
-
-  const stageValues = Object.values(input.stageStatuses ?? {}).filter(Boolean);
-  if (inFlight || stageValues.some((value) => value === "processing")) {
+  if (inFlight) {
     return "inspecting";
   }
 
-  const status = normalizeSkillInspectionStatus(input.inspectionStatus);
   const verdict = String(input.verdict ?? input.versionStatus ?? "").trim();
 
-  if (stageValues.some((value) => value === "interrupted") || status === "interrupted") {
+  if (stageValues.some((value) => value === "interrupted")) {
     return "interrupted";
   }
-  if (stageValues.some((value) => value === "rejected") || status === "rejected" || verdict === "rejected") {
+  if (stageValues.some((value) => value === "rejected") || verdict === "rejected") {
     return "rejected";
+  }
+  if (input.inspectionStatus) {
+    const status = normalizeSkillInspectionStatus(input.inspectionStatus);
+    if (status === "interrupted") {
+      return "interrupted";
+    }
+    if (status === "rejected") {
+      return "rejected";
+    }
   }
   return "completed";
 }
@@ -218,6 +230,40 @@ export function skillInspectionStageLabel(stage: SkillInspectionStage): string {
   }
 }
 
+export function interruptedStagesFromStageStatuses(
+  stageStatuses: Partial<InspectionStageStatuses>
+): SkillInspectionStage[] {
+  return SKILL_INSPECTION_STAGES.filter((stage) => stageStatuses[stage] === "interrupted");
+}
+
+export function buildInspectionFailureFromStageStatuses(
+  stageStatuses: Partial<InspectionStageStatuses>,
+  message?: string | null,
+  stageFailureMessages?: Partial<Record<SkillInspectionStage, string>>
+): SkillInspectionFailureInfo | undefined {
+  const stages = interruptedStagesFromStageStatuses(stageStatuses);
+  const detail = stages.length
+    ? stages
+        .map((stage) => {
+          const label = skillInspectionStageLabel(stage);
+          const stageMessage = stageFailureMessages?.[stage]?.trim();
+          return stageMessage ? `${label}：${stageMessage}` : label;
+        })
+        .join("；")
+    : "";
+  const resolvedMessage = message?.trim() || detail || (stages.length ? "审查流程未完成" : "");
+
+  if (!stages.length && !resolvedMessage) {
+    return undefined;
+  }
+
+  return {
+    stages,
+    message: resolvedMessage,
+  };
+}
+
+/** @deprecated Legacy array column removed; kept for tests and API error formatting. */
 export function parseSkillInspectionStages(values: string[] | null | undefined): SkillInspectionStage[] {
   if (!values?.length) {
     return [];

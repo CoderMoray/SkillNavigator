@@ -1,8 +1,11 @@
 import {
+  getConfiguredInspectionStages,
   inspectAndEvaluateSkillSnapshot,
+  isPipelineIncomplete,
   type InspectionFinding,
   type InspectionReport
 } from "@skill-platform/inspection-engine";
+import { buildInspectionFailureFromStageStatuses } from "@skill-platform/storage";
 import type { FunctionalEvaluationReport } from "@skill-platform/evaluator";
 import { createRegistryStoreFromEnv, loadDotEnvIfPresent } from "@skill-platform/storage";
 
@@ -14,13 +17,15 @@ const store = createRegistryStoreFromEnv();
 
 const reviewed = await store.inspectAll(async (snapshot, version) => {
   const result = await inspectAndEvaluateSkillSnapshot(snapshot, version);
-  if (result.failedStages.length > 0) {
+  if (isPipelineIncomplete(result.stageStatuses, getConfiguredInspectionStages())) {
     // Do not persist half-complete reviews in a batch re-review: abort so the
     // operator fixes the environment first.
-    const summary = result.failedStages
-      .map((failure) => `[${failure.stage}] ${failure.message}`)
-      .join("; ");
-    throw new Error(`inspection_pipeline_incomplete: ${summary}`);
+    const failure = buildInspectionFailureFromStageStatuses(
+      result.stageStatuses,
+      undefined,
+      result.stageFailureMessages
+    );
+    throw new Error(`inspection_pipeline_incomplete: ${failure?.message ?? "审查流程未完成"}`);
   }
   return result;
 });

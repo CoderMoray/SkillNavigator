@@ -4,13 +4,14 @@ import { pathToFileURL } from "node:url";
 import { evaluateSkillSnapshot } from "@skill-platform/evaluator";
 import {
   getConfiguredInspectionStages,
+  isPipelineIncomplete,
   resolveInspectionStagesToRun,
+  resolvePipelineInspectionStatus,
   inspectAndEvaluateSkillSnapshot,
   runInspectionPipeline,
   type InspectionAndEvaluationResult,
   type InspectionPipelineState,
   type InspectionStage,
-  type InspectionStageFailure,
 } from "@skill-platform/inspection-engine";
 import { freeDevListenPort } from "./free-port.js";
 import {
@@ -53,9 +54,8 @@ import {
   normalizeHandle,
   PublishPreflightError,
   PublishRateLimiter,
+  buildInspectionFailureFromStageStatuses,
   buildSkillInspectionFailureFromError,
-  buildSkillInspectionFailureFromStages,
-  classifyInspectionFailureStatus,
   isInspectionFailureStatus,
   readInspectionRecoverAllOnStartup,
   readInspectionStaleMs,
@@ -926,9 +926,10 @@ export function buildServer() {
 
       let inspection;
       let evaluation;
-      let failedStages;
+      let pipelineResult: InspectionAndEvaluationResult;
       try {
-        ({ inspection, evaluation, failedStages } = await executeStagedPublishInspection(store, prepared));
+        pipelineResult = await executeStagedPublishInspection(store, prepared);
+        ({ inspection, evaluation } = pipelineResult);
       } catch (error) {
         if (error instanceof InspectionSupersededError) {
           return reply.code(409).send({ error: "inspection_superseded" });
@@ -937,14 +938,19 @@ export function buildServer() {
         throw error;
       }
 
-      if (failedStages.length > 0) {
-        await markPublishInspectionFailed(store, prepared.slug, prepared.version, failedStages);
-        const failure = buildSkillInspectionFailureFromStages(failedStages);
+      if (isPipelineIncomplete(pipelineResult.stageStatuses, getConfiguredInspectionStages())) {
+        await markPublishInspectionFailed(store, prepared.slug, prepared.version);
+        const failure = buildInspectionFailureFromStageStatuses(
+          pipelineResult.stageStatuses,
+          undefined,
+          pipelineResult.stageFailureMessages
+        );
         return reply.code(503).send({
           error: "inspection_pipeline_incomplete",
           retryable: true,
-          failedStages,
-          inspectionStatus: classifyInspectionFailureStatus(failure),
+          stageStatuses: pipelineResult.stageStatuses,
+          stageFailureMessages: pipelineResult.stageFailureMessages,
+          inspectionStatus: "interrupted",
           inspectionFailure: failure,
         });
       }
@@ -1070,13 +1076,14 @@ export function buildServer() {
     try {
       let inspection;
       let evaluation;
-      let failedStages;
+      let pipelineResult: InspectionAndEvaluationResult;
       try {
-        ({ inspection, evaluation, failedStages } = await executeStagedPublishInspection(
+        pipelineResult = await executeStagedPublishInspection(
           store,
           prepared,
           inspectionOptions
-        ));
+        );
+        ({ inspection, evaluation } = pipelineResult);
       } catch (error) {
         if (error instanceof InspectionSupersededError) {
           return reply.code(409).send({ error: "inspection_superseded" });
@@ -1085,14 +1092,19 @@ export function buildServer() {
         throw error;
       }
 
-      if (failedStages.length > 0) {
-        await markPublishInspectionFailed(store, prepared.slug, prepared.version, failedStages);
-        const failure = buildSkillInspectionFailureFromStages(failedStages);
+      if (isPipelineIncomplete(pipelineResult.stageStatuses, getConfiguredInspectionStages())) {
+        await markPublishInspectionFailed(store, prepared.slug, prepared.version);
+        const failure = buildInspectionFailureFromStageStatuses(
+          pipelineResult.stageStatuses,
+          undefined,
+          pipelineResult.stageFailureMessages
+        );
         return reply.code(503).send({
           error: "inspection_pipeline_incomplete",
           retryable: true,
-          failedStages,
-          inspectionStatus: classifyInspectionFailureStatus(failure),
+          stageStatuses: pipelineResult.stageStatuses,
+          stageFailureMessages: pipelineResult.stageFailureMessages,
+          inspectionStatus: "interrupted",
           inspectionFailure: failure,
         });
       }
@@ -1135,8 +1147,9 @@ export function buildServer() {
     }
 
     const { snapshot, version } = readSkillFromBody(request.body);
-    const { inspection, evaluation, failedStages } = await inspectAndEvaluateSkillSnapshot(snapshot, version);
-    return { inspection, evaluation, failedStages };
+    const { inspection, evaluation, stageStatuses, stageFailureMessages } =
+      await inspectAndEvaluateSkillSnapshot(snapshot, version);
+    return { inspection, evaluation, stageStatuses, stageFailureMessages };
   });
 
   app.post<{ Body: InspectionBody }>("/evaluations/run", async (request) => {
@@ -1160,13 +1173,13 @@ export function buildServer() {
       version: string
     ): Promise<InspectionAndEvaluationResult> => {
       const result = await inspectAndEvaluateSkillSnapshot(snapshot, version);
-      if (result.failedStages.length > 0) {
-        // Do not persist half-complete reviews during a full rebuild: abort so
-        // the operator fixes the environment first.
-        const summary = result.failedStages
-          .map((failure) => `[${failure.stage}] ${failure.message}`)
-          .join("; ");
-        throw new Error(`inspection_pipeline_incomplete: ${summary}`);
+      if (isPipelineIncomplete(result.stageStatuses, getConfiguredInspectionStages())) {
+        const failure = buildInspectionFailureFromStageStatuses(
+          result.stageStatuses,
+          undefined,
+          result.stageFailureMessages
+        );
+        throw new Error(`inspection_pipeline_incomplete: ${failure?.message ?? "审查流程未完成"}`);
       }
       return result;
     };
@@ -1750,7 +1763,7 @@ function buildInspectionPipelineInitialState(
   if (!registryVersion) {
     return {
       stageStatuses: {},
-      failedStages: [],
+      stageFailureMessages: {},
     };
   }
 
@@ -1761,10 +1774,7 @@ function buildInspectionPipelineInitialState(
     virusTotal: registryVersion.inspection?.virusTotal,
     evaluation: registryVersion.evaluation,
     stageStatuses: registryVersion.inspectionStageStatuses ?? {},
-    failedStages: registryVersion.inspectionFailure?.stages?.map((stage) => ({
-      stage,
-      message: registryVersion.inspectionFailure?.message ?? "",
-    })) ?? [],
+    stageFailureMessages: {},
   };
 }
 
@@ -1805,8 +1815,9 @@ async function executeStagedPublishInspection(
         inspection,
         evaluation,
         {
-          completedStages: state.completedStages,
           stageStatuses: state.stageStatuses,
+          stageFailureMessages: state.stageFailureMessages,
+          configuredStages: getConfiguredInspectionStages(),
           finalize: false,
         }
       );
@@ -1825,14 +1836,15 @@ async function runBackgroundPublishInspection(
   console.info(`Background publish review started for ${prepared.slug}@${prepared.version}`);
   try {
     await ensureLatestInspectionTarget(store, prepared.slug, prepared.version);
-    const { inspection, evaluation, failedStages } = await executeStagedPublishInspection(
+    const pipelineResult = await executeStagedPublishInspection(
       store,
       prepared,
       inspectionOptions
     );
+    const { inspection, evaluation } = pipelineResult;
     await ensureLatestInspectionTarget(store, prepared.slug, prepared.version);
-    if (failedStages.length > 0) {
-      await markPublishInspectionFailed(store, prepared.slug, prepared.version, failedStages);
+    if (isPipelineIncomplete(pipelineResult.stageStatuses, getConfiguredInspectionStages())) {
+      await markPublishInspectionFailed(store, prepared.slug, prepared.version);
       return;
     }
 
@@ -1889,15 +1901,25 @@ async function markPublishInspectionFailed(
   store: RegistryStore,
   slug: string,
   version: string,
-  failedStagesOrError: InspectionStageFailure[] | unknown
+  error?: unknown
 ): Promise<void> {
-  const failure = Array.isArray(failedStagesOrError)
-    ? buildSkillInspectionFailureFromStages(failedStagesOrError)
-    : buildSkillInspectionFailureFromError(failedStagesOrError);
-  const inspectionStatus = classifyInspectionFailureStatus(failure);
+  const skill = await store.getSkill(slug);
+  const registryVersion = skill?.versions[version];
+  const configuredStages = getConfiguredInspectionStages();
+  const stageStatuses = registryVersion?.inspectionStageStatuses ?? {};
+  const inspectionStatus = resolvePipelineInspectionStatus(stageStatuses, configuredStages);
+  const failure =
+    buildInspectionFailureFromStageStatuses(
+      stageStatuses,
+      registryVersion?.inspectionFailure?.message
+    ) ?? (error ? buildSkillInspectionFailureFromError(error) : undefined);
 
   try {
-    await store.markSkillInspectionStatus(slug, inspectionStatus, { version, failure });
+    await store.markSkillInspectionStatus(slug, inspectionStatus === "inspecting" ? "interrupted" : inspectionStatus, {
+      version,
+      failure,
+      stageStatuses,
+    });
   } catch (markError) {
     console.error(`Failed to mark inspection status failed for ${slug}@${version}:`, markError);
   }

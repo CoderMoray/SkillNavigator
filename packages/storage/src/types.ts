@@ -112,7 +112,6 @@ export interface RegistryVersion {
   inspectionEndedAt?: string;
   inspectionStatus?: SkillInspectionStatus;
   inspectionFailure?: SkillInspectionFailureInfo;
-  inspectionCompletedStages?: SkillInspectionStage[];
   inspectionStageStatuses?: InspectionStageStatuses;
   createdAt: string;
   updatedAt: string;
@@ -126,7 +125,6 @@ export interface RegistrySkill {
   latestVersion: string;
   inspectionStatus: SkillInspectionStatus;
   inspectionFailure?: SkillInspectionFailureInfo;
-  inspectionCompletedStages?: SkillInspectionStage[];
   inspectionStageStatuses?: InspectionStageStatuses;
   uploadedAt?: string;
   inspectionStartedAt?: string;
@@ -203,8 +201,9 @@ export interface CommitInspectionResultsOptions {
 }
 
 export interface PersistInspectionStageResultsOptions {
-  completedStages?: SkillInspectionStage[];
   stageStatuses: InspectionStageStatuses;
+  stageFailureMessages?: Partial<Record<SkillInspectionStage, string>>;
+  configuredStages?: SkillInspectionStage[];
   finalize?: boolean;
 }
 

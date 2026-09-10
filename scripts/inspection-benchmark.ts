@@ -20,9 +20,12 @@ import {
   type SkillSnapshot
 } from "@skill-platform/skill-spec";
 import {
+  getConfiguredInspectionStages,
   isVirusTotalEnabled,
   isVirusTotalUploadOnMissEnabled,
   inspectAndEvaluateSkillSnapshot,
+  interruptedStagesFromStatuses,
+  resolvePipelineInspectionStatus,
   runVirusTotalScan
 } from "@skill-platform/inspection-engine";
 import {
@@ -61,7 +64,7 @@ interface PackageBenchmark {
   totalPipelineMs: number;
   inspectionStatus?: string;
   findingCount?: number;
-  failedStages?: string[];
+  interruptedStages?: string[];
 }
 
 function readArgValue(flag: string): string | undefined {
@@ -204,21 +207,22 @@ async function benchmarkPackage(
   const pipelineStart = performance.now();
   let inspectionStatus: string | undefined;
   let findingCount: number | undefined;
-  let failedStages: string[] | undefined;
+  let interruptedStages: string[] | undefined;
   try {
     const result = await inspectAndEvaluateSkillSnapshot(pipelineParsed);
-    inspectionStatus = result.failedStages.length > 0 ? "interrupted" : "completed";
+    const configuredStages = getConfiguredInspectionStages();
+    inspectionStatus = resolvePipelineInspectionStatus(result.stageStatuses, configuredStages);
     findingCount = result.inspection.findings.length;
-    failedStages = result.failedStages.map((failure) => failure.stage);
+    interruptedStages = interruptedStagesFromStatuses(result.stageStatuses);
   } catch (error) {
-    failedStages = [error instanceof Error ? error.message : String(error)];
+    interruptedStages = [error instanceof Error ? error.message : String(error)];
   }
   const totalPipelineMs = performance.now() - pipelineStart;
   stages.push({
     stage: "full_pipeline",
     ms: totalPipelineMs,
-    status: failedStages?.length ? "error" : "ok",
-    detail: failedStages?.join("; ")
+    status: interruptedStages?.length ? "error" : "ok",
+    detail: interruptedStages?.join("; ")
   });
 
   stages.push(
@@ -247,7 +251,7 @@ async function benchmarkPackage(
     totalPipelineMs,
     inspectionStatus,
     findingCount,
-    failedStages
+    interruptedStages
   };
 }
 
@@ -269,8 +273,8 @@ function printReport(results: PackageBenchmark[], options: { unlimited: boolean;
     console.log(`  解压文本总量: ${formatBytes(result.uncompressedBytes)}`);
     console.log(`  ZIP 体积: ${formatBytes(result.zipBytes)}`);
     console.log(`  审查状态: ${result.inspectionStatus ?? "n/a"} (${result.findingCount ?? 0} findings)`);
-    if (result.failedStages?.length) {
-      console.log(`  失败阶段: ${result.failedStages.join(", ")}`);
+    if (result.interruptedStages?.length) {
+      console.log(`  失败阶段: ${result.interruptedStages.join(", ")}`);
     }
     console.log(`  并行安全扫描: ${formatMs(result.parallelSecurityMs)} (max(SS, VT))`);
     console.log(`  预估用户等待: ${formatMs(result.estimatedUserWaitMs)} (解析+并行+HaluCatch+持久化)`);

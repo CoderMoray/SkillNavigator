@@ -24,9 +24,9 @@ Skill 详情（`GET /skills/:slug`）及 CLI `--json` 输出中，与审查相�
 
 | 字段 | 说明 |
 | --- | --- |
-| `inspectionStatus` | 最新版本的流水线状态：`inspecting`（审查中）/ `completed`（审查完成）/ `failed`（审查失败） |
+| `inspectionStatus` | 最新版本的流水线状态：`inspecting`（审查中）/ `completed`（审查完成）/ `interrupted`（审查中断）/ `rejected`（审查拒绝） |
 | `inspectionFailure` | 失败时：`{ stages: string[], message: string }`，`stages` 为 `skillspector` / `virustotal` / `halucatch` |
-| `inspectionCompletedStages` | 已成功完成的阶段 id 列表 |
+| `inspectionStageStatuses` | 各审查环节状态（如 `skillspector: passed`、`halucatch: done`）；整体 `inspectionStatus` 由此计算 |
 | `inspectionStartedAt` / `inspectionEndedAt` | 该版本审查开始 / 结束时间（ISO 8601） |
 | `versions[ver].inspection` | 该版本的完整审查报告（verdict、findings、SkillSpector / VirusTotal 摘要等） |
 | `versions[ver].status` | 版本 verdict：`published` / `needs-inspection` / `rejected` |

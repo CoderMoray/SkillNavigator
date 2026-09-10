@@ -61,12 +61,17 @@ async function main() {
   const snapshot = await readSkillPackage(TARGETS[slug]);
   console.log(`Inspecting ${slug} (contentHash ${snapshot.contentHash.slice(0, 12)}…)...`);
 
-  const { inspection, evaluation, failedStages } = await inspectAndEvaluateSkillSnapshot(snapshot);
+  const { inspection, evaluation, stageStatuses, stageFailureMessages } = await inspectAndEvaluateSkillSnapshot(snapshot);
+  const interruptedStages = ["skillspector", "virustotal", "halucatch"].filter(
+    (stage) => stageStatuses[stage] === "interrupted"
+  );
 
   console.log(`  verdict: ${inspection.verdict}`);
   console.log(`  evaluation provider: ${evaluation?.provider ?? "(none)"}`);
-  if (failedStages.length > 0) {
-    console.log(`  ⚠️  stage failures: ${failedStages.map((f) => `${f.stage}: ${f.message}`).join(" | ")}`);
+  if (interruptedStages.length > 0) {
+    console.log(
+      `  ⚠️  stage failures: ${interruptedStages.map((stage) => `${stage}: ${stageFailureMessages[stage] ?? "interrupted"}`).join(" | ")}`
+    );
   }
   if (inspection.findings.length === 0) {
     console.log("  findings: none");

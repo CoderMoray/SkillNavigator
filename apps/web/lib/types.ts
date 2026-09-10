@@ -208,7 +208,6 @@ export interface RegistryVersion {
   inspectionEndedAt?: string;
   inspectionStatus?: SkillInspectionStatus;
   inspectionFailure?: SkillInspectionFailureInfo;
-  inspectionCompletedStages?: SkillInspectionStage[];
   inspectionStageStatuses?: InspectionStageStatuses;
   createdAt: string;
   updatedAt: string;
@@ -225,7 +224,6 @@ export interface RegistrySkill {
   uploadedAt?: string;
   inspectionStartedAt?: string;
   inspectionEndedAt?: string;
-  inspectionCompletedStages?: SkillInspectionStage[];
   inspectionStageStatuses?: InspectionStageStatuses;
   hasStoredPackage?: boolean;
   versions: Record<string, RegistryVersion>;

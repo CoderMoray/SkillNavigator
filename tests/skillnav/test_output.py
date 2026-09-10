@@ -514,7 +514,12 @@ def test_print_inspection_result_includes_sections(capsys) -> None:
                 }
             ],
         },
-        "failedStages": [{"stage": "halucatch", "message": "adapter timeout"}],
+        "stageStatuses": {"halucatch": "interrupted"},
+        "stageFailureMessages": {"halucatch": "adapter timeout"},
+        "inspectionFailure": {
+            "stages": ["halucatch"],
+            "message": "HaluCatch：adapter timeout",
+        },
     }
     print_inspection_result(payload)
     out = capsys.readouterr().out

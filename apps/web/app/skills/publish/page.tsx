@@ -996,9 +996,11 @@ function PublishSkillPageContent() {
                         <strong>审查流程未完成，Skill 尚未保存。</strong>
                         <span>请恢复以下审查服务后，使用当前上传包重新运行完整审查：</span>
                         <ul>
-                          {inspectionFailure.failedStages.map((failure) => (
-                            <li key={failure.stage}>
-                              <strong>{inspectionStageLabel(failure.stage)}：</strong> {failure.message}
+                          {inspectionFailure.inspectionFailure.stages.map((stage) => (
+                            <li key={stage}>
+                              <strong>{inspectionStageLabel(stage)}：</strong>{" "}
+                              {inspectionFailure.stageFailureMessages?.[stage] ??
+                                inspectionFailure.inspectionFailure.message}
                             </li>
                           ))}
                         </ul>

@@ -340,16 +340,16 @@ export interface PublishSkillFrontmatter {
 
 export type InspectionStage = "skillspector" | "virustotal" | "halucatch";
 
-export interface InspectionStageFailure {
-  stage: InspectionStage;
-  message: string;
-}
-
 export interface InspectionPipelineIncompleteResponse {
   error: "inspection_pipeline_incomplete";
   retryable: true;
-  failedStages: InspectionStageFailure[];
-  inspectionStatus?: "interrupted" | "rejected";
+  stageStatuses: Record<InspectionStage, string | undefined>;
+  stageFailureMessages?: Partial<Record<InspectionStage, string>>;
+  inspectionStatus: "interrupted";
+  inspectionFailure: {
+    stages: SkillInspectionStage[];
+    message: string;
+  };
 }
 
 export interface PublishPreviewResponse {
@@ -652,7 +652,9 @@ interface ApiErrorResponse {
   error?: string;
   retryable?: boolean;
   retryAfterSeconds?: number;
-  failedStages?: InspectionStageFailure[];
+  stageStatuses?: Record<string, string | undefined>;
+  stageFailureMessages?: Record<string, string>;
+  inspectionFailure?: InspectionPipelineIncompleteResponse["inspectionFailure"];
   verificationRequired?: boolean;
   verificationEmailSent?: boolean;
   verificationEmailRateLimited?: boolean;
@@ -679,7 +681,7 @@ export function getRetryableInspectionFailure(error: unknown): InspectionPipelin
     !(error instanceof ApiRequestError) ||
     error.response?.error !== "inspection_pipeline_incomplete" ||
     error.response.retryable !== true ||
-    !Array.isArray(error.response.failedStages)
+    !error.response.inspectionFailure
   ) {
     return undefined;
   }
@@ -687,7 +689,12 @@ export function getRetryableInspectionFailure(error: unknown): InspectionPipelin
   return {
     error: "inspection_pipeline_incomplete",
     retryable: true,
-    failedStages: error.response.failedStages
+    stageStatuses: (error.response.stageStatuses ?? {}) as InspectionPipelineIncompleteResponse["stageStatuses"],
+    stageFailureMessages: error.response.stageFailureMessages as
+      | InspectionPipelineIncompleteResponse["stageFailureMessages"]
+      | undefined,
+    inspectionStatus: "interrupted",
+    inspectionFailure: error.response.inspectionFailure,
   };
 }
 

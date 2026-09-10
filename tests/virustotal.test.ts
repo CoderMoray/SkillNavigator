@@ -292,18 +292,14 @@ describe("VirusTotal package review adapter", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const { inspection, failedStages } = await inspectAndEvaluateSkillSnapshot(snapshot, undefined, evaluation());
+    const { inspection, stageStatuses, stageFailureMessages } = await inspectAndEvaluateSkillSnapshot(snapshot, undefined, evaluation());
 
     // A scan that never produced a report is an environment/integration failure:
     // no fabricated summary, no finding, only a retryable stage failure.
     expect(inspection.virusTotal).toBeUndefined();
     expect(inspection.findings.some((finding) => finding.id === "virustotal-scan-failed")).toBe(false);
-    expect(failedStages).toEqual([
-      expect.objectContaining({
-        stage: "virustotal",
-        message: expect.stringMatching(/analysis did not complete/i)
-      })
-    ]);
+    expect(stageStatuses.virustotal).toBe("interrupted");
+    expect(stageFailureMessages.virustotal).toMatch(/analysis did not complete/i);
   });
 
   test("uploads an unknown archive and waits for its analysis when enabled", async () => {
@@ -412,18 +408,14 @@ describe("VirusTotal package review adapter", () => {
     configureVirusTotal();
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("fetch failed")));
 
-    const { inspection: report, failedStages } = await inspectAndEvaluateSkillSnapshot(snapshot, undefined, evaluation());
+    const { inspection: report, stageStatuses, stageFailureMessages } = await inspectAndEvaluateSkillSnapshot(snapshot, undefined, evaluation());
 
     // Integration errors surface as retryable stage failures, not as a fake
     // scan summary or a review finding.
     expect(report.virusTotal).toBeUndefined();
     expect(report.findings.some((finding) => finding.id === "virustotal-scan-failed")).toBe(false);
-    expect(failedStages).toEqual([
-      expect.objectContaining({
-        stage: "virustotal",
-        message: expect.stringMatching(/network|fetch failed/i)
-      })
-    ]);
+    expect(stageStatuses.virustotal).toBe("interrupted");
+    expect(stageFailureMessages.virustotal).toMatch(/network|fetch failed/i);
   });
 
   test("retries file lookup once after a timeout", async () => {
