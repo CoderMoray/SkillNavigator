@@ -80,6 +80,22 @@ export function resolveVersionInspectionCompletedStages(
   return version.inspectionCompletedStages;
 }
 
+export function resolveVersionInspectionStageStatuses(
+  version: Pick<RegistryVersion, "inspectionStageStatuses" | "version"> | undefined,
+  skill: Pick<RegistrySkill, "inspectionStageStatuses" | "latestVersion">
+): RegistryVersion["inspectionStageStatuses"] {
+  if (!version) {
+    return skill.inspectionStageStatuses;
+  }
+  if (version.inspectionStageStatuses && Object.keys(version.inspectionStageStatuses).length > 0) {
+    return version.inspectionStageStatuses;
+  }
+  if (version.version === skill.latestVersion) {
+    return skill.inspectionStageStatuses;
+  }
+  return version.inspectionStageStatuses;
+}
+
 export function getSkillRepublishBlockReason(
   skill: Pick<RegistrySkill, "inspectionStatus" | "latestVersion" | "versions">
 ): SkillRepublishBlockReason | null {

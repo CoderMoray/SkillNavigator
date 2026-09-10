@@ -20,6 +20,10 @@ export {
   normalizeSkillInspectionStatus,
   resolveInspectionAggregateStatus,
   parseSkillInspectionStages,
+  parseInspectionStageStatuses,
+  mapStageStatusesToColumns,
+  interruptInFlightStageStatuses,
+  inspectionStageStatusLabel,
   skillInspectionStageLabel,
   skillInspectionStatusLabel,
   readInspectionStaleMs,
@@ -118,6 +122,8 @@ export type {
   SkillSlugAvailability,
   SkillInspectionStage,
   SkillInspectionStatus,
+  InspectionStageStatuses,
+  InspectionStageDisplayStatus,
 } from "./types";
 
 export {

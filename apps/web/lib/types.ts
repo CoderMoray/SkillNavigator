@@ -2,6 +2,12 @@ export type InspectionVerdict = "published" | "needs-inspection" | "rejected";
 export type SkillInspectionStatus = "inspecting" | "completed" | "interrupted" | "rejected";
 export type SkillInspectionStage = "skillspector" | "virustotal" | "halucatch";
 
+export interface InspectionStageStatuses {
+  skillspector?: "passed" | "interrupted" | "rejected" | "processing";
+  virustotal?: "passed" | "interrupted" | "rejected" | "processing";
+  halucatch?: "done" | "interrupted" | "processing";
+}
+
 export interface SkillInspectionFailureInfo {
   stages: SkillInspectionStage[];
   message: string;
@@ -203,6 +209,7 @@ export interface RegistryVersion {
   inspectionStatus?: SkillInspectionStatus;
   inspectionFailure?: SkillInspectionFailureInfo;
   inspectionCompletedStages?: SkillInspectionStage[];
+  inspectionStageStatuses?: InspectionStageStatuses;
   createdAt: string;
   updatedAt: string;
 }
@@ -219,6 +226,7 @@ export interface RegistrySkill {
   inspectionStartedAt?: string;
   inspectionEndedAt?: string;
   inspectionCompletedStages?: SkillInspectionStage[];
+  inspectionStageStatuses?: InspectionStageStatuses;
   hasStoredPackage?: boolean;
   versions: Record<string, RegistryVersion>;
   contributors: RegistryContributor[];

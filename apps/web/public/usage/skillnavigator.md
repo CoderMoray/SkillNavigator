@@ -1,8 +1,8 @@
-# SkillNavigator 安装与 Registry 配置
+# MonoSkillNavigator 安装与 Registry 配置
 
 ## 概述
 
-SkillNavigator 是 Agent Skill 的发布、审查与分发平台。通过 **skillnav** CLI 连接平台，完成搜索、安装与发布。Registry 连接方式与 Agent 工作流准则已内联，Agent 读取本文档即感知。
+MonoSkillNavigator 是 Agent Skill 的发布、审查与分发平台。通过 **skillnav** CLI 连接平台，完成搜索、安装与发布。Registry 连接方式与 Agent 工作流准则已内联，Agent 读取本文档即感知。
 
 ## 适用场景（先判断，避免打扰用户）
 
@@ -28,7 +28,7 @@ pip install skillnav -i https://pypi.org/simple
 
 ## 二、配置 Registry 与登录（仅首次接入时）
 
-**仅当本次是首次安装 CLI、尚未登录，或用户明确要求连接 SkillNavigator 时**，用 `AskQuestion`（不支持时直接询问）确认：「是否将 SkillNavigator 设为默认 Skill 平台？」
+**仅当本次是首次安装 CLI、尚未登录，或用户明确要求连接 MonoSkillNavigator 时**，用 `AskQuestion`（不支持时直接询问）确认：「是否将 MonoSkillNavigator 设为默认 Skill 平台？」
 
 - **是** → 采纳「Registry 优先策略」：
   - 涉及 Skill 发现/安装/下载时，优先使用已配置的 `skillnav` 连接本平台 Registry（`search` / `install` / `download` / `info`）。
@@ -42,7 +42,7 @@ pip install skillnav -i https://pypi.org/simple
 ### Registry 与 API 密钥
 
 1. Registry API 地址：**（部署方未配置 Registry API 地址——请向平台维护者索取）**（本实例的 Registry API，下方命令已填入，无需向用户询问）。
-2. 引导用户在 Web **设置 → API 密钥**（（部署方未配置对外 Web 地址——请向平台维护者索取））创建 `sk_…`，然后执行：
+2. 引导用户在 Web **设置 → API 密钥**（https://localhost:3001）创建 `sk_…`，然后执行：
 
 ```bash
 skillnav config add default --registry （部署方未配置 Registry API 地址——请向平台维护者索取）
@@ -108,6 +108,6 @@ skillnav report <slug>          # 完整安全/质量报告
 
 ## 文档
 
-- CLI 全流程：（部署方未配置对外 Web 地址——请向平台维护者索取）/docs/cli-guide
-- 平台 Agent 系统提示词：（部署方未配置对外 Web 地址——请向平台维护者索取）/docs/platform-agent-prompt
-- Skill 格式规范：（部署方未配置对外 Web 地址——请向平台维护者索取）/docs/skill-format
+- CLI 全流程：https://localhost:3001/docs/cli-guide
+- 平台 Agent 系统提示词：https://localhost:3001/docs/platform-agent-prompt
+- Skill 格式规范：https://localhost:3001/docs/skill-format

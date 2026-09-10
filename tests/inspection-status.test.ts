@@ -74,6 +74,25 @@ describe("skill inspection status", () => {
         inspectionEndedAt: "2026-09-08T00:01:00.000Z",
       })
     ).toBe("interrupted");
+    expect(
+      resolveInspectionAggregateStatus({
+        inspectionStatus: "completed",
+        stageStatuses: {
+          skillspector: "passed",
+          virustotal: "interrupted",
+        },
+      })
+    ).toBe("interrupted");
+    expect(
+      resolveInspectionAggregateStatus({
+        inspectionStatus: "completed",
+        stageStatuses: {
+          skillspector: "rejected",
+          virustotal: "passed",
+          halucatch: "done",
+        },
+      })
+    ).toBe("rejected");
   });
 
   it("classifies pipeline failures as interrupted (inspection did not complete)", () => {

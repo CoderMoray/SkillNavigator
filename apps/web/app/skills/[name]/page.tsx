@@ -13,7 +13,7 @@ import {
   isInspectionFailureStatus,
   isSkillUnlisted,
   resolveVersionDisplayVerdict,
-  resolveVersionInspectionCompletedStages,
+  resolveVersionInspectionStageStatuses,
   resolveVersionInspectionFailure,
   resolveVersionInspectionStatus,
   skillRepublishBlockedMessage,
@@ -438,7 +438,7 @@ export default function SkillDetailPage() {
     isInspectionFailureStatus(resolveVersionInspectionStatus(currentVersion, skill));
   const displayInspectionStatus = resolveVersionInspectionStatus(currentVersion, skill);
   const displayInspectionFailure = resolveVersionInspectionFailure(currentVersion, skill);
-  const displayInspectionCompletedStages = resolveVersionInspectionCompletedStages(currentVersion, skill);
+  const displayInspectionStageStatuses = resolveVersionInspectionStageStatuses(currentVersion, skill);
   const isOwner = Boolean(viewer && isSkillOwner(skill, viewer));
   const isContributor = Boolean(viewer && isSkillContributor(skill, viewer));
   const showInspectionFailureDetail =
@@ -449,10 +449,7 @@ export default function SkillDetailPage() {
   const unlistedNotice = skillUnlistedNotice(skill);
   const inspectionProgressSection =
     isInspectionFailureStatus(displayInspectionStatus) || displayInspectionStatus === "inspecting" ? (
-      <SkillInspectionProgress
-        completedStages={displayInspectionCompletedStages}
-        failedStages={displayInspectionFailure?.stages}
-      />
+      <SkillInspectionProgress stageStatuses={displayInspectionStageStatuses} />
     ) : null;
   const ownerUnlistedNoticeSection =
     isOwner && isUnlisted ? (

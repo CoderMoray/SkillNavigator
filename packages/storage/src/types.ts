@@ -1,7 +1,12 @@
 import type { InspectionReport, InspectionVerdict } from "@skill-platform/inspection-engine";
 import type { FunctionalEvaluationReport } from "@skill-platform/evaluator";
 import type { SkillManifest, SkillSnapshot } from "@skill-platform/skill-spec";
-import type { SkillInspectionFailureInfo, SkillInspectionStage, SkillInspectionStatus } from "./inspection-status.js";
+import type {
+  InspectionStageStatuses,
+  SkillInspectionFailureInfo,
+  SkillInspectionStage,
+  SkillInspectionStatus,
+} from "./inspection-status.js";
 
 export type { SkillInspectionFailureInfo, SkillInspectionStage, SkillInspectionStatus } from "./inspection-status.js";
 export {
@@ -16,8 +21,20 @@ export {
   skillInspectionStatusLabel,
   inspectionAggregateStatusLabel,
   resolveInspectionAggregateStatus,
+  parseInspectionStageStatuses,
+  mapStageStatusesToColumns,
+  interruptInFlightStageStatuses,
+  inspectionStageStatusLabel,
   SKILL_INSPECTION_STAGES,
   SKILL_INSPECTION_STATUSES,
+} from "./inspection-status.js";
+
+export type {
+  InspectionStageStatuses,
+  SkillSpectorStageStatus,
+  VirusTotalStageStatus,
+  HaluCatchStageStatus,
+  InspectionStageDisplayStatus,
 } from "./inspection-status.js";
 
 export type ContributorRole = "owner" | "contributor";
@@ -96,6 +113,7 @@ export interface RegistryVersion {
   inspectionStatus?: SkillInspectionStatus;
   inspectionFailure?: SkillInspectionFailureInfo;
   inspectionCompletedStages?: SkillInspectionStage[];
+  inspectionStageStatuses?: InspectionStageStatuses;
   createdAt: string;
   updatedAt: string;
 }
@@ -109,6 +127,7 @@ export interface RegistrySkill {
   inspectionStatus: SkillInspectionStatus;
   inspectionFailure?: SkillInspectionFailureInfo;
   inspectionCompletedStages?: SkillInspectionStage[];
+  inspectionStageStatuses?: InspectionStageStatuses;
   uploadedAt?: string;
   inspectionStartedAt?: string;
   inspectionEndedAt?: string;
@@ -184,7 +203,8 @@ export interface CommitInspectionResultsOptions {
 }
 
 export interface PersistInspectionStageResultsOptions {
-  completedStages: SkillInspectionStage[];
+  completedStages?: SkillInspectionStage[];
+  stageStatuses: InspectionStageStatuses;
   finalize?: boolean;
 }
 
@@ -218,6 +238,7 @@ export interface MarkSkillInspectionStatusOptions {
   /** @deprecated Use version + setLatestVersion instead. */
   latestVersion?: string;
   failure?: SkillInspectionFailureInfo;
+  stageStatuses?: InspectionStageStatuses;
 }
 
 export interface PostgresRegistryStoreOptions {

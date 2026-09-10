@@ -455,6 +455,17 @@ export {
   type RunInspectionPipelineOptions,
 } from "./inspection-pipeline.js";
 
+export {
+  resolveAggregateStatusFromStageStatuses,
+  resolveHaluCatchStageStatus,
+  resolveSkillSpectorStageStatus,
+  resolveVirusTotalStageStatus,
+  type HaluCatchStageStatus,
+  type InspectionStageStatuses,
+  type SkillSpectorStageStatus,
+  type VirusTotalStageStatus,
+} from "./stage-status.js";
+
 function excerpt(content: string, index: number): string {
   const start = Math.max(0, index - 80);
   const end = Math.min(content.length, index + 160);

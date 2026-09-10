@@ -22,6 +22,12 @@ import {
   runVirusTotalScan,
 } from "./virustotal.js";
 import { calculateInspectionVerdict } from "./inspection-verdict.js";
+import {
+  resolveHaluCatchStageStatus,
+  resolveSkillSpectorStageStatus,
+  resolveVirusTotalStageStatus,
+  type InspectionStageStatuses,
+} from "./stage-status.js";
 
 export interface InspectionPipelineState {
   findings: InspectionFinding[];
@@ -31,6 +37,7 @@ export interface InspectionPipelineState {
   evaluation?: FunctionalEvaluationReport;
   failedStages: InspectionStageFailure[];
   completedStages: InspectionStage[];
+  stageStatuses: InspectionStageStatuses;
 }
 
 export interface InspectionStageCompleteEvent {
@@ -55,6 +62,7 @@ function createInitialPipelineState(initial?: Partial<InspectionPipelineState>):
     evaluation: initial?.evaluation,
     failedStages: initial?.failedStages ?? [],
     completedStages: initial?.completedStages ?? [],
+    stageStatuses: { ...(initial?.stageStatuses ?? {}) },
   };
 }
 
@@ -127,6 +135,10 @@ async function runSkillSpectorStage(
     return;
   }
 
+  state.stageStatuses.skillspector = "processing";
+  await emitStageComplete(snapshot, version, state, "skillspector", onStageComplete);
+
+  let interrupted = false;
   try {
     const scan = await runSkillSpectorSecurityScan(snapshot);
     state.skillSpector = scan.summary;
@@ -135,9 +147,12 @@ async function runSkillSpectorStage(
   } catch (error) {
     const message = truncateError(error);
     state.skillSpectorAvailable = false;
+    interrupted = true;
     // Environment problem → stage failure (retryable), not a review finding.
     state.failedStages.push({ stage: "skillspector", message });
   }
+
+  state.stageStatuses.skillspector = resolveSkillSpectorStageStatus(state.findings, interrupted);
 
   if (!state.completedStages.includes("skillspector")) {
     state.completedStages.push("skillspector");
@@ -155,15 +170,22 @@ async function runVirusTotalStage(
     return;
   }
 
+  state.stageStatuses.virustotal = "processing";
+  await emitStageComplete(snapshot, version, state, "virustotal", onStageComplete);
+
+  let interrupted = false;
   try {
     const scan = await runVirusTotalScan(snapshot);
     state.virusTotal = scan.summary;
     state.findings.push(...scan.findings);
   } catch (error) {
     const message = formatVirusTotalError(error);
+    interrupted = true;
     // Integration error → stage failure, not a fabricated scan finding.
     state.failedStages.push({ stage: "virustotal", message });
   }
+
+  state.stageStatuses.virustotal = resolveVirusTotalStageStatus(state.findings, interrupted);
 
   if (!state.completedStages.includes("virustotal")) {
     state.completedStages.push("virustotal");
@@ -185,7 +207,11 @@ async function runHaluCatchStage(
     return;
   }
 
+  state.stageStatuses.halucatch = "processing";
+  await emitStageComplete(snapshot, version, state, "halucatch", onStageComplete);
+
   let evaluation;
+  let interrupted = false;
   try {
     evaluation = await evaluateSkillSnapshot(snapshot);
   } catch (error) {
@@ -193,9 +219,11 @@ async function runHaluCatchStage(
     // static taskset evaluator only as a placeholder report; never fabricate a
     // "inspection-halucatch-unavailable" finding.
     evaluation = evaluateStaticTaskSet(snapshot);
+    interrupted = true;
     state.failedStages.push({ stage: "halucatch", message: truncateError(error) });
   }
   state.evaluation = evaluation;
+  state.stageStatuses.halucatch = resolveHaluCatchStageStatus(interrupted);
 
   if (!state.completedStages.includes("halucatch")) {
     state.completedStages.push("halucatch");
@@ -260,26 +288,7 @@ function truncateError(error: unknown): string {
   return message.length <= 300 ? message : `${message.slice(0, 297)}...`;
 }
 
-export function resolveInspectionStagesToRun(input: {
-  configuredStages: InspectionStage[];
-  completedStages: InspectionStage[];
-  failedStages: InspectionStage[];
-  requestedStages?: InspectionStage[];
-}): InspectionStage[] {
-  const { configuredStages, completedStages, failedStages, requestedStages } = input;
-  const completed = new Set(completedStages);
-  const failed = new Set(failedStages);
-
-  const defaultStages = configuredStages.filter(
-    (stage) => !completed.has(stage) || failed.has(stage)
-  );
-  if (!requestedStages?.length) {
-    return defaultStages;
-  }
-
-  const requested = new Set(requestedStages);
-  return defaultStages.filter((stage) => requested.has(stage));
-}
+export { resolveInspectionStagesToRun } from "./stage-status.js";
 
 export function getConfiguredInspectionStages(): InspectionStage[] {
   const stages: InspectionStage[] = [];

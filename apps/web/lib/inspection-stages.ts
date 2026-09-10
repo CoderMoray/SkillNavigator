@@ -1,8 +1,13 @@
-import type { SkillInspectionStage } from "./types";
+import type { InspectionStageStatuses, SkillInspectionStage } from "./types";
 
 export const INSPECTION_STAGE_ORDER: SkillInspectionStage[] = ["skillspector", "virustotal", "halucatch"];
 
-export type InspectionStageDisplayStatus = "completed" | "failed" | "pending";
+export type InspectionStageDisplayStatus =
+  | "passed"
+  | "done"
+  | "processing"
+  | "interrupted"
+  | "rejected";
 
 export interface InspectionStageState {
   stage: SkillInspectionStage;
@@ -22,45 +27,41 @@ export function skillInspectionStageLabel(stage: SkillInspectionStage): string {
   }
 }
 
-function inspectionStageStatusLabel(status: InspectionStageDisplayStatus): string {
+function inspectionStageStatusLabel(
+  stage: SkillInspectionStage,
+  status: InspectionStageDisplayStatus
+): string {
   switch (status) {
-    case "completed":
-      return "已完成";
-    case "failed":
-      return "失败";
-    case "pending":
-      return "待审查";
+    case "passed":
+      return "通过";
+    case "done":
+      return "完成";
+    case "processing":
+      return "审查中";
+    case "interrupted":
+      return "中断";
+    case "rejected":
+      return "未通过";
   }
 }
 
 export function resolveInspectionStageStates(
-  completedStages: SkillInspectionStage[] | undefined,
-  failedStages: SkillInspectionStage[] | undefined
+  stageStatuses: InspectionStageStatuses | undefined
 ): InspectionStageState[] {
-  const completed = new Set(completedStages ?? []);
-  const failed = new Set(failedStages ?? []);
-
   return INSPECTION_STAGE_ORDER.map((stage) => {
-    const status: InspectionStageDisplayStatus = failed.has(stage)
-      ? "failed"
-      : completed.has(stage)
-        ? "completed"
-        : "pending";
+    const status = (stageStatuses?.[stage] ?? "processing") as InspectionStageDisplayStatus;
 
     return {
       stage,
       label: skillInspectionStageLabel(stage),
       status,
-      statusLabel: inspectionStageStatusLabel(status),
+      statusLabel: inspectionStageStatusLabel(stage, status),
     };
   });
 }
 
-export function formatInspectionStageProgress(
-  completedStages: SkillInspectionStage[] | undefined,
-  failedStages: SkillInspectionStage[] | undefined
-): string {
-  return resolveInspectionStageStates(completedStages, failedStages)
-    .map((entry) => `${entry.label}：${entry.statusLabel}`)
+export function formatInspectionStageProgress(stageStatuses: InspectionStageStatuses | undefined): string {
+  return resolveInspectionStageStates(stageStatuses)
+    .map((entry) => `${entry.label}: ${entry.status}`)
     .join(" · ");
 }

@@ -1749,7 +1749,7 @@ function buildInspectionPipelineInitialState(
   const registryVersion = skill.versions[version];
   if (!registryVersion) {
     return {
-      completedStages: [],
+      stageStatuses: {},
       failedStages: [],
     };
   }
@@ -1760,7 +1760,7 @@ function buildInspectionPipelineInitialState(
     skillSpectorAvailable: Boolean(registryVersion.inspection?.skillSpector),
     virusTotal: registryVersion.inspection?.virusTotal,
     evaluation: registryVersion.evaluation,
-    completedStages: registryVersion.inspectionCompletedStages ?? [],
+    stageStatuses: registryVersion.inspectionStageStatuses ?? {},
     failedStages: registryVersion.inspectionFailure?.stages?.map((stage) => ({
       stage,
       message: registryVersion.inspectionFailure?.message ?? "",
@@ -1775,12 +1775,10 @@ function buildRetryInspectionOptions(
 ): StagedPublishInspectionOptions {
   const registryVersion = skill.versions[version];
   const configuredStages = getConfiguredInspectionStages();
-  const completedStages = registryVersion?.inspectionCompletedStages ?? [];
-  const failedStages = registryVersion?.inspectionFailure?.stages ?? [];
+  const stageStatuses = registryVersion?.inspectionStageStatuses ?? {};
   const stagesToRun = resolveInspectionStagesToRun({
     configuredStages,
-    completedStages,
-    failedStages,
+    stageStatuses,
     requestedStages,
   });
   const skipStages = configuredStages.filter((stage) => !stagesToRun.includes(stage));
@@ -1808,6 +1806,7 @@ async function executeStagedPublishInspection(
         evaluation,
         {
           completedStages: state.completedStages,
+          stageStatuses: state.stageStatuses,
           finalize: false,
         }
       );

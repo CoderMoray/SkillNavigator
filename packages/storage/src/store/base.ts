@@ -78,6 +78,7 @@ function syncSkillInspectionDenormFromLatest(skill: RegistrySkill): void {
     ? (latest.inspectionFailure ?? { stages: [], message: "审查流程未完成" })
     : undefined;
   skill.inspectionCompletedStages = latest.inspectionCompletedStages;
+  skill.inspectionStageStatuses = latest.inspectionStageStatuses;
   skill.inspectionStartedAt = latest.inspectionStartedAt;
   skill.inspectionEndedAt = latest.inspectionEndedAt;
   skill.uploadedAt = latest.uploadedAt ?? skill.uploadedAt;
@@ -137,6 +138,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
             version.inspectionStartedAt = now;
             version.inspectionEndedAt = undefined;
             version.inspectionCompletedStages = [];
+            version.inspectionStageStatuses = {};
           } else if (inspectionStatus === "completed" || isInspectionFailureStatus(inspectionStatus)) {
             version.inspectionEndedAt = now;
           }
@@ -296,6 +298,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
       inspection: {} as RegistryVersion["inspection"],
       inspectionStatus: "inspecting",
       inspectionCompletedStages: [],
+      inspectionStageStatuses: {},
       uploadedAt: now,
       inspectionStartedAt: now,
       inspectionEndedAt: undefined,
@@ -469,7 +472,10 @@ export abstract class JsonRegistryStore implements RegistryStore {
     if (!registryVersion) {
       return;
     }
-    registryVersion.inspectionCompletedStages = [...new Set(options.completedStages)];
+    if (options.completedStages) {
+      registryVersion.inspectionCompletedStages = [...new Set(options.completedStages)];
+    }
+    registryVersion.inspectionStageStatuses = { ...options.stageStatuses };
     if (options.finalize) {
       registryVersion.inspectionStatus = "completed";
       registryVersion.inspectionFailure = undefined;

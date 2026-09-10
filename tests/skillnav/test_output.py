@@ -17,6 +17,12 @@ from skillnav.output import (
     unwrap_resource_id,
 )
 
+PASSED_STAGE_STATUSES = {
+    "skillspector": "passed",
+    "virustotal": "passed",
+    "halucatch": "done",
+}
+
 SAMPLE_HALUCATCH_TASK_RESULTS = [
     {"name": "HaluCatch · 地基与数据管线 (B)", "score": 80, "findings": []},
     {"name": "HaluCatch · 代码风险 (C)", "score": 55, "findings": []},
@@ -31,6 +37,7 @@ SAMPLE_SKILL = {
     "description": "A demo skill for testing.",
     "latestVersion": "1.0.1",
     "inspectionStatus": "completed",
+    "inspectionStageStatuses": PASSED_STAGE_STATUSES,
     "published": True,
     "averageRating": 4.5,
     "ratingCount": 12,
@@ -51,7 +58,10 @@ SAMPLE_SKILL = {
             "published": True,
             "contentHash": "abc123def4567890",
             "downloads": 10,
+            "inspectionStatus": "completed",
+            "inspectionStageStatuses": PASSED_STAGE_STATUSES,
             "manifest": {"categories": ["demo", "tutorial"]},
+            "evaluation": {"status": "passed", "score": 90},
             "inspection": {
                 "verdict": "published",
                 "virusTotal": {
@@ -67,7 +77,10 @@ SAMPLE_SKILL = {
             "published": True,
             "contentHash": "fedcba9876543210",
             "downloads": 42,
+            "inspectionStatus": "completed",
+            "inspectionStageStatuses": PASSED_STAGE_STATUSES,
             "manifest": {"categories": ["demo", "tutorial"]},
+            "evaluation": {"status": "passed", "score": 90},
             "inspection": {
                 "verdict": "published",
                 "virusTotal": {
@@ -120,7 +133,7 @@ def test_print_skill_status_inspecting(capsys) -> None:
         **SAMPLE_SKILL,
         "inspectionStatus": "inspecting",
         "published": False,
-        "inspectionCompletedStages": ["halucatch"],
+        "inspectionStageStatuses": {"halucatch": "done"},
         "inspectionStartedAt": "2026-09-08T00:00:00.000Z",
         "versions": {
             "1.0.1": {
@@ -129,7 +142,7 @@ def test_print_skill_status_inspecting(capsys) -> None:
                 "published": False,
                 "contentHash": "fedcba9876543210",
                 "inspectionStatus": "inspecting",
-                "inspectionCompletedStages": ["halucatch"],
+                "inspectionStageStatuses": {"halucatch": "done"},
                 "inspectionStartedAt": "2026-09-08T00:00:00.000Z",
             }
         },
@@ -159,7 +172,7 @@ def test_print_skill_status_inspecting_until_inspection_ended(capsys) -> None:
                 "contentHash": "abc123",
                 "inspectionStatus": "inspecting",
                 "inspectionStartedAt": "2026-09-08T00:00:00.000Z",
-                "inspectionCompletedStages": ["skillspector"],
+                "inspectionStageStatuses": {"skillspector": "passed"},
                 "inspection": {
                     "verdict": "needs-inspection",
                     "findings": [],
@@ -183,7 +196,11 @@ def test_print_skill_status_pipeline_incomplete(capsys) -> None:
         **SAMPLE_SKILL,
         "inspectionStatus": "interrupted",
         "published": False,
-        "inspectionCompletedStages": ["skillspector", "virustotal"],
+        "inspectionStageStatuses": {
+            "skillspector": "passed",
+            "virustotal": "interrupted",
+            "halucatch": "interrupted",
+        },
         "inspectionFailure": {
             "stages": ["virustotal"],
             "message": "VirusTotal scan timed out",
@@ -195,7 +212,11 @@ def test_print_skill_status_pipeline_incomplete(capsys) -> None:
                 "published": False,
                 "contentHash": "abc123",
                 "inspectionStatus": "interrupted",
-                "inspectionCompletedStages": ["skillspector", "virustotal"],
+                "inspectionStageStatuses": {
+                    "skillspector": "passed",
+                    "virustotal": "interrupted",
+                    "halucatch": "interrupted",
+                },
                 "inspectionFailure": {
                     "stages": ["virustotal"],
                     "message": "VirusTotal scan timed out",
@@ -227,7 +248,11 @@ def test_print_skill_status_rejected(capsys) -> None:
                 "published": False,
                 "contentHash": "abc123",
                 "inspectionStatus": "completed",
-                "inspectionCompletedStages": ["skillspector", "virustotal", "halucatch"],
+                "inspectionStageStatuses": {
+                    "skillspector": "rejected",
+                    "virustotal": "passed",
+                    "halucatch": "done",
+                },
                 "inspection": {
                     "verdict": "rejected",
                     "findings": [
@@ -270,6 +295,7 @@ def test_print_skill_status_failed_legacy_db_rejected(capsys) -> None:
                 "published": False,
                 "contentHash": "abc123",
                 "inspectionStatus": "rejected",
+                "inspectionStageStatuses": {"virustotal": "interrupted"},
                 "inspectionFailure": {
                     "stages": ["virustotal"],
                     "message": "VirusTotal scan timed out",
@@ -329,7 +355,7 @@ def test_print_skill_status_interrupted(capsys) -> None:
         **SAMPLE_SKILL,
         "inspectionStatus": "inspecting",
         "published": False,
-        "inspectionCompletedStages": ["halucatch"],
+        "inspectionStageStatuses": {"halucatch": "done"},
         "latestVersion": "1.0.2",
         "versions": {
             "1.0.0": SAMPLE_SKILL["versions"]["1.0.0"],
@@ -389,7 +415,11 @@ def test_print_skill_status_virustotal_rejected_on_malicious(capsys) -> None:
                 "published": True,
                 "contentHash": "abc123",
                 "inspectionStatus": "completed",
-                "inspectionCompletedStages": ["skillspector", "virustotal", "halucatch"],
+                "inspectionStageStatuses": {
+                    "skillspector": "passed",
+                    "virustotal": "rejected",
+                    "halucatch": "done",
+                },
                 "inspection": {
                     "verdict": "rejected",
                     "findings": [
@@ -535,6 +565,11 @@ def test_print_report_version_includes_virustotal(capsys) -> None:
     body = {
         "slug": "demo-skill",
         "version": "1.0.0",
+        "inspectionStageStatuses": {
+            "skillspector": "passed",
+            "virustotal": "rejected",
+            "halucatch": "done",
+        },
         "inspection": {
             "verdict": "approved",
             "scores": {
@@ -649,7 +684,11 @@ def test_report_inspection_status_matches_status_command(capsys) -> None:
             "1.0.1": {
                 **SAMPLE_SKILL["versions"]["1.0.1"],
                 "inspectionStatus": "completed",
-                "inspectionCompletedStages": ["skillspector", "virustotal", "halucatch"],
+                "inspectionStageStatuses": {
+                    "skillspector": "passed",
+                    "virustotal": "rejected",
+                    "halucatch": "done",
+                },
                 "inspection": {
                     "verdict": "published",
                     "findings": [

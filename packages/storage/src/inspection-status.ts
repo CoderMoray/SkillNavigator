@@ -7,13 +7,20 @@ export const LEGACY_SKILL_INSPECTION_FAILED = "failed" as const;
 
 export type InspectionAggregateDisplayStatus = "inspecting" | "completed" | "interrupted" | "rejected";
 
+export type SkillSpectorStageStatus = "passed" | "interrupted" | "rejected" | "processing";
+export type VirusTotalStageStatus = "passed" | "interrupted" | "rejected" | "processing";
+export type HaluCatchStageStatus = "done" | "interrupted" | "processing";
+
 export type InspectionStageDisplayStatus =
-  | "passed"
-  | "done"
-  | "processing"
-  | "interrupted"
-  | "rejected"
-  | string;
+  | SkillSpectorStageStatus
+  | VirusTotalStageStatus
+  | HaluCatchStageStatus;
+
+export interface InspectionStageStatuses {
+  skillspector?: SkillSpectorStageStatus;
+  virustotal?: VirusTotalStageStatus;
+  halucatch?: HaluCatchStageStatus;
+}
 
 export const SKILL_INSPECTION_STAGES = ["skillspector", "virustotal", "halucatch"] as const;
 
@@ -85,6 +92,81 @@ export function isInspectionInFlight(input: {
   return Boolean(input.inspectionStartedAt && !input.inspectionEndedAt);
 }
 
+function isSkillSpectorStageStatus(value: string): value is SkillSpectorStageStatus {
+  return value === "passed" || value === "interrupted" || value === "rejected" || value === "processing";
+}
+
+function isVirusTotalStageStatus(value: string): value is VirusTotalStageStatus {
+  return value === "passed" || value === "interrupted" || value === "rejected" || value === "processing";
+}
+
+function isHaluCatchStageStatus(value: string): value is HaluCatchStageStatus {
+  return value === "done" || value === "interrupted" || value === "processing";
+}
+
+export function parseInspectionStageStatuses(input: {
+  skillspector?: string | null;
+  virustotal?: string | null;
+  halucatch?: string | null;
+}): InspectionStageStatuses {
+  const statuses: InspectionStageStatuses = {};
+  const skillspector = String(input.skillspector ?? "").trim();
+  const virustotal = String(input.virustotal ?? "").trim();
+  const halucatch = String(input.halucatch ?? "").trim();
+  if (skillspector && isSkillSpectorStageStatus(skillspector)) {
+    statuses.skillspector = skillspector;
+  }
+  if (virustotal && isVirusTotalStageStatus(virustotal)) {
+    statuses.virustotal = virustotal;
+  }
+  if (halucatch && isHaluCatchStageStatus(halucatch)) {
+    statuses.halucatch = halucatch;
+  }
+  return statuses;
+}
+
+export function mapStageStatusesToColumns(statuses: Partial<InspectionStageStatuses>): {
+  inspectionSkillspectorStatus: string | null;
+  inspectionVirustotalStatus: string | null;
+  inspectionHalucatchStatus: string | null;
+} {
+  return {
+    inspectionSkillspectorStatus: statuses.skillspector ?? null,
+    inspectionVirustotalStatus: statuses.virustotal ?? null,
+    inspectionHalucatchStatus: statuses.halucatch ?? null,
+  };
+}
+
+export function interruptInFlightStageStatuses(
+  statuses: Partial<InspectionStageStatuses>
+): InspectionStageStatuses {
+  const next: InspectionStageStatuses = { ...statuses };
+  for (const stage of SKILL_INSPECTION_STAGES) {
+    if (next[stage] === "processing") {
+      next[stage] = "interrupted";
+    }
+  }
+  return next;
+}
+
+export function inspectionStageStatusLabel(
+  stage: SkillInspectionStage,
+  status: InspectionStageDisplayStatus
+): string {
+  switch (status) {
+    case "passed":
+      return "通过";
+    case "done":
+      return "完成";
+    case "processing":
+      return "审查中";
+    case "interrupted":
+      return "中断";
+    case "rejected":
+      return "未通过";
+  }
+}
+
 /** User-facing aggregate status for skillnav / API (inspecting while in-flight). */
 export function resolveInspectionAggregateStatus(input: {
   inspectionStatus: string | undefined | null;
@@ -92,30 +174,27 @@ export function resolveInspectionAggregateStatus(input: {
   inspectionEndedAt?: string | null;
   versionStatus?: string | null;
   verdict?: string | null;
-  failedStages?: readonly SkillInspectionStage[];
+  stageStatuses?: Partial<InspectionStageStatuses>;
 }): InspectionAggregateDisplayStatus {
-  if (
-    isInspectionInFlight({
-      inspectionStatus: input.inspectionStatus,
-      inspectionStartedAt: input.inspectionStartedAt,
-      inspectionEndedAt: input.inspectionEndedAt,
-    })
-  ) {
+  const inFlight = isInspectionInFlight({
+    inspectionStatus: input.inspectionStatus,
+    inspectionStartedAt: input.inspectionStartedAt,
+    inspectionEndedAt: input.inspectionEndedAt,
+  });
+
+  const stageValues = Object.values(input.stageStatuses ?? {}).filter(Boolean);
+  if (inFlight || stageValues.some((value) => value === "processing")) {
     return "inspecting";
   }
 
   const status = normalizeSkillInspectionStatus(input.inspectionStatus);
   const verdict = String(input.verdict ?? input.versionStatus ?? "").trim();
-  const failedStages = new Set(input.failedStages ?? []);
 
-  if (status === "interrupted") {
+  if (stageValues.some((value) => value === "interrupted") || status === "interrupted") {
     return "interrupted";
   }
-  if (status === "rejected" || verdict === "rejected") {
+  if (stageValues.some((value) => value === "rejected") || status === "rejected" || verdict === "rejected") {
     return "rejected";
-  }
-  if (failedStages.size > 0) {
-    return "interrupted";
   }
   return "completed";
 }

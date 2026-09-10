@@ -489,52 +489,45 @@ def _effective_version_status(
     return version_status
 
 
+def _read_persisted_stage_statuses(
+    skill: dict[str, Any],
+    entry: dict[str, Any],
+    *,
+    is_latest: bool,
+) -> dict[str, str]:
+    raw = entry.get("inspectionStageStatuses")
+    if not isinstance(raw, dict) and is_latest:
+        raw = skill.get("inspectionStageStatuses")
+    if not isinstance(raw, dict):
+        return {}
+
+    statuses: dict[str, str] = {}
+    for stage in _INSPECTION_STAGE_ORDER:
+        value = str(raw.get(stage) or "").strip()
+        if value:
+            statuses[stage] = value
+    return statuses
+
+
 def _resolve_stage_statuses(
     *,
     version_status: str,
-    completed_stages: list[str],
-    failed_stages: list[str],
-    inspection: dict[str, Any],
-    evaluation: dict[str, Any] | None,
+    skill: dict[str, Any],
     entry: dict[str, Any],
+    is_latest: bool,
 ) -> dict[str, str]:
-    completed = set(completed_stages or [])
-    failed_exec = set(failed_stages or [])
+    persisted = _read_persisted_stage_statuses(skill, entry, is_latest=is_latest)
+    in_flight = _is_inspection_in_flight(version_status, entry)
     statuses: dict[str, str] = {}
 
-    in_flight = _is_inspection_in_flight(version_status, entry)
-
     for stage in _INSPECTION_STAGE_ORDER:
-        if in_flight:
-            if stage in completed:
-                statuses[stage] = (
-                    "interrupted"
-                    if stage in failed_exec
-                    else _success_stage_status(stage, inspection, evaluation)
-                )
-            else:
-                statuses[stage] = "processing"
-            continue
+        if stage in persisted:
+            statuses[stage] = persisted[stage]
+        elif in_flight:
+            statuses[stage] = "processing"
 
-        if version_status in {"interrupted", "failed"}:
-            if stage in completed and stage not in failed_exec:
-                statuses[stage] = _success_stage_status(stage, inspection, evaluation)
-            else:
-                statuses[stage] = "interrupted"
-            continue
-
-        if version_status == "completed":
-            if stage not in completed or stage in failed_exec:
-                statuses[stage] = "interrupted"
-            elif stage == "halucatch" and _halucatch_rejected(evaluation):
-                statuses[stage] = "rejected"
-            elif _stage_rejected_from_inspection(stage, inspection):
-                statuses[stage] = "rejected"
-            else:
-                statuses[stage] = _success_stage_status(stage, inspection, evaluation)
-            continue
-
-        statuses[stage] = "interrupted"
+    if not statuses and version_status in {"interrupted", "failed"}:
+        return {stage: "interrupted" for stage in _INSPECTION_STAGE_ORDER}
 
     return statuses
 
@@ -582,30 +575,19 @@ def _collect_version_inspection_context(
     if not failure and is_latest and raw_status in {"interrupted", "rejected", "failed"}:
         failure = skill.get("inspectionFailure")
     failure_dict = failure if isinstance(failure, dict) else None
-    completed_stages = entry.get("inspectionCompletedStages") or (
-        skill.get("inspectionCompletedStages") if is_latest else []
-    ) or []
-    failed_stages = (failure_dict or {}).get("stages") or []
     inspection = _get_inspection_record(entry)
-    evaluation = entry.get("evaluation") if isinstance(entry.get("evaluation"), dict) else None
     version_status = _effective_version_status(
         raw_status,
         entry,
         inspection,
         failure_dict,
     )
-    if version_status == "completed" and not completed_stages and (
-        inspection.get("verdict") or inspection.get("findings") is not None or evaluation
-    ):
-        completed_stages = list(_INSPECTION_STAGE_ORDER)
 
     stage_statuses = _resolve_stage_statuses(
         version_status=version_status,
-        completed_stages=list(completed_stages),
-        failed_stages=list(failed_stages),
-        inspection=inspection,
-        evaluation=evaluation,
+        skill=skill,
         entry=entry,
+        is_latest=is_latest,
     )
     aggregate_status = _resolve_aggregate_inspection_status(
         stage_statuses,
