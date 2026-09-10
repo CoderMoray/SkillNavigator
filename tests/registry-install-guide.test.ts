@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   resolveRegistryInstallGuideUrl,
   resolveRegistryStoreInstallPrompt,
+  resolveWebAppRoot,
   resolveWebOrigin,
 } from "../apps/web/lib/registry-install-guide";
 
@@ -31,9 +32,34 @@ describe("registry-install-guide URL resolution", () => {
     );
   });
 
+  it("embed: origin env + NEXT_PUBLIC_BASE_PATH appends prefix once", () => {
+    vi.stubEnv("NEXT_PUBLIC_WEB_URL", "https://rapid.example.com");
+    vi.stubEnv("NEXT_PUBLIC_BASE_PATH", "/MonoSkillNavigator");
+    expect(resolveRegistryInstallGuideUrl()).toBe(
+      "https://rapid.example.com/MonoSkillNavigator/usage/skillnavigator.md"
+    );
+  });
+
+  it("embed: full entry URL in NEXT_PUBLIC_WEB_URL does not duplicate basePath", () => {
+    vi.stubEnv("NEXT_PUBLIC_WEB_URL", "https://rapid.example.com/MonoSkillNavigator");
+    vi.stubEnv("NEXT_PUBLIC_BASE_PATH", "/MonoSkillNavigator");
+    expect(resolveRegistryInstallGuideUrl()).toBe(
+      "https://rapid.example.com/MonoSkillNavigator/usage/skillnavigator.md"
+    );
+    expect(resolveWebAppRoot()).toBe("https://rapid.example.com/MonoSkillNavigator");
+  });
+
+  it("embed: client origin + basePath appends prefix once", () => {
+    vi.stubEnv("NEXT_PUBLIC_BASE_PATH", "/MonoSkillNavigator");
+    expect(resolveRegistryInstallGuideUrl("https://client.example.com")).toBe(
+      "https://client.example.com/MonoSkillNavigator/usage/skillnavigator.md"
+    );
+  });
+
   it("unconfigured production build resolves to null instead of a dev URL (SSR)", () => {
     vi.stubEnv("NODE_ENV", "production");
     expect(resolveWebOrigin()).toBeNull();
+    expect(resolveWebAppRoot()).toBeNull();
     expect(resolveRegistryInstallGuideUrl()).toBeNull();
   });
 
