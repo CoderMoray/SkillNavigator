@@ -89,6 +89,18 @@ def build_upgrade_command() -> list[str]:
     return [sys.executable, "-m", "pip", "install", "--upgrade", "skillnav", "-i", PYPI_INSTALL_INDEX]
 
 
+def read_installed_version() -> str:
+    try:
+        import importlib.metadata as importlib_metadata
+    except ImportError:
+        return __version__
+
+    try:
+        return importlib_metadata.version("skillnav")
+    except importlib_metadata.PackageNotFoundError:
+        return __version__
+
+
 def run_upgrade_command() -> None:
     command = build_upgrade_command()
     try:
@@ -108,6 +120,14 @@ def run_upgrade_command() -> None:
         if detail:
             message = f"{message}: {detail}"
         raise SkillnavError(message)
+
+
+def _upgrade_still_behind_message(installed: str, latest: str) -> str:
+    return (
+        f"Upgrade finished but skillnav {installed} is still older than PyPI {latest}. "
+        f"The install index may be out of sync. Retry with: "
+        f"{sys.executable} -m pip install --upgrade skillnav -i https://pypi.org/simple/"
+    )
 
 
 def check_for_update(*, current: str | None = None) -> UpdateStatus:
@@ -133,10 +153,14 @@ def perform_update(*, check_only: bool = False, current: str | None = None) -> U
         )
 
     run_upgrade_command()
+    installed = read_installed_version()
+    if compare_versions(installed, status.latest) < 0:
+        raise SkillnavError(_upgrade_still_behind_message(installed, status.latest))
+
     return UpdateStatus(
-        current=status.current,
+        current=installed,
         latest=status.latest,
-        up_to_date=False,
+        up_to_date=True,
         updated=True,
     )
 

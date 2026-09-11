@@ -144,7 +144,7 @@ def cli_root(
         bool, typer.Option("--no-input", help="Never prompt; fail when input is required")
     ] = False,
     version: Annotated[
-        Optional[bool],
+        bool,
         typer.Option(
             "--version",
             "-v",
@@ -152,7 +152,7 @@ def cli_root(
             callback=_version_callback,
             is_eager=True,
         ),
-    ] = None,
+    ] = False,
 ) -> None:
     """CLI client for the Skill management platform (SkillNavigator)."""
     _state["ctx"] = CliContext.resolve(
