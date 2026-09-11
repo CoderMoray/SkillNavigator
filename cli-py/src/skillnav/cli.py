@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Annotated, Any, Optional
 
@@ -124,10 +125,12 @@ def _api_json(method: str, path: str, *, body: dict | None = None, auth: bool = 
     return payload
 
 
-def _version_callback(value: bool) -> None:
-    if value:
-        typer.echo(f"skillnav {__version__}")
-        raise typer.Exit(EXIT_OK)
+def _is_version_only_argv(args: list[str]) -> bool:
+    return args in (["--version"], ["-v"])
+
+
+def _print_version() -> None:
+    typer.echo(f"skillnav {__version__}")
 
 
 @app.callback()
@@ -143,18 +146,11 @@ def cli_root(
     no_input: Annotated[
         bool, typer.Option("--no-input", help="Never prompt; fail when input is required")
     ] = False,
-    version: Annotated[
-        bool,
-        typer.Option(
-            "--version",
-            "-v",
-            help="Show version and exit",
-            callback=_version_callback,
-            is_eager=True,
-        ),
-    ] = False,
 ) -> None:
-    """CLI client for the Skill management platform (SkillNavigator)."""
+    """CLI client for the Skill management platform (SkillNavigator).
+
+    Use ``skillnav --version`` (or ``-v``) to print the version and exit.
+    """
     _state["ctx"] = CliContext.resolve(
         registry_flag=registry,
         profile_flag=profile,
@@ -872,8 +868,13 @@ def update_cmd(
 
 
 def run(argv: list[str] | None = None) -> int:
+    args = list(argv) if argv is not None else sys.argv[1:]
+    if _is_version_only_argv(args):
+        _print_version()
+        return EXIT_OK
+
     try:
-        app(prog_name="skillnav", args=argv)
+        app(prog_name="skillnav", args=args)
         return EXIT_OK
     except typer.Exit as exc:
         return int(exc.exit_code)
