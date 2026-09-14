@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# {{brand_name}} CLI (skillnav) 一键安装与配置脚本
-# 部署后访问：{{web_url}}/install.sh（勿直接改 apps/web/public/install.sh）
+# MonoSkillNavigator CLI (skillnav) 一键安装与配置脚本
+# 部署后访问：https://localhost:3001/install.sh（勿直接改 apps/web/public/install.sh）
 # 规范与特性：
 # 1. 自动判定环境并安装 CLI（兼容 pipx、PEP 668、python3 -m pip）
 # 2. 自动探测安装路径并修复 PATH（自动写入 ~/.zshrc 或 ~/.bash_profile）
@@ -11,9 +11,9 @@
 
 set -e
 
-REGISTRY_URL="{{registry_api_url}}"
-WEB_URL="{{web_url}}"
-PIP_INDEX="{{pip_index_url}}"
+REGISTRY_URL="http://127.0.0.1:3000"
+WEB_URL="https://localhost:3001"
+PIP_INDEX="https://pypi.org/simple"
 API_KEY=""
 
 # ------------------------------------------------------------------------------
@@ -45,8 +45,29 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# 写入 profile registry：优先 --registry（Python 3.12+ / 较新 Typer）；
+# 部分 macOS Python 3.9 环境子命令 --registry 与全局选项冲突，回退为位置参数。
+skillnav_config_add_profile() {
+    local profile_name="$1"
+    local registry_url="$2"
+
+    if skillnav config add "$profile_name" --registry "$registry_url" 2>/dev/null; then
+        return 0
+    fi
+    if skillnav config add "$profile_name" "$registry_url" 2>/dev/null; then
+        echo "  ℹ️  已通过位置参数写入 Registry（当前 Python/Typer 环境）。"
+        return 0
+    fi
+
+    echo "❌ 无法配置 Registry profile '$profile_name'。" >&2
+    echo "   请手动尝试：" >&2
+    echo "     skillnav config add $profile_name --registry \"$registry_url\"" >&2
+    echo "     或 skillnav config add $profile_name \"$registry_url\"" >&2
+    return 1
+}
+
 echo "=================================================="
-echo "🚀 欢迎使用 {{brand_name}} 一键安装引导"
+echo "🚀 欢迎使用 MonoSkillNavigator 一键安装引导"
 echo "=================================================="
 echo ""
 
@@ -124,7 +145,7 @@ if [ -n "$FOUND_BIN" ]; then
     # 检查是否已包含在配置文件中
     if ! grep -q "$FOUND_BIN" "$TARGET_RC" 2>/dev/null; then
         echo "" >> "$TARGET_RC"
-        echo "# Added by {{brand_name}} installer" >> "$TARGET_RC"
+        echo "# Added by MonoSkillNavigator installer" >> "$TARGET_RC"
         echo "export PATH=\"$FOUND_BIN:\$PATH\"" >> "$TARGET_RC"
         echo "  ✅ 已将 $FOUND_BIN 自动追加写入到 $TARGET_RC"
     else
@@ -150,7 +171,7 @@ echo "⚙️  [3/4] 配置 Registry 地址..."
 echo "  -> Registry API: $REGISTRY_URL"
 
 # 添加或更新 default profile
-skillnav config add default --registry "$REGISTRY_URL"
+skillnav_config_add_profile default "$REGISTRY_URL"
 skillnav config use default 2>/dev/null || true
 
 # 测试连通性
@@ -194,9 +215,10 @@ fi
 
 echo ""
 echo "=================================================="
-echo "🎉 {{brand_name}} 安装与配置流程已全部就绪！"
+echo "🎉 MonoSkillNavigator 安装与配置流程已全部就绪！"
 echo "=================================================="
-echo "提示: 当前终端已生效；新开终端窗口也会自动加载 PATH。"
+echo "👉 请在新打开的终端窗口中使用 skillnav"
+echo "   或者在当前窗口运行: source ~/.zshrc"
 echo "常用命令："
 echo "  • 查看帮助:    skillnav --help"
 echo "  • 检查身份:    skillnav whoami"

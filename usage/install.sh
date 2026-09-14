@@ -45,6 +45,27 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# 写入 profile registry：优先 --registry（Python 3.12+ / 较新 Typer）；
+# 部分 macOS Python 3.9 环境子命令 --registry 与全局选项冲突，回退为位置参数。
+skillnav_config_add_profile() {
+    local profile_name="$1"
+    local registry_url="$2"
+
+    if skillnav config add "$profile_name" --registry "$registry_url" 2>/dev/null; then
+        return 0
+    fi
+    if skillnav config add "$profile_name" "$registry_url" 2>/dev/null; then
+        echo "  ℹ️  已通过位置参数写入 Registry（当前 Python/Typer 环境）。"
+        return 0
+    fi
+
+    echo "❌ 无法配置 Registry profile '$profile_name'。" >&2
+    echo "   请手动尝试：" >&2
+    echo "     skillnav config add $profile_name --registry \"$registry_url\"" >&2
+    echo "     或 skillnav config add $profile_name \"$registry_url\"" >&2
+    return 1
+}
+
 echo "=================================================="
 echo "🚀 欢迎使用 {{brand_name}} 一键安装引导"
 echo "=================================================="
@@ -150,7 +171,7 @@ echo "⚙️  [3/4] 配置 Registry 地址..."
 echo "  -> Registry API: $REGISTRY_URL"
 
 # 添加或更新 default profile
-skillnav config add default --registry "$REGISTRY_URL"
+skillnav_config_add_profile default "$REGISTRY_URL"
 skillnav config use default 2>/dev/null || true
 
 # 测试连通性
@@ -196,7 +217,8 @@ echo ""
 echo "=================================================="
 echo "🎉 {{brand_name}} 安装与配置流程已全部就绪！"
 echo "=================================================="
-echo "提示: 当前终端已生效；新开终端窗口也会自动加载 PATH。"
+echo "👉 请在新打开的终端窗口中使用 skillnav"
+echo "   或者在当前窗口运行: source ~/.zshrc"
 echo "常用命令："
 echo "  • 查看帮助:    skillnav --help"
 echo "  • 检查身份:    skillnav whoami"
