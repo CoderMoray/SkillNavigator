@@ -200,6 +200,34 @@ def config_use(name: Annotated[str, typer.Argument(help="Profile name to activat
         _handle_error(exc)
 
 
+@config_app.command("remove")
+def config_remove(name: Annotated[str, typer.Argument(help="Profile name to remove")]) -> None:
+    """Remove a platform profile."""
+    try:
+        cli = _ctx()
+        config = load_config()
+        profiles = config.setdefault("profiles", {})
+        if name not in profiles:
+            raise UsageError.from_hint(enrich_usage_error(f"Unknown profile: {name}"))
+        if len(profiles) <= 1:
+            raise UsageError.from_hint(enrich_usage_error("Cannot remove the only profile"))
+        previous_default = config.get("defaultProfile", "default")
+        del profiles[name]
+        new_default = previous_default
+        if previous_default == name:
+            new_default = sorted(profiles.keys())[0]
+            config["defaultProfile"] = new_default
+        save_config(config)
+        if cli.json_output:
+            emit_json({"removed": name, "defaultProfile": new_default})
+            return
+        typer.echo(f"Removed profile '{name}'")
+        if previous_default == name:
+            typer.echo(f"Default profile: {new_default}")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
 @config_app.command("list")
 def config_list() -> None:
     """List configured platform profiles."""
