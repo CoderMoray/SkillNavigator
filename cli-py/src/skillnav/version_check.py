@@ -1,10 +1,16 @@
-"""Daily release notification with a cached state file (C strategy).
+"""Release notification with a cached state file (C strategy).
 
 - Fresh cache (< 24h): notify from the cached value — zero network, zero delay.
 - Stale cache: look up once synchronously (short timeout), then cache.
 - Lookup failure: still record the timestamp (back off for 24h) and stay
   silent — offline / air-gapped environments must never see noise or a delay
   on every command.
+- Notice policy: a given release is announced **at most once, ever**. The hint
+  is driven by "a new release appeared", not by the passage of time, so an
+  un-upgraded host goes permanently quiet for that version; only a newer
+  ``latest`` (0.4.9 -> 0.5.0) announces again. ``skillnav update [--check]``
+  always performs a real lookup and prints the result (never gated by this
+  cache), so a missed hint is never fatal.
 
 The hint goes to stderr, so machine-readable stdout (`--json`) stays clean.
 Disable with ``SKILLNAV_UPDATE_CHECK=off``; the timeout is overridable via
@@ -67,6 +73,10 @@ def _state_path() -> Path:
 class CheckState:
     checked_at: datetime | None = None
     latest: str | None = None
+    # The release last announced to the user. Kept separately from ``latest``
+    # (which is just the cached lookup result) so a new-release notice survives
+    # cache refreshes and is shown exactly once per version.
+    notified_latest: str | None = None
 
 
 def _as_aware(value: datetime) -> datetime:
@@ -90,11 +100,26 @@ def _load_state(path: Path) -> CheckState:
             checked_at = None
 
     latest = payload.get("latest")
-    return CheckState(checked_at=checked_at, latest=latest if isinstance(latest, str) else None)
+    notified = payload.get("notified_latest")
+    return CheckState(
+        checked_at=checked_at,
+        latest=latest if isinstance(latest, str) else None,
+        notified_latest=notified if isinstance(notified, str) else None,
+    )
 
 
-def _save_state(path: Path, *, checked_at: datetime, latest: str | None) -> None:
-    payload = {"checked_at": checked_at.isoformat(), "latest": latest}
+def _save_state(
+    path: Path,
+    *,
+    checked_at: datetime,
+    latest: str | None,
+    notified_latest: str | None = None,
+) -> None:
+    payload = {
+        "checked_at": checked_at.isoformat(),
+        "latest": latest,
+        "notified_latest": notified_latest,
+    }
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
@@ -128,21 +153,33 @@ def maybe_notify_update(
 
     if _is_fresh(state.checked_at, now):
         latest = state.latest
+        checked_at = state.checked_at or now
     else:
         try:
             lookup = fetch or fetch_pypi_latest_version
             latest = lookup(timeout=_check_timeout())
         except SkillnavError:
-            _save_state(path, checked_at=now, latest=None)
+            _save_state(path, checked_at=now, latest=None, notified_latest=state.notified_latest)
             return None
         except Exception:  # defensive: version checks are strictly best-effort
-            _save_state(path, checked_at=now, latest=None)
+            _save_state(path, checked_at=now, latest=None, notified_latest=state.notified_latest)
             return None
-        _save_state(path, checked_at=now, latest=latest)
+        checked_at = now
+        # Refresh the lookup cache but keep the announced marker: a stale entry
+        # must not re-announce a release the user has already been told about.
+        _save_state(path, checked_at=now, latest=latest, notified_latest=state.notified_latest)
 
     if not latest or compare_versions(__version__, latest) >= 0:
         return None
 
+    # Same release already announced: stay silent permanently. Notices are
+    # event-driven (a release appeared), never time-driven.
+    if latest == state.notified_latest:
+        return None
+
     message = f"💡 skillnav {latest} 已发布（当前 {__version__}）：运行 skillnav update 升级"
     print(message, file=stream)
+    # Record the announcement without moving ``checked_at`` (the 24h network
+    # window is independent of notification state).
+    _save_state(path, checked_at=checked_at, latest=latest, notified_latest=latest)
     return message

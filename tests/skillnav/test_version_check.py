@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from skillnav import self_update, version_check
+from skillnav import cli, self_update, version_check
 from skillnav.errors import SkillnavError
 from skillnav.self_update import fetch_pypi_latest_version
 
@@ -155,3 +155,114 @@ def test_lookup_reports_both_sources_when_all_fail(monkeypatch: pytest.MonkeyPat
         fetch_pypi_latest_version(timeout=1)
     message = str(excinfo.value)
     assert "pypi.org" in message and "mirrors.aliyun.com" in message
+
+
+# --------------------------------------------------------------------------
+# Announce-once policy: notices are event-driven (a release appeared), never
+# time-driven — the same release is announced at most once, ever.
+# --------------------------------------------------------------------------
+
+def _write_state(
+    path: Path, *, hours_ago: float, latest: str | None, notified: str | None
+) -> Path:
+    path.write_text(
+        json.dumps(
+            {
+                "checked_at": (NOW - timedelta(hours=hours_ago)).isoformat(),
+                "latest": latest,
+                "notified_latest": notified,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_same_release_is_announced_only_once(tmp_path: Path) -> None:
+    path = _state_file(tmp_path, hours_ago=1, latest="99.0.0")
+
+    def must_not_be_called(**_: object) -> str:
+        raise AssertionError("fresh cache must not trigger a lookup")
+
+    first = version_check.maybe_notify_update(
+        stream=io.StringIO(), now=NOW, fetch=must_not_be_called, state_path=path
+    )
+    assert first is not None
+    assert json.loads(path.read_text(encoding="utf-8"))["notified_latest"] == "99.0.0"
+
+    # Later commands inside the same window: already announced, stay silent.
+    stream = io.StringIO()
+    second = version_check.maybe_notify_update(
+        stream=stream,
+        now=NOW + timedelta(hours=3),
+        fetch=must_not_be_called,
+        state_path=path,
+    )
+    assert second is None and stream.getvalue() == ""
+
+
+def test_same_release_stays_silent_after_the_cache_window(tmp_path: Path) -> None:
+    path = _write_state(
+        tmp_path / "update-check.json", hours_ago=48, latest="99.0.0", notified="99.0.0"
+    )
+
+    stream = io.StringIO()
+    message = version_check.maybe_notify_update(
+        stream=stream, now=NOW, fetch=lambda **_: "99.0.0", state_path=path
+    )
+    assert message is None and stream.getvalue() == ""
+
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    # The stale entry was refreshed (so a future 100.0.0 can still be spotted)
+    # while the announced marker — and therefore the silence — was preserved.
+    assert saved["checked_at"] == NOW.isoformat()
+    assert saved["notified_latest"] == "99.0.0"
+
+
+def test_a_newer_release_announces_again(tmp_path: Path) -> None:
+    path = _write_state(
+        tmp_path / "update-check.json", hours_ago=48, latest="99.0.0", notified="99.0.0"
+    )
+
+    stream = io.StringIO()
+    message = version_check.maybe_notify_update(
+        stream=stream, now=NOW, fetch=lambda **_: "100.0.0", state_path=path
+    )
+    assert message is not None and "100.0.0" in stream.getvalue()
+    assert json.loads(path.read_text(encoding="utf-8"))["notified_latest"] == "100.0.0"
+
+
+def test_lookup_failure_keeps_the_announced_marker(tmp_path: Path) -> None:
+    path = _write_state(
+        tmp_path / "update-check.json", hours_ago=48, latest="99.0.0", notified="99.0.0"
+    )
+
+    def failing_fetch(*, timeout: float) -> str:
+        raise SkillnavError("timed out")
+
+    assert (
+        version_check.maybe_notify_update(
+            stream=io.StringIO(), now=NOW, fetch=failing_fetch, state_path=path
+        )
+        is None
+    )
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    assert saved["notified_latest"] == "99.0.0" and saved["latest"] is None
+
+
+def test_version_flag_hints_on_stderr_and_keeps_stdout_clean(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from skillnav import __version__
+
+    monkeypatch.setenv("SKILLNAV_CONFIG", str(tmp_path / "config.json"))
+    monkeypatch.setattr(version_check, "fetch_pypi_latest_version", lambda **_: "99.0.0")
+    # The suite-wide autouse fixture silences the hint for every other CLI
+    # test; restore the real implementation for this one.
+    monkeypatch.setattr(cli, "maybe_notify_update", version_check.maybe_notify_update)
+
+    assert cli.run(["--version"]) == 0
+
+    captured = capsys.readouterr()
+    assert captured.out == f"skillnav {__version__}\n"
+    assert "99.0.0" in captured.err

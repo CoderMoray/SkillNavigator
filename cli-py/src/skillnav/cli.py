@@ -137,6 +137,13 @@ def _is_version_only_argv(args: list[str]) -> bool:
 
 def _print_version() -> None:
     typer.echo(f"skillnav {__version__}")
+    # Fallback channel for the release hint: a version is announced at most
+    # once ever, so a missed automatic hint would otherwise be lost for good.
+    # stderr-only keeps the stdout line machine-parseable; never raises.
+    try:
+        maybe_notify_update()
+    except Exception:
+        pass
 
 
 @app.callback()

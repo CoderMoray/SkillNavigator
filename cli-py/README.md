@@ -50,6 +50,15 @@ a one-line hint to stderr when a newer release exists:
 - The result is cached in `~/.config/skillnav/update-check.json`; the
   network is touched at most once per 24h (a failed lookup also backs off
   for 24h, so offline/air-gapped hosts wait at most once a day).
+- **A given release is announced at most once, ever.** The hint is driven by
+  a new release appearing, not by time: staying on an older version goes
+  permanently silent for that version, and only a newer `latest`
+  (0.4.9 → 0.5.0) announces again. So you are never nagged about the same
+  version day after day.
+- A missed hint is never fatal: `skillnav --version` prints the same hint to
+  stderr (its stdout stays a single parseable version line), and
+  `skillnav update` / `update --check` always perform a real lookup and show
+  the result.
 - The daily lookup uses a short timeout (default 3s,
   `SKILLNAV_UPDATE_CHECK_TIMEOUT` seconds to change).
 - The hint goes to **stderr only** — `--json` output on stdout stays clean.
