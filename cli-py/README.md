@@ -23,7 +23,7 @@ skillnav search demo
 skillnav info demo-skill
 skillnav publish examples/demo-skill --dry-run
 skillnav download demo-skill -o /tmp/demo.zip
-skillnav update              # upgrade when PyPI has a newer release
+skillnav update              # upgrade to the latest release
 skillnav update --check      # check only, do not install
 ```
 
@@ -32,6 +32,34 @@ Global flags: `--registry`, `--profile`, `--json`, `--no-input`.
 Configuration: `~/.config/skillnav/config.json` (multi-profile; stores `apiKey` per profile).
 
 Environment: `SKILLNAV_REGISTRY`, `SKILLNAV_PROFILE`, `SKILLNAV_API_KEY` (legacy alias: `SKILLNAV_TOKEN`).
+
+## Upgrade and version check
+
+Release lookups try **PyPI first** (`pypi.org/pypi/skillnav/json`) and fall
+back to the **Aliyun simple index** when PyPI times out or fails. Explicit
+`skillnav update` / `update --check` wait up to 10s per source; if both
+fail, the error lists each source's failure.
+
+On top of that, any command performs a **daily best-effort check** and prints
+a one-line hint to stderr when a newer release exists:
+
+```
+💡 skillnav 0.4.9 已发布（当前 0.4.8）：运行 skillnav update 升级
+```
+
+- The result is cached in `~/.config/skillnav/update-check.json`; the
+  network is touched at most once per 24h (a failed lookup also backs off
+  for 24h, so offline/air-gapped hosts wait at most once a day).
+- The daily lookup uses a short timeout (default 3s,
+  `SKILLNAV_UPDATE_CHECK_TIMEOUT` seconds to change).
+- The hint goes to **stderr only** — `--json` output on stdout stays clean.
+- Disable entirely with `SKILLNAV_UPDATE_CHECK=off`; editable installs
+  (development checkouts) skip the check automatically.
+- The check only notifies; upgrades stay explicit (`skillnav update`),
+  which handles pip / pipx installs and refuses editable installs.
+- The package version has a single source of truth:
+  `skillnav/__init__.py` `__version__` (read by `pyproject.toml` via a
+  dynamic attr), so the wheel and the CLI can never disagree.
 
 ## Test
 
