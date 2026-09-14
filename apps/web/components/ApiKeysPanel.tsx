@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
 import {
   Check,
   Clock,
@@ -18,9 +18,15 @@ import { PillSelect } from "./PillSelect";
 import { createApiKey, deleteApiKey, listApiKeys, updateApiKey } from "../lib/api";
 import { getAuthToken } from "../lib/auth-token";
 import { copyTextToClipboard } from "../lib/copy-text";
+import { buildCliInstallCurlCommand } from "../lib/registry-install-guide";
 import type { ApiKeySummary } from "../lib/types";
 
-type CopyTarget = "secret" | "cli";
+type CopyTarget = "secret" | "cli" | "install";
+
+function subscribeOrigin(onStoreChange: () => void): () => void {
+  window.addEventListener("popstate", onStoreChange);
+  return () => window.removeEventListener("popstate", onStoreChange);
+}
 
 type ExpiryPreset = "" | "3h" | "1d" | "7d" | "1m" | "3m" | "6m" | "1y";
 
@@ -143,6 +149,7 @@ function formatCreateApiKeyError(message: string): string {
 }
 
 export function ApiKeysPanel() {
+  const origin = useSyncExternalStore(subscribeOrigin, () => window.location.origin, () => "");
   const [items, setItems] = useState<ApiKeySummary[]>([]);
   const [name, setName] = useState("");
   const [expiryPreset, setExpiryPreset] = useState<ExpiryPreset>("");
@@ -337,6 +344,18 @@ export function ApiKeysPanel() {
     await copyValue(`skillnav login --api-key ${createdSecret}`, "cli");
   }
 
+  async function copyInstallCommand(includeKey: boolean) {
+    const command = buildCliInstallCurlCommand({
+      clientOrigin: origin || undefined,
+      apiKey: includeKey ? createdSecret ?? undefined : undefined,
+    });
+    if (!command) {
+      setErrorToast("本实例未配置安装脚本地址——请联系平台维护者设置 NEXT_PUBLIC_WEB_URL。");
+      return;
+    }
+    await copyValue(command, "install");
+  }
+
   if (loading) {
     return <div className="skeleton settings-content-skeleton" />;
   }
@@ -365,10 +384,14 @@ export function ApiKeysPanel() {
       <div className="settings-callout">
         <Terminal size={18} aria-hidden />
         <div>
-          <strong>CLI 登录</strong>
+          <strong>CLI 安装与登录</strong>
           <p>
-            创建 Key 后，在终端执行{" "}
-            <code className="inline-code">skillnav login --api-key sk_…</code>
+            macOS / Linux 可一键安装并配置 CLI：{" "}
+            <code className="inline-code">
+              {buildCliInstallCurlCommand({ clientOrigin: origin || undefined }) ??
+                "curl -fsSL …/install.sh | bash"}
+            </code>
+            。创建 Key 后也可复制带密钥的一键命令（会进入 shell history）。
           </p>
         </div>
       </div>
@@ -539,7 +562,15 @@ export function ApiKeysPanel() {
                   </button>
                   <button className="button secondary" onClick={() => void copyCliCommand()} type="button">
                     {copiedTarget === "cli" ? <Check size={15} /> : <Terminal size={15} />}
-                    {copiedTarget === "cli" ? "已复制命令" : "复制 CLI 命令"}
+                    {copiedTarget === "cli" ? "已复制命令" : "复制 login 命令"}
+                  </button>
+                  <button
+                    className="button secondary"
+                    onClick={() => void copyInstallCommand(true)}
+                    type="button"
+                  >
+                    {copiedTarget === "install" ? <Check size={15} /> : <Terminal size={15} />}
+                    {copiedTarget === "install" ? "已复制安装命令" : "复制一键安装命令"}
                   </button>
                   <button className="button primary" onClick={handleSavedSecret} type="button">
                     我已保存

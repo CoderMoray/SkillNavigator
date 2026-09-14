@@ -1,6 +1,7 @@
 import { resolveBrandName } from "./brand-name";
 
 export const REGISTRY_INSTALL_GUIDE_ASSET = "/usage/skillnavigator.md";
+export const CLI_INSTALL_SCRIPT_ASSET = "/install.sh";
 
 const DEV_WEB_ORIGIN = "http://127.0.0.1:3001";
 
@@ -61,11 +62,17 @@ export function resolveWebOrigin(clientOrigin?: string): string | null {
 }
 
 export function buildRegistryInstallGuideUrl(appRoot: string): string {
+  return buildPublicAssetUrl(appRoot, REGISTRY_INSTALL_GUIDE_ASSET);
+}
+
+export function buildCliInstallScriptUrl(appRoot: string): string {
+  return buildPublicAssetUrl(appRoot, CLI_INSTALL_SCRIPT_ASSET);
+}
+
+function buildPublicAssetUrl(appRoot: string, assetPath: string): string {
   const normalizedRoot = normalizeTrailingSlash(appRoot);
-  const assetPath = REGISTRY_INSTALL_GUIDE_ASSET.startsWith("/")
-    ? REGISTRY_INSTALL_GUIDE_ASSET
-    : `/${REGISTRY_INSTALL_GUIDE_ASSET}`;
-  return `${normalizedRoot}${assetPath}`;
+  const normalizedAsset = assetPath.startsWith("/") ? assetPath : `/${assetPath}`;
+  return `${normalizedRoot}${normalizedAsset}`;
 }
 
 /** One-line prompt copied from the homepage (SkillHub-style). */
@@ -94,4 +101,27 @@ export function resolveRegistryStoreInstallPrompt(clientOrigin?: string): string
   return url
     ? buildRegistryStoreInstallPrompt(url)
     : "本实例未配置安装引导地址——请联系平台维护者在部署配置（.env）中设置 NEXT_PUBLIC_WEB_URL。";
+}
+
+/** Public URL for the one-shot CLI install script, or null when unconfigured. */
+export function resolveCliInstallScriptUrl(clientOrigin?: string): string | null {
+  const appRoot = resolveWebAppRoot(clientOrigin);
+  return appRoot ? buildCliInstallScriptUrl(appRoot) : null;
+}
+
+/** curl | bash one-liner; include apiKey only when the user explicitly opts in (shell history). */
+export function buildCliInstallCurlCommand(options?: {
+  clientOrigin?: string;
+  apiKey?: string;
+}): string | null {
+  const scriptUrl = resolveCliInstallScriptUrl(options?.clientOrigin);
+  if (!scriptUrl) {
+    return null;
+  }
+  const base = `curl -fsSL ${scriptUrl} | bash`;
+  const key = options?.apiKey?.trim();
+  if (key) {
+    return `${base} -s -- --api-key ${key}`;
+  }
+  return base;
 }

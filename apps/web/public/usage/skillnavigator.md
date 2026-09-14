@@ -16,13 +16,29 @@ command -v skillnav && skillnav --version
 ```
 
 - 已安装 → 执行 `skillnav config test` 检查 Registry 连通性；通过则直接进入第三节。
-- 未安装 → 执行安装：
+- 未安装 → 任选一种方式：
+
+**方式 A — macOS / Linux 一键脚本（推荐）**
+
+```bash
+curl -fsSL https://localhost:3001/install.sh | bash
+```
+
+已有 API 密钥时可一并登录（密钥会写入 shell history，演示环境可用）：
+
+```bash
+curl -fsSL https://localhost:3001/install.sh | bash -s -- --api-key sk_…
+```
+
+脚本会自动：安装 CLI、修复 PATH、配置 Registry（`http://127.0.0.1:3000`）、可选登录。
+
+**方式 B — 手动 pip 安装**
 
 ```bash
 pip install skillnav -i https://pypi.org/simple
 ```
 
-> 沙箱限网时需以允许联网的权限执行 `pip`。
+> 沙箱限网时需以允许联网的权限执行 `pip` 或 `curl`。
 
 升级：`skillnav update`（`skillnav update --check` 仅检查新版本）。
 

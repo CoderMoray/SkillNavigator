@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const source = path.join(repoRoot, "usage");
 const target = path.join(repoRoot, "apps", "web", "public", "usage");
+const installScriptSource = path.join(source, "install.sh");
+const installScriptTarget = path.join(repoRoot, "apps", "web", "public", "install.sh");
 const DEFAULT_BRAND_NAME = "SkillNavigator";
 const DEFAULT_PIP_INDEX_URL = "https://pypi.org/simple";
 const BRAND_PLACEHOLDER = "{{brand_name}}";
@@ -72,4 +74,14 @@ for (const filename of ["skillnavigator.md"]) {
 const legacyGuide = path.join(target, "monoskillnavigator.md");
 if (existsSync(legacyGuide)) {
   rmSync(legacyGuide);
+}
+
+// install.sh lives at the web app root (/install.sh), not under /usage/.
+if (existsSync(installScriptSource)) {
+  const installContent = readFileSync(installScriptSource, "utf8");
+  writeFileSync(installScriptTarget, applyDeploymentConfig(installContent, config), "utf8");
+}
+const strayInstallInUsage = path.join(target, "install.sh");
+if (existsSync(strayInstallInUsage)) {
+  rmSync(strayInstallInUsage);
 }
