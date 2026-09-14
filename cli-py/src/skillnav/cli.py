@@ -23,7 +23,6 @@ from skillnav.error_hints import (
     enrich_api_error,
     enrich_usage_error,
     hint_from_message,
-    invalid_api_key,
     not_logged_in,
 )
 from skillnav.errors import (
@@ -265,7 +264,7 @@ def login_cmd(
         cli = _ctx()
         if registry:
             cli.registry = registry.rstrip("/")
-        credential = api_key
+        credential = api_key.strip() if api_key else None
         if not credential:
             if cli.no_input:
                 raise AuthError.from_hint(not_logged_in(profile=cli.profile_name))
@@ -277,8 +276,7 @@ def login_cmd(
             join_registry_url(cli.registry, "/auth/me"),
             token=credential,
         )
-        if status >= 400:
-            raise AuthError.from_hint(invalid_api_key())
+        raise_for_api_status(status, me_body)
         cli.persist_api_key(credential, me_body)
         user = me_body.get("user") or {}
         if cli.json_output:
