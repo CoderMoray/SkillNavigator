@@ -137,6 +137,18 @@ export function interruptedStagesFromStatuses(
   );
 }
 
+/** Preserve completed stages and mark only retry targets as processing (for DB/UI on retry-publish). */
+export function buildRetryStageStatusesForMark(
+  existing: Partial<InspectionStageStatuses>,
+  stagesToRun: InspectionStage[]
+): InspectionStageStatuses {
+  const result: Partial<InspectionStageStatuses> = { ...existing };
+  for (const stage of stagesToRun) {
+    result[stage] = "processing";
+  }
+  return result as InspectionStageStatuses;
+}
+
 export function resolveInspectionStagesToRun(input: {
   configuredStages: InspectionStage[];
   stageStatuses: Partial<InspectionStageStatuses>;

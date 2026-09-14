@@ -489,6 +489,7 @@ export {
 } from "./inspection-pipeline.js";
 
 export {
+  buildRetryStageStatusesForMark,
   interruptedStagesFromStatuses,
   isPipelineIncomplete,
   resolveAggregateStatusFromStageStatuses,

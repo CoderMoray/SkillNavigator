@@ -9,6 +9,7 @@ import {
   resolveVirusTotalStageStatus,
 } from "@skill-platform/inspection-engine";
 import {
+  buildRetryStageStatusesForMark,
   isStageRetryable,
   isTerminalStageStatus,
 } from "../packages/inspection-engine/src/stage-status.js";
@@ -111,6 +112,25 @@ describe("resolveAggregateStatusFromStageStatuses", () => {
         verdict: "rejected",
       })
     ).toBe("rejected");
+  });
+});
+
+describe("buildRetryStageStatusesForMark", () => {
+  it("preserves passed/done stages and marks only retry targets as processing", () => {
+    expect(
+      buildRetryStageStatusesForMark(
+        {
+          skillspector: "passed",
+          virustotal: "interrupted",
+          halucatch: "done",
+        },
+        ["virustotal"]
+      )
+    ).toEqual({
+      skillspector: "passed",
+      virustotal: "processing",
+      halucatch: "done",
+    });
   });
 });
 

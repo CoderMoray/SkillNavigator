@@ -3,6 +3,7 @@ import Fastify, { type FastifyInstance, type FastifyReply } from "fastify";
 import { pathToFileURL } from "node:url";
 import { evaluateSkillSnapshot } from "@skill-platform/evaluator";
 import {
+  buildRetryStageStatusesForMark,
   getConfiguredInspectionStages,
   isPipelineIncomplete,
   resolveInspectionStagesToRun,
@@ -1046,8 +1047,19 @@ export function buildServer() {
 
     publishRateLimiter.recordAttempt(user.id);
 
+    const existingStageStatuses = skill.versions[version]?.inspectionStageStatuses ?? {};
+    const configuredStages = getConfiguredInspectionStages();
+    const stagesToRun = resolveInspectionStagesToRun({
+      configuredStages,
+      stageStatuses: existingStageStatuses,
+      requestedStages: request.body?.stages,
+    });
+    const retryStageStatuses = buildRetryStageStatusesForMark(existingStageStatuses, stagesToRun);
+    const inspectionOptions = buildRetryInspectionOptions(skill, version, request.body?.stages);
+
     await store.markSkillInspectionStatus(skill.slug, "inspecting", {
       version,
+      stageStatuses: retryStageStatuses,
     });
 
     const prepared: PreparedPublishRequest = {
@@ -1056,7 +1068,6 @@ export function buildServer() {
       slug: skill.slug,
       releaseTags,
     };
-    const inspectionOptions = buildRetryInspectionOptions(skill, version, request.body?.stages);
 
     if (request.body?.async !== false) {
       void runBackgroundPublishInspection(store, prepared, user.id, user.username, changelog, inspectionOptions).catch((error) => {

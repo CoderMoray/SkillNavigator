@@ -1515,7 +1515,9 @@ export class PostgresRegistryStore extends JsonRegistryStore {
           inspectionStatus,
           ...failurePatch,
           ...timingPatch,
-          ...(inspectionStatus === "inspecting" ? mapStageStatusesToColumns({}) : {}),
+          ...(inspectionStatus === "inspecting" && !options?.stageStatuses
+            ? mapStageStatusesToColumns({})
+            : {}),
           ...(inspectionStatus === "rejected" ? { status: "rejected" as const } : {}),
           ...(stageStatusPatch ?? {}),
           updatedAt: now,

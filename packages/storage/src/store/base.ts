@@ -141,7 +141,9 @@ export abstract class JsonRegistryStore implements RegistryStore {
           if (inspectionStatus === "inspecting") {
             version.inspectionStartedAt = now;
             version.inspectionEndedAt = undefined;
-            version.inspectionStageStatuses = {};
+            version.inspectionStageStatuses = options?.stageStatuses
+              ? { ...options.stageStatuses }
+              : {};
           } else if (inspectionStatus === "completed" || isInspectionFailureStatus(inspectionStatus)) {
             version.inspectionEndedAt = now;
           }
