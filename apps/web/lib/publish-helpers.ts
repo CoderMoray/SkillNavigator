@@ -1,3 +1,4 @@
+import { ApiRequestError } from "./api";
 import type {
   RegistrySkill,
   RegistryVersion,
@@ -6,6 +7,18 @@ import type {
   SkillInspectionStatus,
   SkillSearchResult,
 } from "./types";
+
+export function publishRateLimitedMessage(retryAfterSeconds?: number): string {
+  const seconds = retryAfterSeconds ?? 60;
+  return `发布过于频繁，请 ${seconds} 秒后再试。`;
+}
+
+export function getPublishRateLimitedMessage(error: unknown): string | undefined {
+  if (error instanceof ApiRequestError && error.response?.error === "publish_rate_limited") {
+    return publishRateLimitedMessage(error.response.retryAfterSeconds);
+  }
+  return undefined;
+}
 
 export type SkillRepublishBlockReason =
   | "inspection_in_progress"

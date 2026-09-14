@@ -8,6 +8,7 @@ import type { LucideIcon } from "lucide-react";
 import { compareSemver, isSkillEntryPath } from "@skill-platform/skill-spec/skill-format";
 import {
   canRetryStoredInspection,
+  getPublishRateLimitedMessage,
   getSkillRepublishBlockReason,
   getVersionRepublishBlockReason,
   isInspectionFailureStatus,
@@ -399,6 +400,11 @@ export default function SkillDetailPage() {
       setSuccessToast(retryLabel);
       router.push(`${creatorProfilePath(viewer.username)}`);
     } catch (err) {
+      const rateLimitedMessage = getPublishRateLimitedMessage(err);
+      if (rateLimitedMessage) {
+        setErrorToast(rateLimitedMessage);
+        return;
+      }
       const message = err instanceof Error ? err.message : "重新发布失败";
       if (message === "pending_publish_snapshot_missing") {
         setErrorToast("未找到已保存的 Skill 包，请通过发布页重新上传。");

@@ -41,11 +41,11 @@ pip install skillnav -i https://pypi.org/simple
 
 ### Registry 与 API 密钥
 
-1. Registry API 地址：**（部署方未配置 Registry API 地址——请向平台维护者索取）**（本实例的 Registry API，下方命令已填入，无需向用户询问）。
+1. Registry API 地址：**http://127.0.0.1:3000**（本实例的 Registry API，下方命令已填入，无需向用户询问）。
 2. 引导用户在 Web **设置 → API 密钥**（https://localhost:3001）创建 `sk_…`，然后执行：
 
 ```bash
-skillnav config add default --registry （部署方未配置 Registry API 地址——请向平台维护者索取）
+skillnav config add default --registry http://127.0.0.1:3000
 skillnav config use default
 skillnav login --api-key sk_…
 skillnav whoami
@@ -71,8 +71,8 @@ skillnav download <slug> -o <输出.zip>              # 仅下载 ZIP
 指定非默认 Registry（单次）：
 
 ```bash
-skillnav --registry （部署方未配置 Registry API 地址——请向平台维护者索取） search <关键词>
-skillnav --registry （部署方未配置 Registry API 地址——请向平台维护者索取） install <slug> --dir <skills 目录>
+skillnav --registry http://127.0.0.1:3000 search <关键词>
+skillnav --registry http://127.0.0.1:3000 install <slug> --dir <skills 目录>
 ```
 
 ## 四、安装目录

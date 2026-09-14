@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from unittest.mock import patch
 
+import pytest
 from typer.testing import CliRunner
 
 from conftest import cli_output
@@ -16,6 +17,7 @@ from skillnav.self_update import (
     compare_versions,
     format_update_message,
     perform_update,
+    read_installed_version,
 )
 
 
@@ -40,16 +42,39 @@ def test_check_for_update_available(_mock_fetch: object) -> None:
 
 
 @patch("skillnav.self_update.is_editable_install", return_value=False)
+@patch("skillnav.self_update.read_installed_version", return_value="0.4.0")
 @patch("skillnav.self_update.run_upgrade_command")
 @patch("skillnav.self_update.fetch_pypi_latest_version", return_value="0.4.0")
 def test_perform_update_installs_when_newer(
     _mock_fetch: object,
     mock_upgrade: object,
+    _mock_installed: object,
     _mock_editable: object,
 ) -> None:
     status = perform_update(current="0.3.0")
     assert status.updated is True
+    assert status.current == "0.4.0"
+    assert status.up_to_date is True
     mock_upgrade.assert_called_once()
+
+
+@patch("skillnav.self_update.is_editable_install", return_value=False)
+@patch("skillnav.self_update.read_installed_version", return_value="0.3.0")
+@patch("skillnav.self_update.run_upgrade_command")
+@patch("skillnav.self_update.fetch_pypi_latest_version", return_value="0.4.0")
+def test_perform_update_fails_when_mirror_lags(
+    _mock_fetch: object,
+    mock_upgrade: object,
+    _mock_installed: object,
+    _mock_editable: object,
+) -> None:
+    with pytest.raises(SkillnavError, match="still older than PyPI"):
+        perform_update(current="0.3.0")
+    mock_upgrade.assert_called_once()
+
+
+def test_read_installed_version_matches_package() -> None:
+    assert read_installed_version() == __import__("skillnav").__version__
 
 
 @patch("skillnav.self_update.fetch_pypi_latest_version", return_value="0.3.0")

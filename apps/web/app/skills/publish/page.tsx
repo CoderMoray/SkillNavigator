@@ -37,7 +37,13 @@ import {
 } from "../../../lib/build-skill-zip";
 import type { PublicUser, RegistrySkill } from "../../../lib/types";
 import { compareSemver, SKILL_ENTRY_BASENAMES, validatePublishMetadataInput } from "@skill-platform/skill-spec/skill-format";
-import { canRepublishFailedVersion, canRetryStoredInspection, hasStoredPendingPackage, isInspectionFailureStatus } from "../../../lib/publish-helpers";
+import {
+  canRepublishFailedVersion,
+  canRetryStoredInspection,
+  getPublishRateLimitedMessage,
+  hasStoredPendingPackage,
+  isInspectionFailureStatus,
+} from "../../../lib/publish-helpers";
 import { isSkillContributor } from "../../../lib/skill-contributors";
 import { SKILL_CATEGORY_OPTIONS } from "../../../lib/skill-categories";
 
@@ -694,9 +700,9 @@ function PublishSkillPageContent() {
         setErrorToast("该 Skill 正在审查中，请稍后在个人中心查看进度。");
         return;
       }
-      if (err instanceof ApiRequestError && err.response?.error === "publish_rate_limited") {
-        const seconds = err.response.retryAfterSeconds ?? 60;
-        setErrorToast(`发布过于频繁，请 ${seconds} 秒后再试。`);
+      const rateLimitedMessage = getPublishRateLimitedMessage(err);
+      if (rateLimitedMessage) {
+        setErrorToast(rateLimitedMessage);
         return;
       }
       const message = err instanceof Error ? err.message : "发布失败";

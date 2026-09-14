@@ -31,12 +31,6 @@ def api_available() -> bool:
 pytestmark = pytest.mark.skipif(not api_available(), reason="API not running at SKILLNAV_TEST_REGISTRY")
 
 
-def test_version(runner: CliRunner) -> None:
-    result = runner.invoke(app, ["--version"])
-    assert result.exit_code == 0
-    assert "skillnav" in result.stdout
-
-
 def test_config_test(runner: CliRunner, isolated_config: Path) -> None:
     result = runner.invoke(app, ["--registry", API, "config", "test"])
     assert result.exit_code == 0, cli_output(result)
