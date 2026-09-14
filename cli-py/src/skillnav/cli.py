@@ -16,7 +16,13 @@ from skillnav.api import (
     request_bytes,
     request_json,
 )
-from skillnav.config import get_profile, load_config, resolve_profile_api_key, save_config
+from skillnav.config import (
+    config_path,
+    get_profile,
+    load_config,
+    resolve_profile_api_key,
+    save_config,
+)
 from skillnav.contributors import resolve_contributor_id
 from skillnav.context import CliContext
 from skillnav.error_hints import (
@@ -171,6 +177,9 @@ def config_add(
     try:
         cli = _ctx()
         config = load_config()
+        profiles = config.setdefault("profiles", {})
+        if config_path().is_file() and name in profiles:
+            raise UsageError.from_hint(enrich_usage_error(f"Profile already exists: {name}"))
         normalized_registry = registry.rstrip("/")
         get_profile(config, name)["registry"] = normalized_registry
         save_config(config)

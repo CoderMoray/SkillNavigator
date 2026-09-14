@@ -298,6 +298,18 @@ def enrich_usage_error(message: str) -> ErrorHint:
         name = message.split(":", 1)[-1].strip()
         return unknown_profile(name)
 
+    if "profile already exists" in lower:
+        profile_name = message.split(":", 1)[-1].strip()
+        return ErrorHint(
+            summary=f"Profile already exists: {profile_name}",
+            detail="Each profile name must be unique in ~/.config/skillnav/config.json.",
+            next_steps=_steps(
+                "List profiles: skillnav config list",
+                f"Remove it: skillnav config remove {profile_name}",
+                "Or choose another name: skillnav config add <name> --registry <url>",
+            ),
+        )
+
     if "specify --id or --username" in lower:
         return ErrorHint(
             summary=message,
