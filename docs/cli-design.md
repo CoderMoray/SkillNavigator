@@ -145,6 +145,18 @@ skillnav
 - 同一 API；人类可读：**单版本审查状态**（默认 latest）、`inspectionStatus`、可见性、`inspection` / `verdict` / hash / VT 摘要；可选 `--version` 指定其他版本（格式一致）。
 - 末尾提示使用 `skillnav report <slug> --version <ver>` 查看完整报告。
 
+### `update` 与每日版本检查
+
+版本来源：**PyPI JSON 优先**（`https://pypi.org/pypi/skillnav/json`），**超时/失败自动回退阿里云 simple index**（解析文件链接取最大版本，镜像无 JSON API）。两者使用同一超时（默认 10 秒）；都失败时报错列出两个源的失败原因。
+
+每日检查（C 策略，随任意命令在后台之前的前台执行一次）：
+
+- 缓存文件 `update-check.json`（与 config.json 同目录）；24 小时内直接用缓存值提示，**不联网**
+- 缓存过期才查询一次（默认 3 秒短超时，`SKILLNAV_UPDATE_CHECK_TIMEOUT` 可调）；**查询失败也记录时间戳**，24 小时内不再尝试（离线/内网环境每天最多付出一次超时）
+- 有新版本时向 **stderr** 输出单行提示（`--json` 的 stdout 不受影响）：`💡 skillnav X.Y.Z 已发布（当前 A.B.C）：运行 skillnav update 升级`
+- editable 安装（开发机）自动跳过；`SKILLNAV_UPDATE_CHECK=off` 可关闭
+- 只提示、不自动升级：升级仍走显式 `skillnav update`（处理 pipx/editable 分支）
+
 ## 7. 输出与退出码约定
 
 **输出**：
@@ -171,7 +183,7 @@ skillnav
 | login | `GET /auth/me`（校验 API Key） | Bearer `sk_…` |
 | logout | —（本地清除） | — |
 | whoami | `GET /auth/me` | Bearer |
-| update | PyPI `skillnav` JSON | 公开（本地 pip/pipx 升级） |
+| update | PyPI `skillnav` JSON（失败回退阿里云 simple index） | 公开（本地 pip/pipx 升级） |
 | config test | `GET /health` | 公开 |
 | publish | `POST /skills/publish` | Bearer |
 | publish --dry-run | `POST /skills/publish/preview` | Bearer |

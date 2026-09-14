@@ -57,6 +57,7 @@ from skillnav.output import (
 from skillnav.packages import extract_zip_to_directory, package_to_base64
 from skillnav.publish_metadata import build_publish_metadata, read_frontmatter_hints, resolve_package_path
 from skillnav.urls import join_registry_url, slug_path
+from skillnav.version_check import maybe_notify_update
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -163,6 +164,14 @@ def cli_root(
         no_input=no_input,
     )
     ctx.obj = _state["ctx"]
+
+    # Daily best-effort release hint (once per 24h, stderr only, never blocks
+    # or raises). Skipped for `update` itself, which does its own lookup.
+    if ctx.invoked_subcommand != "update":
+        try:
+            maybe_notify_update()
+        except Exception:
+            pass
 
 
 # --- config ---

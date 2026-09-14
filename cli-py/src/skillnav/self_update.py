@@ -11,12 +11,20 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from skillnav import __version__
-from skillnav.api import request_json
+from skillnav.api import request_bytes, request_json
 from skillnav.errors import SkillnavError
 
 PYPI_PROJECT_URL = "https://pypi.org/pypi/skillnav/json"
+# Aliyun PyPI mirror: no JSON API (404), only a PEP 503 simple index — the
+# version is parsed from the file links.
+MIRROR_SIMPLE_INDEX_URL = "https://mirrors.aliyun.com/pypi/simple/skillnav/"
 PYPI_INSTALL_INDEX = "https://mirrors.aliyun.com/pypi/simple/"
+# Per-source timeout for release lookups (explicit update / --check).
+RELEASE_SOURCE_TIMEOUT = 10.0
 _RELEASE_VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)")
+# File names in the simple index, e.g. skillnav-0.4.8-py3-none-any.whl /
+# skillnav-0.4.8.tar.gz (may be embedded in a longer href).
+_MIRROR_FILENAME_RE = re.compile(r"skillnav-(\d+\.\d+\.\d+)[^\"'>]*\.(?:whl|tar\.gz|zip)")
 
 
 @dataclass(frozen=True)
@@ -45,16 +53,51 @@ def compare_versions(current: str, latest: str) -> int:
     return 0
 
 
-def fetch_pypi_latest_version(*, timeout: float = 30) -> str:
+def fetch_pypi_latest_version(*, timeout: float = RELEASE_SOURCE_TIMEOUT) -> str:
+    """Latest released version, trying PyPI first and the Aliyun mirror second.
+
+    Both lookups use the same per-source ``timeout``; if the first source times
+    out or fails, the mirror is tried. When both fail the raised error lists
+    each source's failure so the user can tell network problems apart from
+    mirror problems.
+    """
+    failures: list[str] = []
+    sources = (
+        ("pypi.org", _fetch_version_from_pypi_json),
+        ("mirrors.aliyun.com", _fetch_version_from_mirror_simple_index),
+    )
+    for label, fetch in sources:
+        try:
+            return fetch(timeout=timeout)
+        except SkillnavError as exc:
+            failures.append(f"{label}: {exc}")
+        except Exception as exc:  # defensive: a lookup must never break the caller
+            failures.append(f"{label}: {exc}")
+    raise SkillnavError(
+        "Failed to check skillnav updates on both sources — " + "; ".join(failures)
+    )
+
+
+def _fetch_version_from_pypi_json(*, timeout: float) -> str:
     status, body = request_json("GET", PYPI_PROJECT_URL, timeout=timeout)
     if status >= 400:
-        raise SkillnavError("Failed to check PyPI for skillnav updates")
+        raise SkillnavError(f"PyPI returned HTTP {status}")
     if not isinstance(body, dict):
-        raise SkillnavError("Unexpected PyPI response")
+        raise SkillnavError("unexpected JSON response")
     version = body.get("info", {}).get("version")
     if not isinstance(version, str) or not version.strip():
-        raise SkillnavError("PyPI response missing latest version")
+        raise SkillnavError("response missing latest version")
     return version.strip()
+
+
+def _fetch_version_from_mirror_simple_index(*, timeout: float) -> str:
+    status, raw, _headers = request_bytes("GET", MIRROR_SIMPLE_INDEX_URL, timeout=timeout)
+    if status >= 400:
+        raise SkillnavError(f"mirror returned HTTP {status}")
+    versions = _MIRROR_FILENAME_RE.findall(raw.decode("utf-8", errors="replace"))
+    if not versions:
+        raise SkillnavError("simple index lists no skillnav releases")
+    return max(versions, key=parse_release_version)
 
 
 def is_editable_install() -> bool:

@@ -23,5 +23,12 @@ def isolated_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return path
 
 
+@pytest.fixture(autouse=True)
+def _no_release_check(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep CLI tests offline: the root callback normally runs the daily
+    release check (tests for that live in test_version_check.py)."""
+    monkeypatch.setattr("skillnav.cli.maybe_notify_update", lambda *a, **k: None)
+
+
 def cli_output(result) -> str:
     return getattr(result, "output", None) or (result.stdout or "") + (result.stderr or "")
