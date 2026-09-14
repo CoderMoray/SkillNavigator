@@ -3,7 +3,7 @@ name: Publish skillnav to PyPI
 # PyPI Trusted Publishing (OIDC) 需要在 PyPI 后台一次性授权，填写如下：
 #   https://pypi.org/manage/account/publishing/
 #   Project name : skillnav
-#   Owner        : Codery
+#   Owner        : CoderMoray   (仓库改名前的注册值可能是 Codery，以 PyPI 后台实际配置为准)
 #   Repository   : SkillNavigator   (GitHub 仓库名，仓库改名后以新名为准)
 #   Workflow name: pypi.yml
 # 首次发布会自动在 PyPI 创建 skillnav 项目。
@@ -21,10 +21,34 @@ jobs:
       id-token: write # Trusted Publishing (OIDC), no API token needed
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history + refs, needed for the tag-on-main check
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Verify release version and tag ancestry
+        run: |
+          set -euo pipefail
+          package_version="$(PYTHONPATH=cli-py/src python -c 'from skillnav import __version__; print(__version__)')"
+          echo "package version: $package_version"
+          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then
+            echo "Not a tag push (${GITHUB_REF_TYPE}:${GITHUB_REF_NAME}) — provenance checks skipped."
+            exit 0
+          fi
+          tag_version="${GITHUB_REF_NAME#skillnav-}"
+          echo "tag version:     $tag_version"
+          if [ "$tag_version" != "$package_version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match skillnav.__version__ ($package_version) — bump cli-py/src/skillnav/__init__.py on main and re-tag"
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::tagged commit $GITHUB_SHA is not contained in main — push the branch before/with the tag"
+            exit 1
+          fi
+          echo "Provenance OK: tag matches the single version source and is contained in main."
 
       - name: Build sdist and wheel
         run: |

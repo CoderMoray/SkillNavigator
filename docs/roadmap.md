@@ -80,7 +80,7 @@
 ### CLI 与分发（skillnav）
 
 - [x] Python `skillnav`（typer，纯 API 客户端）：config/login/whoami/publish/report/status/search/top/info/download/install/rate/issue 等 22 个子命令，`--json` 全覆盖
-- [x] PyPI 已发布至 **0.3.1**（Trusted Publishing，push `skillnav-*` tag 触发）
+- [x] PyPI 已发布至 **0.4.8**（Trusted Publishing，push `skillnav-*` tag 触发；版本号单一来源 `skillnav.__version__`，CI 校验 tag 与版本一致且 tag 在 main 上）
 - [x] 多 Profile 配置（`~/.config/skillnav/config.json`），支持独立部署与多平台嵌入
 
 ### 品牌与集成
@@ -99,7 +99,7 @@
 | 发现 | **默认下载仍指向 latest 版本**，尚未切换为「最新通过审查」版本 |
 | 测试 | smoke 未覆盖重复注册、token 过期、回收站边界等 |
 | CI / VT | upload-on-miss 轮询默认 90s 超时；无分步 timeout + retry |
-| CLI（skillnav） | 0.3.1：report VT 展示、1.0.0 稳定化待完成 |
+| CLI（skillnav） | 0.4.8：report 三维完整展示、status 聚合状态已交付；1.0.0 稳定化待完成 |
 | 旧 CLI | `apps/cli`（TypeScript/Commander）为内部形态，逐步下线 |
 
 ---

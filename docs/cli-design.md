@@ -1,6 +1,6 @@
 # skillnav CLI 设计文档
 
-> 状态：设计定稿 · 实现进行中（skillnav 0.3.1，见 `cli-py/`）
+> 状态：设计定稿 · 实现进行中（skillnav 0.4.8，见 `cli-py/`；版本号单一来源 `skillnav/__init__.py`）
 > 日期：2026-08-19
 
 ## 1. 背景与定位
@@ -192,7 +192,8 @@ skillnav
 - `0.0.1` ✅：PyPI 占位壳，可安装、`skillnav --version`、`--help`。
 - `0.1.0` ✅：平台配置（config add/use/list/test）+ 登录与身份（login/logout/whoami）+ 检索（search/top/info/status）。
 - `0.2.0` ✅：发布流（publish/--dry-run）+ report 完整展示。
-- `0.3.0` ✅：分发（download/install）+ 社区（rate/issue/issues/add-contributor）；当前版本 `0.3.1`（已发布）。
+- `0.3.0` ✅：分发（download/install）+ 社区（rate/issue/issues/add-contributor）。
+- `0.4.x` ✅（当前 `0.4.8`）：`report` 三维完整展示（SkillSpector / VirusTotal / HaluCatch）、`status` 改为 Inspection 聚合状态、`config remove`、登录错误区分与 `--version`/自更新修复。
 - `1.0.0`：冻结命令集；错误处理与帮助文档 polish；`apps/cli` TS 版下线。（`--json` 已覆盖全部 22 个子命令。）
 
 ## 10. 待定事项

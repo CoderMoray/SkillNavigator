@@ -4,7 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "skillnav"
-version = "0.4.8"
+# Single version source: skillnav/__init__.py `__version__` (read by
+# setuptools via the dynamic attr below, so pyproject and the package can
+# never drift apart). Bump it there, commit on main, then push the tag.
+dynamic = ["version"]
 description = "CLI client for the Skill management platform (SkillNavigator)"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -47,3 +50,6 @@ ignore_missing_imports = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.dynamic]
+version = { attr = "skillnav.__version__" }

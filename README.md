@@ -147,14 +147,21 @@ npm run test:e2e       # Playwright 浏览器端到端测试（e2e/site.e2e.ts�
 
 ## skillnav 发布（PyPI）
 
-维护者在 `cli-py/pyproject.toml` 更新版本号后：
+版本号只有一个来源：`cli-py/src/skillnav/__init__.py` 的 `__version__`（`pyproject.toml` 通过 setuptools dynamic attr 读取，不需要也不能两处手改）。
+
+发布流程（顺序重要）：
 
 ```bash
-git tag skillnav-0.3.1
-git push origin skillnav-0.3.1
+# 1. 修改 cli-py/src/skillnav/__init__.py 的 __version__（例如 0.4.9）
+# 2. 先提交并推送到 main
+git commit -am "chore(skillnav): bump version to 0.4.9"
+git push origin main
+# 3. 再打 tag 并推送
+git tag skillnav-0.4.9
+git push origin skillnav-0.4.9
 ```
 
-推送 `skillnav-*` tag 会触发 `.github/workflows/pypi.yml` 构建并发布到 PyPI（Trusted Publishing / OIDC）。也可在 GitHub Actions 手动 `workflow_dispatch`。
+推送 `skillnav-*` tag 触发 `.github/workflows/pypi.yml`（Trusted Publishing / OIDC）构建发布；也可手动 `workflow_dispatch`。CI 在构建前会校验 **tag 版本 == `__version__`** 且 **tag 提交已包含在 main 中**，不满足直接拒绝发布——防止“tag 已发、main 未推”导致的 monorepo 与 PyPI 版本漂移。
 
 ## 协作开发
 
