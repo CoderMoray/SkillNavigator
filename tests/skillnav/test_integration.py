@@ -172,7 +172,9 @@ def test_not_logged_in_exit_code(runner: CliRunner, isolated_config: Path) -> No
         ["--registry", API, "--no-input", "publish", str(DEMO_SKILL or ".")],
     )
     assert result.exit_code == 2
-    assert "not logged in" in cli_output(result)
+    # 文案随版本演进（如 "Not logged in (no API key on profile 'default')"），
+    # 仅断言语义关键词，避免大小写/措辞变化导致测试脆断。
+    assert "not logged in" in cli_output(result).lower()
 
 
 def _ensure_user(username: str, password: str, email: str) -> None:
@@ -295,4 +297,7 @@ def test_add_contributor_requires_owner(
         ],
     )
     assert result.exit_code == 2, cli_output(result)
-    assert "only_owner_can_add_contributors" in cli_output(result)
+    # 0.4.x 起 CLI 将错误码渲染为人类可读文案（"Only the skill owner can
+    # manage contributors"），断言语义关键词而非内部错误码。
+    output = cli_output(result).lower()
+    assert "owner" in output and "contributor" in output
