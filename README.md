@@ -112,6 +112,7 @@ npm run test:e2e       # Playwright 浏览器端到端测试（e2e/site.e2e.ts�
 - `docs/DEV.md`：**开发规则**（验证门槛、ESLint 零告警约定、提交纪律），协作前必读。
 - `docs/roadmap.md`：路线图、进度与待办（唯一事实源）。
 - `docs/platform-integration.md`：独立部署与子路径嵌入。
+- `docs/install-path-migration.md`：安装脚本公开路径迁移（部署方升级指引）。
 - `docs/cli-design.md`：skillnav CLI 设计。
 - `docs/rules/skill-spec.md`：Skill 包规范。
 - `docs/rules/review-rubric.md`：审查与评分规则。
