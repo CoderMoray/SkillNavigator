@@ -37,3 +37,32 @@ def test_config_use_unknown_profile_json_error(runner: CliRunner, isolated_confi
     payload = json.loads(cli_output(result))
     assert payload["error"] == "Unknown profile: missing"
     assert "nextSteps" in payload
+
+
+def test_status_json_exposes_top_level_verdict(
+    runner: CliRunner, isolated_config: Path, monkeypatch
+) -> None:
+    from skillnav import cli
+
+    body = {
+        "slug": "demo-skill",
+        "latestVersion": "1.0.0",
+        "published": True,
+        "versions": {
+            "1.0.0": {
+                "version": "1.0.0",
+                "status": "published",
+                "inspection": {"verdict": "published"},
+            }
+        },
+    }
+    monkeypatch.setattr(cli, "request_json", lambda *args, **kwargs: (200, body))
+
+    result = runner.invoke(app, ["--json", "status", "demo-skill"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    # Verdict is the field agents read first; expose it at the top level while
+    # keeping the nested per-version data intact.
+    assert payload["verdict"] == "published"
+    assert list(payload["versions"]) == ["1.0.0"]
+    assert payload["versions"]["1.0.0"]["inspection"]["verdict"] == "published"

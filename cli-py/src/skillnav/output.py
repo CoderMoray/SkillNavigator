@@ -365,20 +365,24 @@ def print_evaluation(report: dict[str, Any]) -> None:
             print(f"  Recommendation: {finding['recommendation']}")
 
 
-def _resolve_latest_verdict(body: dict[str, Any]) -> str:
-    latest = body.get("latestVersion")
+def resolve_version_verdict(body: dict[str, Any], version: str) -> str | None:
+    """Verdict for one version: ``inspection.verdict``, then the version status.
+
+    The platform mirrors the verdict on the registry row (``status``), and older
+    instances may carry only one of the two.
+    """
     versions = body.get("versions")
-    if latest and isinstance(versions, dict):
-        entry = versions.get(latest)
-        if isinstance(entry, dict):
-            inspection = _get_inspection_record(entry)
-            if inspection.get("verdict"):
-                return str(inspection["verdict"])
-            if entry.get("status"):
-                return str(entry["status"])
-    if body.get("status"):
-        return str(body["status"])
-    return "?"
+    entry: dict[str, Any] = {}
+    if isinstance(versions, dict):
+        candidate = versions.get(version)
+        if isinstance(candidate, dict):
+            entry = candidate
+    inspection = _get_inspection_record(entry)
+    for value in (inspection.get("verdict"), entry.get("status")):
+        text = str(value or "").strip()
+        if text:
+            return text
+    return None
 
 
 def _format_visibility(published: bool | None) -> str:
@@ -577,6 +581,55 @@ def _format_inspection_progress(stage_statuses: dict[str, str]) -> str:
         for stage in _INSPECTION_STAGE_ORDER
         if stage in stage_statuses
     ]
+    if not parts:
+        # Older instances (and seed-published data) carry no per-stage status.
+        # Say so explicitly instead of printing an empty label, which reads
+        # like a truncated or broken response.
+        return "unavailable (this platform instance returned no per-stage status)"
+    return " · ".join(parts)
+
+
+_BLOCKING_SEVERITIES = {"critical", "high"}
+
+
+def _format_security_summary(inspection: dict[str, Any]) -> str | None:
+    """One-line security conclusion for `status` (full detail stays in `report`)."""
+    parts: list[str] = []
+
+    scores = inspection.get("scores") or {}
+    security_score = scores.get("securityScore")
+    skillspector_findings, _virustotal_findings = _partition_inspection_findings(
+        inspection.get("findings") or []
+    )
+    if security_score is not None or skillspector_findings:
+        segment = f"SkillSpector security={security_score if security_score is not None else '?'}"
+        blocking = [
+            finding
+            for finding in skillspector_findings
+            if str(finding.get("severity") or "").strip().lower() in _BLOCKING_SEVERITIES
+        ]
+        if blocking:
+            segment += f", {len(blocking)} blocking"
+        parts.append(segment)
+
+    virustotal = inspection.get("virusTotal")
+    if isinstance(virustotal, dict):
+        status = str(virustotal.get("status") or "").strip()
+        if status in {"failed", "not_found"}:
+            parts.append(f"VirusTotal {status}")
+        else:
+            malicious = int(virustotal.get("malicious") or 0)
+            suspicious = int(virustotal.get("suspicious") or 0)
+            engines = _resolve_virustotal_engine_total(virustotal)
+            if engines:
+                parts.append(
+                    f"VirusTotal {malicious} malicious, {suspicious} suspicious / {engines} engines"
+                )
+            elif malicious or suspicious:
+                parts.append(f"VirusTotal {malicious} malicious, {suspicious} suspicious")
+
+    if not parts:
+        return None
     return " · ".join(parts)
 
 
@@ -661,8 +714,14 @@ def _print_single_version_status(body: dict[str, Any], version: str) -> None:
     context = _collect_version_inspection_context(body, version_id, entry)
 
     print(f"{slug}@{version_id}" + (" (latest)" if is_latest else ""))
+    # Verdict first: it is the decision field agents look for
+    # (published / needs-inspection / rejected); details stay in `report`.
+    print(f"Verdict: {resolve_version_verdict(body, version_id) or 'unknown'}")
     print(f"Inspection progress: {context['progress']}")
     print(f"Inspection status: {context['aggregate_status']}")
+    security = _format_security_summary(_get_inspection_record(entry))
+    if security:
+        print(f"Security: {security}")
     print(f"Published: {_format_published_uploaded(entry)}")
     print(f"Visibility: {_format_visibility(body.get('published'))}")
     if context["inspection_started_at"]:
@@ -786,6 +845,9 @@ def print_search_results(body: dict[str, Any]) -> None:
     if not items:
         print("No skills found.")
         return
+    # Explicit count: without it a consumer cannot tell "0 results" from a
+    # truncated/failed listing.
+    print(f"{len(items)} skill{'' if len(items) == 1 else 's'} found:")
     for item in items:
         slug = item.get("slug", "?")
         name = item.get("name", "?")

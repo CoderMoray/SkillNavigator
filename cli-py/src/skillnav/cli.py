@@ -52,6 +52,7 @@ from skillnav.output import (
     print_search_results,
     print_skill_info,
     print_skill_status,
+    resolve_version_verdict,
     unwrap_resource_id,
 )
 from skillnav.packages import extract_zip_to_directory, package_to_base64
@@ -488,7 +489,11 @@ def status_cmd(
             raise SkillnavError(f"No versions found for skill '{slug}'")
         body = filter_skill_body_version(body, str(target_version))
         if cli.json_output:
-            emit_json(body)
+            # Expose the verdict at the top level: it is the decision field
+            # agents read first, and today it only exists nested per version.
+            payload = dict(body)
+            payload.setdefault("verdict", resolve_version_verdict(body, str(target_version)))
+            emit_json(payload)
         else:
             print_skill_status(body, version=str(target_version))
     except Exception as exc:  # noqa: BLE001

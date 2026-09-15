@@ -19,7 +19,7 @@
 
 【发布】推荐 publish --dry-run → publish（默认后台审查）。审查失败用 retry-publish，勿重复 upload 同版本。Agent/CI 加 --no-input --json。仅 owner/contributor 可为已有 slug 发新版；新版本须提高 SemVer，不可覆盖旧版。
 
-【报告】status 看 `inspectionStatus`、各版本 `inspection`/verdict 与阶段进度（可选 `--version`，默认 latest）；report 看 SkillSpector、VirusTotal、HaluCatch 详情。verdict：已发布 / 需复核（needs-inspection）/ 已拒绝（不进入公开搜索）。`inspectionStatus: failed` 或 `inspection_pipeline_incomplete` 表示审查未完成，包通常已暂存，用 retry-publish 重试。
+【报告】status 看 `verdict`、`inspectionStatus`、各版本 `inspection` 与阶段进度（可选 `--version`，默认 latest）；report 看 SkillSpector、VirusTotal、HaluCatch 详情。verdict：已发布（published）/ 需复核（needs-inspection）/ 已拒绝（rejected，不进入公开搜索）。判断审查是否完成看 `inspectionStatus`（completed / inspecting / interrupted / failed）；`publish --wait` 同步发布未完成时，API 另会返回错误码 `inspection_pipeline_incomplete`（503，是错误码不是状态值），包通常已暂存，用 retry-publish 重试。
 
 【改进】按 report 修包：high/critical finding 必改；HaluCatch 低分补步骤、边界与示例；description/tags 不规范则修 frontmatter。改后升版本再 publish → report 验证。
 

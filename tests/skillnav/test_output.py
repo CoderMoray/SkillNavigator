@@ -13,6 +13,7 @@ from skillnav.output import (
     print_inspection_result,
     print_skill_info,
     print_skill_status,
+    print_search_results,
     print_virustotal_summary,
     unwrap_resource_id,
 )
@@ -122,7 +123,8 @@ def test_print_skill_status(capsys) -> None:
     assert "Inspection status: completed" in out
     assert "Published: yes" in out
     assert "Visibility: public" in out
-    assert "Verdict:" not in out
+    # The verdict is the decision field agents read first (agent feedback B3).
+    assert "Verdict: published" in out
     assert "Content hash:" not in out
     assert "Versions:" not in out
     assert "Description:" not in out
@@ -393,7 +395,7 @@ def test_print_skill_status_single_version(capsys) -> None:
     assert "SkillSpector: passed" in out
     assert "VirusTotal: passed" in out
     assert "Published: yes" in out
-    assert "Verdict:" not in out
+    assert "Verdict: published" in out
     assert "Content hash:" not in out
     assert "Versions:" not in out
 
@@ -840,3 +842,59 @@ def test_print_report_version_virustotal_findings_none(capsys) -> None:
     vt_section = out.split("=== VirusTotal ===", 1)[1]
     assert "Findings: none" in vt_section
     assert "=== HaluCatch" not in vt_section or vt_section.index("Findings: none") < vt_section.find("=== HaluCatch")
+
+
+# --------------------------------------------------------------------------
+# Agent-facing status/search readability (agent feedback B2/B3/B5/B6)
+# --------------------------------------------------------------------------
+
+def test_print_skill_status_includes_security_summary(capsys) -> None:
+    print_skill_status(SAMPLE_SKILL)
+    out = capsys.readouterr().out
+    assert "Security:" in out
+    # 1.0.1 carries VirusTotal counters but no score block, so only the
+    # VirusTotal segment is rendered.
+    assert "VirusTotal 0 malicious, 1 suspicious" in out
+
+
+def test_print_skill_status_without_stage_statuses_explains_the_gap(capsys) -> None:
+    skill = {
+        "slug": "legacy-skill",
+        "latestVersion": "1.0.0",
+        "inspectionStatus": "completed",
+        "published": True,
+        "versions": {
+            "1.0.0": {
+                "version": "1.0.0",
+                "status": "published",
+                "inspectionStatus": "completed",
+                "inspection": {"verdict": "published"},
+            }
+        },
+    }
+
+    print_skill_status(skill, version="1.0.0")
+    out = capsys.readouterr().out
+    # A1-style instances (and seed-published data) return no per-stage status:
+    # say so instead of printing an empty label.
+    assert "Inspection progress: unavailable" in out
+    assert "Verdict: published" in out
+    assert "Inspection status: completed" in out
+
+
+def test_print_search_results_reports_the_count(capsys) -> None:
+    print_search_results({"items": [{"slug": "a", "name": "A", "status": "published"}]})
+    assert capsys.readouterr().out.startswith("1 skill found:")
+
+    print_search_results(
+        {
+            "items": [
+                {"slug": "a", "name": "A", "status": "published"},
+                {"slug": "b", "name": "B", "status": "published"},
+            ]
+        }
+    )
+    assert capsys.readouterr().out.startswith("2 skills found:")
+
+    print_search_results({"items": []})
+    assert capsys.readouterr().out.strip() == "No skills found."
