@@ -138,7 +138,15 @@ async function main() {
         throw new Error(`Seed inspection artifact mismatch: ${check.reason}`);
       }
       console.error("ℹ️  Using the pre-generated seed inspection (SkillSpector + VT link); HaluCatch re-ran live.");
-      return { inspection: artifact.inspection, evaluation: live.evaluation };
+      // Keep the stage statuses: the artifact froze the ones for the stages it
+      // covers (SkillSpector/VT), the live run supplies the rest (HaluCatch).
+      // Without them the published version shows an empty stage list.
+      return {
+        inspection: artifact.inspection,
+        evaluation: live.evaluation,
+        stageStatuses: artifact.stageStatuses ?? live.stageStatuses,
+        stageFailureMessages: artifact.stageFailureMessages ?? live.stageFailureMessages,
+      };
     };
 
     try {

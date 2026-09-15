@@ -94,6 +94,11 @@ async function main() {
           },
           virusTotal: inspection.virusTotal,
           inspection,
+          // Frozen per-stage statuses so bootstrap can persist them verbatim
+          // instead of re-deriving them from findings (which leaves ambiguous
+          // stages empty and is exactly how "completed + no stages" happened).
+          stageStatuses,
+          stageFailureMessages,
         }
       : {
           skill: slug,
@@ -103,6 +108,8 @@ async function main() {
             note: "VT summary/link only. SkillSpector + HaluCatch re-run live at seed time.",
           },
           virusTotal: inspection.virusTotal,
+          stageStatuses,
+          stageFailureMessages,
         };
 
   mkdirSync(SEED_ARTIFACT_DIR, { recursive: true });

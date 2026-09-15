@@ -31,6 +31,38 @@ export function parseAdminConfig(env) {
   return { username, email, displayName };
 }
 
+
+/**
+ * Persist the inspection stage statuses of a seed-published version.
+ *
+ * Seeding publishes through `publishSnapshot`, which has no stage-status
+ * option, so these versions used to keep an empty stage list while
+ * `inspectionStatus` said "completed" — `skillnav status` then printed a blank
+ * `Inspection progress:` line. The engine (or the frozen seed artifact) already
+ * knows the statuses, so write them once the version row exists.
+ */
+async function persistSeedStageStatuses(
+  registryStore,
+  slug,
+  versionId,
+  inspection,
+  evaluation,
+  stageStatuses,
+  stageFailureMessages
+) {
+  if (!stageStatuses || Object.keys(stageStatuses).length === 0) {
+    return;
+  }
+  await registryStore.persistInspectionStageResults(slug, versionId, inspection, evaluation, {
+    stageStatuses,
+    stageFailureMessages,
+    // A seed publish is a finished inspection: the aggregate status must stay
+    // "completed" no matter which stages this deployment ran live.
+    finalize: true,
+  });
+}
+
+
 /**
  * Run the bootstrap and return a report object (never writes to stdout).
  *
@@ -124,10 +156,19 @@ export async function runBootstrap(
   }
 
   const snapshot = await readPackage(skillDir);
-  const { inspection, evaluation } = await inspectSnapshot(snapshot);
+  const { inspection, evaluation, stageStatuses, stageFailureMessages } = await inspectSnapshot(snapshot);
   const version = await registryStore.publishSnapshot(snapshot, inspection, evaluation, {
     owner: { userId: target.id, username: target.username },
   });
+  await persistSeedStageStatuses(
+    registryStore,
+    OFFICIAL_SLUG,
+    version.version,
+    inspection,
+    evaluation,
+    stageStatuses,
+    stageFailureMessages
+  );
 
   const details = [];
   if (reassigned) {
@@ -194,10 +235,19 @@ export async function runDemoSeed(
   }
 
   const snapshot = await readPackage(skillDir);
-  const { inspection, evaluation } = await inspectSnapshot(snapshot);
-  await registryStore.publishSnapshot(snapshot, inspection, evaluation, {
+  const { inspection, evaluation, stageStatuses, stageFailureMessages } = await inspectSnapshot(snapshot);
+  const published = await registryStore.publishSnapshot(snapshot, inspection, evaluation, {
     owner: { userId: target.id, username: target.username },
   });
+  await persistSeedStageStatuses(
+    registryStore,
+    DEMO_SLUG,
+    published.version,
+    inspection,
+    evaluation,
+    stageStatuses,
+    stageFailureMessages
+  );
 
   const base = {
     username,

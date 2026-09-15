@@ -18,6 +18,7 @@ class FakeRegistryStore {
     this.publishes = [];
     this.evaluations = []; // evaluation payloads passed to publishSnapshot
     this.deletions = []; // slugs that were permanently purged
+    this.seedStageStatuses = []; // persistInspectionStageResults payloads
   }
 
   async getSkill(slug) {
@@ -52,6 +53,17 @@ class FakeRegistryStore {
     this.skills.set(slug, { slug, ownerUserId: options.owner.userId, latestVersion: inspection.version });
     return { version: inspection.version };
   }
+
+  /** Seed publishing persists stage statuses explicitly (publishSnapshot cannot). */
+  async persistInspectionStageResults(slug, version, inspection, evaluation, options) {
+    this.seedStageStatuses.push({
+      slug,
+      version,
+      stageStatuses: options.stageStatuses,
+      stageFailureMessages: options.stageFailureMessages,
+      finalize: options.finalize,
+    });
+  }
 }
 
 const fakeSnapshot = () => ({
@@ -62,6 +74,7 @@ const fakeSnapshot = () => ({
 
 const fakeInspection = () => ({ version: "1.0.0", verdict: "approved", findings: [] });
 const fakeEvaluation = () => ({ provider: "halucatch-adapter", score: 80 });
+const fakeStageStatuses = () => ({ skillspector: "passed", halucatch: "done" });
 
 async function emptyAuthStore() {
   const dir = mkdtempSync(path.join(tmpdir(), "skillnav-bootstrap-"));
@@ -107,7 +120,12 @@ describe("runBootstrap (auth store = FileAuthStore)", () => {
     authStore: auth,
     registryStore: registry,
     readPackage: async () => fakeSnapshot(),
-    inspectSnapshot: async () => ({ inspection: fakeInspection(), evaluation: fakeEvaluation() }),
+    inspectSnapshot: async () => ({
+      inspection: fakeInspection(),
+      evaluation: fakeEvaluation(),
+      stageStatuses: fakeStageStatuses(),
+      stageFailureMessages: {},
+    }),
   });
 
   const aliceConfig = { username: "alice", email: "alice@example.com", displayName: "Alice Admin" };
@@ -314,6 +332,39 @@ describe("runBootstrap (auth store = FileAuthStore)", () => {
     expect(registry.deletions).toContain("skillnav-skill");
     expect(registry.publishes[1].owner.username).toBe("root");
   });
+
+  test("seed publish persists the engine's stage statuses (no blank progress line)", async () => {
+    await auth.register("alice", "password123", "alice@example.com", { autoVerifyEmail: true });
+    const registry = new FakeRegistryStore();
+    const result = await runBootstrap(deps(registry), aliceConfig);
+
+    expect(result.action).toBe("linked");
+    expect(registry.seedStageStatuses).toHaveLength(1);
+    expect(registry.seedStageStatuses[0].slug).toBe("skillnav-skill");
+    expect(registry.seedStageStatuses[0].version).toBe("1.0.0");
+    expect(registry.seedStageStatuses[0].stageStatuses).toEqual({
+      skillspector: "passed",
+      halucatch: "done",
+    });
+    // A finished seed inspection keeps the aggregate status "completed" even
+    // though the artifact/live split only supplied some of the stages.
+    expect(registry.seedStageStatuses[0].finalize).toBe(true);
+  });
+
+  test("seed publish skips the stage write when the inspection reports none", async () => {
+    await auth.register("alice", "password123", "alice@example.com", { autoVerifyEmail: true });
+    const registry = new FakeRegistryStore();
+    const result = await runBootstrap(
+      {
+        ...deps(registry),
+        inspectSnapshot: async () => ({ inspection: fakeInspection(), evaluation: fakeEvaluation() }),
+      },
+      aliceConfig
+    );
+
+    expect(result.action).toBe("linked");
+    expect(registry.seedStageStatuses).toHaveLength(0);
+  });
 });
 
 describe("runDemoSeed (auth store = FileAuthStore)", () => {
@@ -339,6 +390,8 @@ describe("runDemoSeed (auth store = FileAuthStore)", () => {
     inspectSnapshot: async () => ({
       inspection: { version: "1.0.0", verdict: "published", findings: [] },
       evaluation: fakeEvaluation(),
+      stageStatuses: { halucatch: "done" },
+      stageFailureMessages: {},
     }),
   });
 
@@ -395,5 +448,14 @@ describe("runDemoSeed (auth store = FileAuthStore)", () => {
     expect(registry.deletions).toContain("demo-skill");
     expect(registry.publishes).toHaveLength(1);
     expect(registry.publishes[0].owner.username).toBe("alice");
+  });
+
+  test("demo seed persists its stage statuses too", async () => {
+    const registry = new FakeRegistryStore();
+    await runDemoSeed(demoDeps(registry));
+
+    expect(registry.seedStageStatuses).toHaveLength(1);
+    expect(registry.seedStageStatuses[0].slug).toBe("demo-skill");
+    expect(registry.seedStageStatuses[0].finalize).toBe(true);
   });
 });
