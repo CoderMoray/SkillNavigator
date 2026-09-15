@@ -313,7 +313,7 @@ export interface RegistryStore {
    * be resumed and is therefore not listed.
    */
   listPendingVirusTotalInspections(): Promise<
-    Array<{ slug: string; version: string; sha256: string }>
+    Array<{ slug: string; version: string; sha256: string; analysisId?: string }>
   >;
   /**
    * Fill inspection stage statuses that were never persisted (rows written

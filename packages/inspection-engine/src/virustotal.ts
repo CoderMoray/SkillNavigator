@@ -87,6 +87,8 @@ export interface VirusTotalEngineResult {
 export interface VirusTotalScanSummary {
   provider: "virustotal";
   sha256: string;
+  /** Present for a deferred upload: the analysis id the report is checked against. */
+  analysisId?: string;
   status: VirusTotalScanStatus;
   malicious: number;
   suspicious: number;
@@ -166,7 +168,7 @@ export async function runVirusTotalScan(
     // upload). Hand back "pending" so the caller can publish right away and a
     // background sweep collects the report by hash, instead of holding a
     // request (and a CLI/agent call) open for it.
-    return pendingScan(sha256);
+    return pendingScan(sha256, analysisId);
   }
   const report = await waitForAnalysis(analysisId, apiKey);
   const completedReport = hasCompletedEngineStats(report)
@@ -189,12 +191,14 @@ function shouldDeferAnalysis(): boolean {
 }
 
 function pendingScan(
-  sha256: string
+  sha256: string,
+  analysisId: string
 ): { summary: VirusTotalScanSummary; findings: InspectionFinding[] } {
   return {
     summary: {
       provider: "virustotal",
       sha256,
+      analysisId,
       status: "pending",
       malicious: 0,
       suspicious: 0,
@@ -205,6 +209,44 @@ function pendingScan(
     },
     findings: []
   };
+}
+
+export type VirusTotalAnalysisState =
+  | { state: "in-progress" }
+  | { state: "completed" }
+  | { state: "unavailable" };
+
+/**
+ * Ask VirusTotal about the analysis of an upload.
+ *
+ * This is the one check that separates "not analysed yet" from "no longer
+ * available": the id came back from a *successful* upload, so a 404 means the
+ * analysis existed and VirusTotal no longer serves it (expired or discarded).
+ * A missing *file* report cannot tell those apart — it is also returned while a
+ * fresh upload is still being indexed.
+ */
+export async function checkVirusTotalAnalysis(
+  analysisId: string
+): Promise<VirusTotalAnalysisState> {
+  const apiKey = readApiKey();
+  if (!apiKey) {
+    throw new Error("VIRUSTOTAL_API_KEY is required to check a VirusTotal analysis.");
+  }
+  return runVirusTotalStep("analysis_poll", "VirusTotal analysis status lookup", async () => {
+    const response = await virusTotalFetch(
+      `${VIRUSTOTAL_API_BASE_URL}/analyses/${encodeURIComponent(analysisId)}`,
+      apiKey,
+      { step: "analysis_poll" }
+    );
+    if (response.status === 404) {
+      return { state: "unavailable" as const };
+    }
+    const payload = await readJsonResponse(response, "VirusTotal analysis status lookup");
+    const status = getNestedValue(payload, ["data", "attributes", "status"]);
+    return status === "completed"
+      ? { state: "completed" as const }
+      : { state: "in-progress" as const };
+  });
 }
 
 /**

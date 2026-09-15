@@ -97,6 +97,7 @@ export interface InspectionAndEvaluationResult {
 
 export type { SkillSpectorScanSummary } from "./skillspector.js";
 export {
+  checkVirusTotalAnalysis,
   diagnoseVirusTotalError,
   isVirusTotalEnabled,
   isVirusTotalUploadOnMissEnabled,
@@ -106,6 +107,7 @@ export {
   parseThreatVerdict,
   resolveVirusTotalEngineTotal,
   runVirusTotalScan,
+  type VirusTotalAnalysisState,
   type VirusTotalEngineResult,
   type VirusTotalScanSummary,
   type VirusTotalThreatVerdict

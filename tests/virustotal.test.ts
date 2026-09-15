@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import {
+  checkVirusTotalAnalysis,
   diagnoseVirusTotalError,
   lookupVirusTotalScan,
   parseEngineResults,
@@ -323,7 +324,12 @@ describe("VirusTotal package review adapter", () => {
     // background sweep's job once the upload is accepted.
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(String(fetchMock.mock.calls[1]?.[0])).toMatch(/\/files$/);
-    expect(scan.summary).toMatchObject({ status: "pending", totalEngines: 0 });
+    expect(scan.summary).toMatchObject({
+      status: "pending",
+      totalEngines: 0,
+      // The id is what later lets the sweep ask "does this analysis still exist?"
+      analysisId: "analysis-id",
+    });
     expect(scan.summary.sha256).toMatch(/^[a-f0-9]{64}$/);
     expect(scan.findings).toEqual([]);
   });
@@ -379,6 +385,36 @@ describe("VirusTotal package review adapter", () => {
       kind: "auth",
       retryable: false,
     });
+  });
+
+  test("tells an in-progress analysis from one VirusTotal no longer has", async () => {
+    configureVirusTotal();
+    const analysisId = "analysis-id";
+
+    for (const status of ["queued", "in-progress"]) {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(jsonResponse({ data: { attributes: { status } } }))
+      );
+      await expect(checkVirusTotalAnalysis(analysisId)).resolves.toEqual({
+        state: "in-progress",
+      });
+    }
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ data: { attributes: { status: "completed" } } }))
+    );
+    await expect(checkVirusTotalAnalysis(analysisId)).resolves.toEqual({ state: "completed" });
+
+    // 404 on the analysis id is the "it used to exist" signal: the upload had
+    // returned this id, so VirusTotal dropped the analysis rather than being
+    // still busy with it.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ error: { message: "not found" } }, 404))
+    );
+    await expect(checkVirusTotalAnalysis(analysisId)).resolves.toEqual({ state: "unavailable" });
   });
 
   test("looks up a deferred report by hash and only completes on a real one", async () => {

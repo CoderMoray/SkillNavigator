@@ -1352,7 +1352,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
    * "processing" and the stored hash lets the sweep fetch the analysis.
    */
   async listPendingVirusTotalInspections(): Promise<
-    Array<{ slug: string; version: string; sha256: string }>
+    Array<{ slug: string; version: string; sha256: string; analysisId?: string }>
   > {
     await this.ensureSchema();
     const rows = await this.db
@@ -1360,6 +1360,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         slug: schema.skillVersions.skillSlug,
         version: schema.skillVersions.version,
         sha256: schema.skillInspections.virustotalSha256,
+        analysisId: schema.skillInspections.virustotalAnalysisId,
       })
       .from(schema.skillVersions)
       .innerJoin(schema.skills, eq(schema.skills.slug, schema.skillVersions.skillSlug))
@@ -1382,6 +1383,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       slug: row.slug,
       version: row.version,
       sha256: String(row.sha256),
+      ...(row.analysisId ? { analysisId: row.analysisId } : {}),
     }));
   }
 

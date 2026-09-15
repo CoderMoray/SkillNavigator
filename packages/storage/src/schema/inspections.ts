@@ -17,6 +17,9 @@ export const skillInspections = pgTable("skill_inspections", {
   skillspectorScanMode: text("skillspector_scan_mode"),
   virustotalProvider: text("virustotal_provider"),
   virustotalSha256: text("virustotal_sha256"),
+  // The upload's analysis id: the only evidence that VirusTotal *had* this
+  // sample, so a later 404 on it means "report is gone", not "not analysed yet".
+  virustotalAnalysisId: text("virustotal_analysis_id"),
   virustotalStatus: text("virustotal_status"),
   virustotalMalicious: integer("virustotal_malicious"),
   virustotalSuspicious: integer("virustotal_suspicious"),

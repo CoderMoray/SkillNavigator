@@ -11,6 +11,7 @@ import { describe, expect, test } from "vitest";
 import { JsonRegistryStore, type RegistryData } from "@skill-platform/storage";
 
 const SHA256 = "b".repeat(64);
+const ANALYSIS_ID = "analysis-1";
 
 /** Minimal in-memory registry: load/save are the only abstract methods. */
 class InMemoryRegistryStore extends JsonRegistryStore {
@@ -31,7 +32,7 @@ class InMemoryRegistryStore extends JsonRegistryStore {
   }
 }
 
-function inspection(sha256: string | undefined) {
+function inspection(sha256: string | undefined, analysisId?: string) {
   return {
     id: "inspection-1",
     skillSlug: "demo-skill",
@@ -47,6 +48,7 @@ function inspection(sha256: string | undefined) {
           virusTotal: {
             provider: "virustotal",
             sha256,
+            ...(analysisId ? { analysisId } : {}),
             status: "pending",
             malicious: 0,
             suspicious: 0,
@@ -72,7 +74,7 @@ function versionEntry(overrides: Record<string, unknown> = {}) {
     releaseTags: ["latest"],
     inspectionStatus: "inspecting",
     inspectionStageStatuses: { virustotal: "processing", halucatch: "done" },
-    inspection: inspection(SHA256),
+    inspection: inspection(SHA256, ANALYSIS_ID),
     createdAt: hourAgo,
     updatedAt: hourAgo,
     ...overrides,
@@ -103,10 +105,22 @@ function registryData(version: object): RegistryData {
 }
 
 describe("deferred VirusTotal store support", () => {
-  test("lists versions waiting for a report, with the hash to resume from", async () => {
+  test("lists versions waiting for a report, with the hash and analysis id to resume from", async () => {
     const store = new InMemoryRegistryStore(registryData(versionEntry()));
 
     await expect(store.listPendingVirusTotalInspections()).resolves.toEqual([
+      { slug: "demo-skill", version: "1.0.0", sha256: SHA256, analysisId: ANALYSIS_ID },
+    ]);
+  });
+
+  test("still lists a pending version that predates analysis-id tracking", async () => {
+    // Rows written before the analysis id existed carry a hash only: the sweep
+    // has to keep working for them (it falls back to the hash lookup).
+    const legacy = new InMemoryRegistryStore(
+      registryData(versionEntry({ inspection: inspection(SHA256) }))
+    );
+
+    await expect(legacy.listPendingVirusTotalInspections()).resolves.toEqual([
       { slug: "demo-skill", version: "1.0.0", sha256: SHA256 },
     ]);
   });

@@ -3,6 +3,7 @@ import { parseThreatVerdict, resolveVirusTotalEngineTotal, type VirusTotalScanSu
 export interface VirusTotalReviewColumns {
   virustotalProvider: string | null;
   virustotalSha256: string | null;
+  virustotalAnalysisId: string | null;
   virustotalStatus: string | null;
   virustotalMalicious: number | null;
   virustotalSuspicious: number | null;
@@ -21,6 +22,7 @@ export function virusTotalInspectionColumns(
     return {
       virustotalProvider: null,
       virustotalSha256: null,
+      virustotalAnalysisId: null,
       virustotalStatus: null,
       virustotalMalicious: null,
       virustotalSuspicious: null,
@@ -36,6 +38,7 @@ export function virusTotalInspectionColumns(
   return {
     virustotalProvider: summary.provider,
     virustotalSha256: summary.sha256 || null,
+    virustotalAnalysisId: summary.analysisId ?? null,
     virustotalStatus: summary.status,
     virustotalMalicious: summary.malicious,
     virustotalSuspicious: summary.suspicious,
@@ -51,6 +54,7 @@ export function virusTotalInspectionColumns(
 export function parseVirusTotalInspectionRow(row: {
   virustotalProvider?: string | null;
   virustotalSha256?: string | null;
+  virustotalAnalysisId?: string | null;
   virustotalStatus?: string | null;
   virustotalMalicious?: number | null;
   virustotalSuspicious?: number | null;
@@ -98,6 +102,7 @@ export function parseVirusTotalInspectionRow(row: {
   return {
     ...summary,
     totalEngines: resolveVirusTotalEngineTotal(summary),
+    ...(row.virustotalAnalysisId ? { analysisId: row.virustotalAnalysisId } : {}),
     ...(row.virustotalAnalysisUrl ? { analysisUrl: row.virustotalAnalysisUrl } : {}),
     ...(row.virustotalError ? { error: row.virustotalError } : {}),
     ...(threatVerdict ? { threatVerdict } : {})

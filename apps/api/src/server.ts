@@ -5,6 +5,7 @@ import { evaluateSkillSnapshot } from "@skill-platform/evaluator";
 import {
   buildRetryStageStatusesForMark,
   calculateInspectionVerdict,
+  checkVirusTotalAnalysis,
   diagnoseVirusTotalError,
   getConfiguredInspectionStages,
   isPipelineIncomplete,
@@ -1912,14 +1913,52 @@ async function runBackgroundPublishInspection(
  * for the next tick. Only a non-retryable failure — bad key, exhausted quota —
  * marks the stage interrupted, so the owner can fix it and retry.
  */
+/**
+ * VirusTotal dropped an analysis it had accepted: re-running the inspection is
+ * the only way forward, so fail the stage with a message that says exactly that
+ * (the owner reads it via `skillnav status <slug>`).
+ */
+async function markVirusTotalReportUnavailable(
+  store: RegistryStore,
+  slug: string,
+  version: string
+): Promise<void> {
+  const entry = await store.getSkill(slug).then((skill) => skill?.versions?.[version]);
+  await store.markSkillInspectionStatus(slug, "interrupted", {
+    version,
+    stageStatuses: { ...(entry?.inspectionStageStatuses ?? {}), virustotal: "interrupted" },
+    failure: {
+      stages: ["virustotal"],
+      message:
+        "VirusTotal no longer has the analysis of this upload (its report is unavailable), so the " +
+        "scan cannot be completed. Re-run the inspection: skillnav retry-publish <slug>",
+    },
+  });
+}
+
 async function resumeDeferredVirusTotalInspections(store: RegistryStore): Promise<void> {
   const pending = await store.listPendingVirusTotalInspections();
   if (pending.length === 0) {
     return;
   }
 
-  for (const { slug, version, sha256 } of pending) {
+  for (const { slug, version, sha256, analysisId } of pending) {
     try {
+      // The analysis id is the only way to tell "not analysed yet" from "no
+      // longer available": it came back from a successful upload, so a 404 on it
+      // means VirusTotal dropped the report and waiting will never help.
+      if (analysisId) {
+        const analysis = await checkVirusTotalAnalysis(analysisId);
+        if (analysis.state === "unavailable") {
+          console.warn(`VirusTotal no longer has the analysis for ${slug}@${version}`);
+          await markVirusTotalReportUnavailable(store, slug, version);
+          continue;
+        }
+        if (analysis.state === "in-progress") {
+          continue;
+        }
+      }
+
       const report = await lookupVirusTotalScan(sha256);
       if (report.status === "pending") {
         continue;
