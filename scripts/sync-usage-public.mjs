@@ -9,11 +9,9 @@ const target = path.join(repoRoot, "apps", "web", "public", "usage");
 const installScriptSource = path.join(source, "install.sh");
 const installScriptTarget = path.join(repoRoot, "apps", "web", "public", "install.sh");
 const DEFAULT_BRAND_NAME = "SkillNavigator";
-const DEFAULT_PIP_INDEX_URL = "https://pypi.org/simple";
 const BRAND_PLACEHOLDER = "{{brand_name}}";
 const REGISTRY_API_URL_PLACEHOLDER = "{{registry_api_url}}";
 const WEB_URL_PLACEHOLDER = "{{web_url}}";
-const PIP_INDEX_URL_PLACEHOLDER = "{{pip_index_url}}";
 
 // Same dotenv resolution as packages/storage/src/env.ts (DOTENV_FILE > .env >
 // .env.rapid); values already in the process env win (loadEnvFile semantics).
@@ -42,7 +40,6 @@ function deploymentConfig() {
       process.env.NEXT_PUBLIC_WEB_URL?.trim() ||
       process.env.WEB_PUBLIC_URL?.trim() ||
       "（部署方未配置对外 Web 地址——请向平台维护者索取）",
-    pipIndexUrl: process.env.NEXT_PUBLIC_PIP_INDEX_URL?.trim() || DEFAULT_PIP_INDEX_URL,
   };
 }
 
@@ -50,7 +47,6 @@ function applyDeploymentConfig(content, config) {
   return content
     .replaceAll(REGISTRY_API_URL_PLACEHOLDER, config.registryApiUrl)
     .replaceAll(WEB_URL_PLACEHOLDER, config.webUrl)
-    .replaceAll(PIP_INDEX_URL_PLACEHOLDER, config.pipIndexUrl)
     .replaceAll(BRAND_PLACEHOLDER, config.brandName);
 }
 

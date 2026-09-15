@@ -10,17 +10,16 @@ describe("applyDeploymentConfig", () => {
 
   test("replaces brand and deployment placeholders", () => {
     const result = applyDeploymentConfig(
-      "# {{brand_name}}\nRegistry: {{registry_api_url}}\nWeb: {{web_url}}\nPIP: {{pip_index_url}}",
+      "# {{brand_name}}\nRegistry: {{registry_api_url}}\nWeb: {{web_url}}",
       {
         brandName: "MonoSkillNavigator",
         registryApiUrl: "https://example.com/api",
         webUrl: "https://example.com",
-        pipIndexUrl: "https://pypi.example/simple",
       }
     );
 
     expect(result).toBe(
-      "# MonoSkillNavigator\nRegistry: https://example.com/api\nWeb: https://example.com\nPIP: https://pypi.example/simple"
+      "# MonoSkillNavigator\nRegistry: https://example.com/api\nWeb: https://example.com"
     );
   });
 
@@ -31,7 +30,6 @@ describe("applyDeploymentConfig", () => {
         brandName: "DemoBrand",
         registryApiUrl: "https://example.com/api",
         webUrl: "https://example.com",
-        pipIndexUrl: "https://pypi.example/simple",
       }
     );
 
@@ -48,7 +46,6 @@ describe("applyDeploymentConfig", () => {
       brandName: "MonoSkillNavigator",
       registryApiUrl: "https://registry.example/api",
       webUrl: "https://web.example",
-      pipIndexUrl: "https://pypi.org/simple",
     });
   });
 
@@ -62,7 +59,6 @@ describe("applyDeploymentConfig", () => {
       brandName: "MonoSkillNavigator",
       registryApiUrl: "https://example.com/api",
       webUrl: "https://example.com",
-      pipIndexUrl: "https://pypi.example/simple",
     });
 
     expect(source).toContain("{{brand_name}}");

@@ -53,7 +53,6 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_REGISTRY_INSTALL_GUIDE_URL:
       process.env.NEXT_PUBLIC_REGISTRY_INSTALL_GUIDE_URL?.trim() || "",
     NEXT_PUBLIC_REGISTRY_API_URL: process.env.NEXT_PUBLIC_REGISTRY_API_URL?.trim() || "",
-    NEXT_PUBLIC_PIP_INDEX_URL: process.env.NEXT_PUBLIC_PIP_INDEX_URL?.trim() || "",
     NEXT_PUBLIC_BRAND_NAME: configuredBrandName,
   },
   basePath: process.env.NEXT_PUBLIC_BASE_PATH ?? "",

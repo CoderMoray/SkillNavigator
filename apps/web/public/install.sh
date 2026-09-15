@@ -3,7 +3,7 @@
 # MonoSkillNavigator CLI (skillnav) 一键安装与配置脚本
 # 部署后访问：https://localhost:3001/install.sh（勿直接改 apps/web/public/install.sh）
 # 规范与特性：
-# 1. 自动判定环境并安装 CLI（兼容 pipx、PEP 668、python3 -m pip）
+# 1. 自动判定环境并安装 CLI（PyPI 优先，10s 超时后回退阿里云镜像；兼容 pipx、PEP 668）
 # 2. 自动探测安装路径并修复 PATH（自动写入 ~/.zshrc 或 ~/.bash_profile）
 # 3. 自动配置与测试平台 Registry（支持多 profile / 强制覆盖）
 # 4. 支持传参 --api-key 自动完成登录与 whoami 身份验证，或在终端交互输入
@@ -13,7 +13,9 @@ set -e
 
 REGISTRY_URL="http://127.0.0.1:3000"
 WEB_URL="https://localhost:3001"
-PIP_INDEX="https://pypi.org/simple"
+PIP_INDEX_PYPI="https://pypi.org/simple"
+PIP_INDEX_ALIYUN="https://mirrors.aliyun.com/pypi/simple/"
+PIP_INSTALL_TIMEOUT=10
 API_KEY=""
 
 # ------------------------------------------------------------------------------
@@ -66,6 +68,36 @@ skillnav_config_add_profile() {
     return 1
 }
 
+# pip / pipx 安装 skillnav：指定 index 与超时（秒）。
+skillnav_install_via_pip() {
+    local index_url="$1"
+    python3 -m pip install --user -i "$index_url" --timeout "$PIP_INSTALL_TIMEOUT" \
+        --break-system-packages skillnav 2>/dev/null || \
+    python3 -m pip install --user -i "$index_url" --timeout "$PIP_INSTALL_TIMEOUT" skillnav
+}
+
+skillnav_install_via_pipx() {
+    local index_url="$1"
+    pipx install skillnav --force \
+        --pip-args="-i ${index_url} --timeout ${PIP_INSTALL_TIMEOUT}"
+}
+
+try_install_skillnav() {
+    local index_url="$1"
+    local label="$2"
+    echo "  -> 正在从 ${label} 安装 (超时 ${PIP_INSTALL_TIMEOUT}s)..."
+    if command -v pipx &>/dev/null; then
+        echo "  -> 使用 pipx 隔离环境..."
+        skillnav_install_via_pipx "$index_url"
+    elif command -v python3 &>/dev/null; then
+        echo "  -> 使用 python3 -m pip --user..."
+        skillnav_install_via_pip "$index_url"
+    else
+        echo "❌ 错误: 未检测到 Python3 或 pipx，请先安装 Python 环境。" >&2
+        exit 1
+    fi
+}
+
 echo "=================================================="
 echo "🚀 欢迎使用 MonoSkillNavigator 一键安装引导"
 echo "=================================================="
@@ -76,17 +108,13 @@ echo ""
 # ------------------------------------------------------------------------------
 echo "📦 [1/4] 检查环境并安装 skillnav CLI..."
 
-if command -v pipx &>/dev/null; then
-    echo "  -> 检测到 pipx，使用隔离环境安装..."
-    pipx install skillnav --force --pip-args="-i ${PIP_INDEX}"
-elif command -v python3 &>/dev/null; then
-    echo "  -> 检测到 Python3，正在通过 pip 安装..."
-    # 优先尝试 --break-system-packages (针对 Python 3.11+ PEP 668 环境)
-    # 若不支持该参数则回退到普通 --user 安装 (针对 Python 3.9/3.10)
-    python3 -m pip install --user -i "${PIP_INDEX}" --break-system-packages skillnav 2>/dev/null || \
-    python3 -m pip install --user -i "${PIP_INDEX}" skillnav
+if try_install_skillnav "$PIP_INDEX_PYPI" "PyPI"; then
+    :
+elif try_install_skillnav "$PIP_INDEX_ALIYUN" "阿里云 PyPI 镜像"; then
+    echo "  ℹ️  PyPI 不可用或超时，已改用阿里云镜像完成安装。"
 else
-    echo "❌ 错误: 未检测到 Python3 或 pipx，请先安装 Python 环境。"
+    echo "❌ 错误: 连接超时，PyPI 与阿里云镜像均无法在 ${PIP_INSTALL_TIMEOUT}s 内完成安装。" >&2
+    echo "   请检查网络、代理或 VPN，或手动安装: pip install skillnav -i ${PIP_INDEX_ALIYUN}" >&2
     exit 1
 fi
 

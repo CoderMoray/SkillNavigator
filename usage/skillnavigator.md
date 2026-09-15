@@ -35,7 +35,8 @@ curl -fsSL {{web_url}}/install.sh | bash -s -- --api-key sk_…
 **方式 B — 手动 pip 安装**
 
 ```bash
-pip install skillnav -i {{pip_index_url}}
+pip install skillnav
+# 国内网络较慢时可试: pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/
 ```
 
 > 沙箱限网时需以允许联网的权限执行 `pip` 或 `curl`。
