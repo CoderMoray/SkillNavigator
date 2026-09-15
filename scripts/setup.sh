@@ -162,7 +162,7 @@ if has_admin_config; then
 
   echo "[3] Setup complete!"
   echo "    Administrator: $ADMIN_USERNAME <$ADMIN_EMAIL>"
-  echo "    Seeded Skill: skillnav-skill (slug) — install with: skillnav install skillnav-skill --dir <skills dir>"
+  echo "    Seeded Skill: skillnav-skill (slug) — install with: skillnav install skillnav-skill --dir <skills dir>/skillnav-skill"
   rm -f "$BOOTSTRAP_OUT"
   exit 0
 fi

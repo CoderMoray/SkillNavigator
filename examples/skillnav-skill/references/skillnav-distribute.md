@@ -31,7 +31,7 @@ skillnav install my-skill --version 1.0.0 --dir ./skills/my-skill
 
 | 参数 | 说明 |
 | --- | --- |
-| `--dir` | 目标目录（解压后含 SKILL.md） |
+| `--dir` | **必填**：该 Skill 的目标目录（解压后含 SKILL.md）。Agent 客户端的工作目录常为临时/沙箱目录，故不提供默认值。 |
 | `--version` | 版本，默认 `latest` |
 
 ---

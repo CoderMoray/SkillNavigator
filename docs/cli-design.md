@@ -107,7 +107,7 @@ skillnav
 │  └─ info <slug> [--json]                     # GET /skills/:slug
 ├─ 分发
 │  ├─ download <slug> [--version] [-o PATH]    # 下载 zip → GET .../download
-│  └─ install  <slug> [--version] [--dir DIR]  # 下载并解压为目录
+│  └─ install  <slug> [--version] --dir DIR   # 下载并解压为目录（--dir 必填）
 ├─ 社区
 │  ├─ rate <slug> --score N [--comment]        # POST /skills/:slug/ratings
 │  ├─ issue <slug> --title T [--type] [--severity] [--body]   # POST /skills/:slug/issues

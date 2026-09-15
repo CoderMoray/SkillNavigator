@@ -75,13 +75,13 @@ skillnav config test
 
 ## 三、Skill 操作
 
-⚠️ 安装 Skill 时**建议**用 `--dir` 指向当前 Agent 的 skills 目录；省略 `--dir` 时默认解压到当前目录下的 `./<slug>/`，Agent 可能无法识别。
+⚠️ 安装 Skill 时 **`--dir` 为必填**：必须显式指向当前 Agent 实际加载 Skill 的目录，省略会直接报错退出。Agent 客户端的工作目录常是临时或沙箱目录，默认位置不可靠，因此不再提供隐式默认值（确实要装到当前目录时写 `--dir .`）。
 
 ```bash
 skillnav search <关键词>                          # 搜索
 skillnav info <slug>                              # 查看元数据与版本
-skillnav install <slug> --dir <skills 目录>        # 安装到 Agent 可识别目录
-skillnav install <slug> --version <版本> --dir <skills 目录>
+skillnav install <slug> --dir <skills 目录>/<slug>   # 必填；目标为该 Skill 的目录（解压后含 SKILL.md）
+skillnav install <slug> --version <版本> --dir <skills 目录>/<slug>
 skillnav download <slug> -o <输出.zip>              # 仅下载 ZIP
 ```
 
@@ -89,7 +89,7 @@ skillnav download <slug> -o <输出.zip>              # 仅下载 ZIP
 
 ```bash
 skillnav --registry {{registry_api_url}} search <关键词>
-skillnav --registry {{registry_api_url}} install <slug> --dir <skills 目录>
+skillnav --registry {{registry_api_url}} install <slug> --dir <skills 目录>/<slug>
 ```
 
 ## 四、安装目录
@@ -111,7 +111,7 @@ skillnav --registry {{registry_api_url}} install <slug> --dir <skills 目录>
 若 Agent 需要代用户完成发布、审查查询等操作，可安装本平台官方 CLI Skill：
 
 ```bash
-skillnav install skillnav-skill --dir <skills 目录>
+skillnav install skillnav-skill --dir <skills 目录>/skillnav-skill
 ```
 
 ## 六、发布（用户明确要求时）

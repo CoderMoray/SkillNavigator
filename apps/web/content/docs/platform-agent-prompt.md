@@ -42,12 +42,12 @@
 · Skill 在回收站 → Web 个人中心恢复后再 publish
 · 分类报错 → 须为 9 类之一：Automation、Developer Tools、Documentation、Productivity、Data & Analytics、Security、Design & Creative、Communication、Other
 · 自定义部署 API → registry 传完整 API 根（本实例见上）
-· CLI 命令参数 → skillnav <命令> --help，或安装官方 Skill：skillnav install skillnav-skill
+· CLI 命令参数 → skillnav <命令> --help，或安装官方 Skill：skillnav install skillnav-skill --dir <你的 Agent 加载 Skill 的目录>/skillnav-skill（`--dir` 必填，装在临时目录不会被加载）
 ```
 
 ---
 
 ## 相关资源
 
-- 官方 CLI Skill（Agent 专用命令参考，含 `references/` 分模块说明）：让 Agent 执行 `skillnav install skillnav-skill`
+- 官方 CLI Skill（Agent 专用命令参考，含 `references/` 分模块说明）：让 Agent 执行 `skillnav install skillnav-skill --dir <你的 Agent 加载 Skill 的目录>/skillnav-skill`（`--dir` 必填）
 - CLI 设计文档：{{web_url}}/docs/cli-guide

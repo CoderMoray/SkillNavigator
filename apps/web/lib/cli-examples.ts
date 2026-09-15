@@ -16,10 +16,13 @@ export function skillnavDownloadExample(slug = "demo-skill", output = "demo-skil
 }
 
 export function skillnavInstallExample(slug: string, version?: string): string {
+  // --dir is required: installs must target a directory the caller's agent
+  // actually loads skills from, so the example always shows an explicit target.
+  const target = `./skills/${slug}`;
   if (!version || version === "latest") {
-    return `skillnav install ${slug}`;
+    return `skillnav install ${slug} --dir ${target}`;
   }
-  return `skillnav install ${slug} --version ${version}`;
+  return `skillnav install ${slug} --version ${version} --dir ${target}`;
 }
 
 export function skillnavInstallWithRegistryExample(

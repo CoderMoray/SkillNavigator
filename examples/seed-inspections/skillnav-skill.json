@@ -1,28 +1,28 @@
 {
   "skill": "skillnav-skill",
-  "contentHash": "57d3c1f656a099d37e060231b3e1ccec9b31fe94bdbb8263311cbf8c5ff0dcf0",
-  "generatedAt": "2026-09-09T10:40:45.738Z",
+  "contentHash": "bea615850bf167bce727994e52df88aee1380e21f55dc46c19e5e2a4f051e1dc",
+  "generatedAt": "2026-09-15T10:34:56.843Z",
   "generator": {
     "note": "Full inspection frozen (platform rules + SkillSpector + scores/verdict). HaluCatch re-runs live at seed time; VT never runs at seed time."
   },
   "virusTotal": {
     "provider": "virustotal",
-    "sha256": "5e2ec3577cbf7c00e738998d4e47516f28ae3c7d6574ec90a19916c8851df8a8",
+    "sha256": "f9be2dabd29418d0dc69c09657b373fec3678e7d5977acd524f7781dffbb8990",
     "status": "completed",
     "malicious": 0,
     "suspicious": 0,
     "harmless": 0,
     "undetected": 64,
-    "totalEngines": 75,
-    "analysisUrl": "https://www.virustotal.com/gui/file/5e2ec3577cbf7c00e738998d4e47516f28ae3c7d6574ec90a19916c8851df8a8",
+    "totalEngines": 74,
+    "analysisUrl": "https://www.virustotal.com/gui/file/f9be2dabd29418d0dc69c09657b373fec3678e7d5977acd524f7781dffbb8990",
     "engineResults": []
   },
   "inspection": {
-    "id": "inspection_57d3c1f656a099d3_1788950445738",
+    "id": "inspection_bea615850bf167bc_1789468496843",
     "skillSlug": "skillnav-skill",
     "skillName": "skillnav CLI",
     "version": "1.0.0",
-    "contentHash": "57d3c1f656a099d37e060231b3e1ccec9b31fe94bdbb8263311cbf8c5ff0dcf0",
+    "contentHash": "bea615850bf167bce727994e52df88aee1380e21f55dc46c19e5e2a4f051e1dc",
     "verdict": "published",
     "scores": {
       "qualityScore": 100,
@@ -39,16 +39,22 @@
     },
     "virusTotal": {
       "provider": "virustotal",
-      "sha256": "5e2ec3577cbf7c00e738998d4e47516f28ae3c7d6574ec90a19916c8851df8a8",
+      "sha256": "f9be2dabd29418d0dc69c09657b373fec3678e7d5977acd524f7781dffbb8990",
       "status": "completed",
       "malicious": 0,
       "suspicious": 0,
       "harmless": 0,
       "undetected": 64,
-      "totalEngines": 75,
-      "analysisUrl": "https://www.virustotal.com/gui/file/5e2ec3577cbf7c00e738998d4e47516f28ae3c7d6574ec90a19916c8851df8a8",
+      "totalEngines": 74,
+      "analysisUrl": "https://www.virustotal.com/gui/file/f9be2dabd29418d0dc69c09657b373fec3678e7d5977acd524f7781dffbb8990",
       "engineResults": []
     },
-    "createdAt": "2026-09-09T10:40:45.738Z"
-  }
+    "createdAt": "2026-09-15T10:34:56.843Z"
+  },
+  "stageStatuses": {
+    "skillspector": "passed",
+    "virustotal": "passed",
+    "halucatch": "done"
+  },
+  "stageFailureMessages": {}
 }

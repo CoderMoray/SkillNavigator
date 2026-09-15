@@ -392,7 +392,7 @@ skillnav info my-first-skill
 # 下载 ZIP
 skillnav download my-first-skill -o my-first-skill.zip
 
-# 下载并解压到目录
+# 下载并解压到目录（--dir 必填：指向你的 Agent 实际加载 Skill 的目录）
 skillnav install my-first-skill --dir ./skills/my-first-skill
 
 # 在广场搜索自己的 Skill

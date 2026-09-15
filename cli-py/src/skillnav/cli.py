@@ -92,12 +92,33 @@ def _misplaced_global_option(args: list[str], supported: set[str]) -> str | None
     return None
 
 
-class SkillnavGroup(typer.core.TyperGroup):
-    """Reject misplaced global options with a position hint.
+def _missing_required_install_dir(args: list[str]) -> str | None:
+    """Explain why `install --dir` is mandatory instead of click's bare message."""
+    subcommand = next((arg for arg in args if not arg.startswith("-")), None)
+    if subcommand != "install":
+        return None
+    if "--help" in args or "-h" in args:
+        return None
 
-    Runs on the full argv before subcommand parsing, so the hint also covers
+    tail = args[args.index(subcommand) + 1 :]
+    if any(arg == "--dir" or arg.startswith("--dir=") for arg in tail):
+        return None
+
+    return (
+        "'--dir' is required: skill installs must target a directory you control. "
+        "Agent clients often run in temporary or sandboxed working directories, so a "
+        "default location (./<slug>/) is unreliable. Pass a directory your agent loads "
+        "skills from, e.g. `skillnav install <slug> --dir ~/.claude/skills` "
+        "(write `--dir .` if you really mean the current directory)."
+    )
+
+
+class SkillnavGroup(typer.core.TyperGroup):
+    """Reject misplaced global options and a missing install target, with hints.
+
+    Runs on the full argv before subcommand parsing, so the hints also cover
     options typed after the subcommand (where click would otherwise blame an
-    unrelated option).
+    unrelated option) and the required `--dir` of `install`.
     """
 
     def _subcommand_options(self, ctx: click.Context, args: list[str]) -> set[str]:
@@ -119,6 +140,9 @@ class SkillnavGroup(typer.core.TyperGroup):
         hint = _misplaced_global_option(args, self._subcommand_options(ctx, args))
         if hint:
             raise click.UsageError(hint)
+        missing_dir = _missing_required_install_dir(args)
+        if missing_dir:
+            raise click.UsageError(missing_dir)
         return super().parse_args(ctx, args)
 
 
@@ -804,15 +828,31 @@ def download_cmd(
         _handle_error(exc)
 
 
+_INSTALL_NEXT_STEPS = (
+    "Make sure this directory is one your agent actually loads skills from.",
+    "If you installed to a staging directory, move or symlink it into your client's skill "
+    "path (for example ~/.claude/skills, ~/.codex/skills, or your MCP/agent skill directory).",
+)
+
+
 @app.command("install")
 def install_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
-    version: Annotated[str, typer.Option("--version", help="Version to install")] = "latest",
     dir: Annotated[
-        Optional[Path], typer.Option("--dir", help="Target directory")
-    ] = None,
+        Path,
+        typer.Option(
+            "--dir",
+            help=(
+                "Required: directory to install this skill into (it will hold SKILL.md). "
+                "Agent clients often run in temporary or sandboxed working directories, so a "
+                "default relative path is unreliable — point this at a directory your agent "
+                "loads skills from, e.g. --dir ~/.claude/skills."
+            ),
+        ),
+    ],
+    version: Annotated[str, typer.Option("--version", help="Version to install")] = "latest",
 ) -> None:
-    """Download and extract a skill as a directory."""
+    """Download and extract a skill into a directory you control."""
     try:
         cli = _ctx()
         token = cli.require_token()
@@ -834,12 +874,22 @@ def install_cmd(
             except (json.JSONDecodeError, UnicodeDecodeError):
                 hint = enrich_api_error(f"download failed ({status})", status=status)
                 raise SkillnavError(hint.summary, hint=hint) from None
-        target = dir or Path(slug)
+        target = dir.expanduser()
         extract_zip_to_directory(data, target)
+        resolved = target.resolve()
         if cli.json_output:
-            emit_json({"path": str(target.resolve()), "slug": slug, "version": version})
+            emit_json(
+                {
+                    "path": str(resolved),
+                    "slug": slug,
+                    "version": version,
+                    "nextSteps": list(_INSTALL_NEXT_STEPS),
+                }
+            )
         else:
-            typer.echo(f"Installed {slug}@{version} to {target.resolve()}")
+            typer.echo(f"Installed {slug}@{version} to {resolved}")
+            for index, step in enumerate(_INSTALL_NEXT_STEPS):
+                typer.echo(f"{'Next: ' if index == 0 else '      '}{step}")
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
 
