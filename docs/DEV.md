@@ -47,6 +47,15 @@ npm run test:e2e    # Playwright，自动拉起 API + Web（需 PG/MinIO + Chrom
 - 一切用户可见品牌名经 `BRAND_NAME` 环境变量注入（`apps/web/lib/brand-name.ts` 等），**禁止硬编码**品牌字符串。
 - `apps/web/public/usage/`、`apps/web/public/install`、`.next/types` 等是构建/prebuild 生成物（`scripts/sync-usage-public.mjs`），**不要手工编辑**；出现 diff 属预期时用构建产物提交（参考 usage 产物同步提交 `af19586`）。
 - 该同步靠 **`prebuild` 钩子**触发，只有 `npm run build:web` 会跑；CI/部署脚本若直接调 `next build`，产物不会刷新——部署侧应在 env 变更后走 `build:web`，或显式执行 `node scripts/sync-usage-public.mjs`。
+- **源头 ↔ 产物对应关系**（仓库里出现的"两份内容相近的文件"是预期形态，产物带着渲染后的真实地址）：
+
+  | 源头（改这里） | 产物（勿手改） |
+  | --- | --- |
+  | `usage/skillnavigator.md` | `apps/web/public/usage/skillnavigator.md` |
+  | `apps/web/content/docs/platform-agent-prompt.md` | `apps/web/public/usage/platform-agent-prompt.md` |
+  | `usage/install.sh` | `apps/web/public/install` |
+
+  产物的用途是提供**可 `curl` 的原始 Markdown / 脚本**（网页版走 `/docs/*` 渲染 HTML，Agent 解析 HTML 成本高）。两处都存在是必要的：源头带 `{{...}}` 占位符，产物才是能直接交给 Agent 的成品。
 
 ## 四、提交纪律
 
