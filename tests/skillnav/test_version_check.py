@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import types
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -260,9 +261,60 @@ def test_version_flag_hints_on_stderr_and_keeps_stdout_clean(
     # The suite-wide autouse fixture silences the hint for every other CLI
     # test; restore the real implementation for this one.
     monkeypatch.setattr(cli, "maybe_notify_update", version_check.maybe_notify_update)
+    # pytest captures stderr (not a TTY), so force the interactive case.
+    monkeypatch.setattr(cli, "_hint_enabled", lambda **_: True)
 
     assert cli.run(["--version"]) == 0
 
     captured = capsys.readouterr()
     assert captured.out == f"skillnav {__version__}\n"
     assert "99.0.0" in captured.err
+
+
+# --------------------------------------------------------------------------
+# Machine consumers stay silent: --json and non-TTY stderr (pipes, CI, agent
+# harnesses) must never see the human-facing hint.
+# --------------------------------------------------------------------------
+
+def test_hint_is_skipped_for_json_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli.sys, "stderr", types.SimpleNamespace(isatty=lambda: True))
+    assert cli._hint_enabled(json_output=True) is False
+
+
+def test_hint_requires_an_interactive_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli.sys, "stderr", types.SimpleNamespace(isatty=lambda: False))
+    assert cli._hint_enabled(json_output=False) is False
+
+    monkeypatch.setattr(cli.sys, "stderr", types.SimpleNamespace(isatty=lambda: True))
+    assert cli._hint_enabled(json_output=False) is True
+
+
+def test_ordinary_command_never_hints_without_a_terminal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, runner
+) -> None:
+    def must_not_run(**_: object) -> None:
+        raise AssertionError("a non-TTY stderr must suppress the release hint")
+
+    monkeypatch.setenv("SKILLNAV_CONFIG", str(tmp_path / "config.json"))
+    monkeypatch.setattr(cli, "maybe_notify_update", must_not_run)
+
+    # pytest captures stderr, so this run behaves like a pipe/CI/agent call.
+    result = runner.invoke(cli.app, ["config", "list"])
+    assert result.exit_code == 0
+
+
+def test_version_flag_is_silent_when_stderr_is_not_a_terminal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from skillnav import __version__
+
+    monkeypatch.setenv("SKILLNAV_CONFIG", str(tmp_path / "config.json"))
+    monkeypatch.setattr(version_check, "fetch_pypi_latest_version", lambda **_: "99.0.0")
+    monkeypatch.setattr(cli, "maybe_notify_update", version_check.maybe_notify_update)
+    monkeypatch.setattr(cli.sys, "stderr", types.SimpleNamespace(isatty=lambda: False))
+
+    assert cli.run(["--version"]) == 0
+
+    captured = capsys.readouterr()
+    assert captured.out == f"skillnav {__version__}\n"
+    assert captured.err == ""

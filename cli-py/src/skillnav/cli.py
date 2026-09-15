@@ -135,11 +135,29 @@ def _is_version_only_argv(args: list[str]) -> bool:
     return args in (["--version"], ["-v"])
 
 
+def _hint_enabled(*, json_output: bool) -> bool:
+    """Whether the interactive release hint should be attempted.
+
+    Machine consumers must never see it: `--json` explicitly asks for
+    parseable output, and a non-TTY stderr means a pipe, CI job or agent
+    harness is reading — places where a hint is noise, not help.
+    """
+    if json_output:
+        return False
+    try:
+        return bool(sys.stderr.isatty())
+    except Exception:  # defensive: a hint must never break a command
+        return False
+
+
 def _print_version() -> None:
     typer.echo(f"skillnav {__version__}")
     # Fallback channel for the release hint: a version is announced at most
     # once ever, so a missed automatic hint would otherwise be lost for good.
-    # stderr-only keeps the stdout line machine-parseable; never raises.
+    # Interactive terminals only; stdout stays a single parseable line and the
+    # hint never raises.
+    if not _hint_enabled(json_output=False):
+        return
     try:
         maybe_notify_update()
     except Exception:
@@ -172,9 +190,13 @@ def cli_root(
     )
     ctx.obj = _state["ctx"]
 
-    # Daily best-effort release hint (once per 24h, stderr only, never blocks
-    # or raises). Skipped for `update` itself, which does its own lookup.
-    if ctx.invoked_subcommand != "update":
+    # Best-effort release hint (stderr only, never blocks or raises).
+    # Skipped for `update` itself (it does its own lookup) and for machine
+    # consumers — `--json` or a non-TTY stderr (pipes, CI, agent harnesses).
+    cli_ctx = _state.get("ctx")
+    if ctx.invoked_subcommand != "update" and _hint_enabled(
+        json_output=bool(cli_ctx and cli_ctx.json_output)
+    ):
         try:
             maybe_notify_update()
         except Exception:

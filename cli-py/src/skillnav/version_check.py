@@ -13,6 +13,9 @@
   cache), so a missed hint is never fatal.
 
 The hint goes to stderr, so machine-readable stdout (`--json`) stays clean.
+Callers only run this for interactive terminals with human-readable output
+(see ``skillnav.cli._hint_enabled``), so pipes, CI jobs and agent harnesses
+stay completely silent.
 Disable with ``SKILLNAV_UPDATE_CHECK=off``; the timeout is overridable via
 ``SKILLNAV_UPDATE_CHECK_TIMEOUT`` (seconds).
 """
@@ -177,7 +180,9 @@ def maybe_notify_update(
     if latest == state.notified_latest:
         return None
 
-    message = f"💡 skillnav {latest} 已发布（当前 {__version__}）：运行 skillnav update 升级"
+    # Plain ASCII and the same wording as `skillnav update --check`, so a tool
+    # reading a merged stdout/stderr stream sees no emoji or localized noise.
+    message = f"Update available: {__version__} -> {latest} (run: skillnav update)"
     print(message, file=stream)
     # Record the announcement without moving ``checked_at`` (the 24h network
     # window is independent of notification state).

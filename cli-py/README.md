@@ -40,12 +40,17 @@ back to the **Aliyun simple index** when PyPI times out or fails. Explicit
 `skillnav update` / `update --check` wait up to 10s per source; if both
 fail, the error lists each source's failure.
 
-On top of that, any command performs a **daily best-effort check** and prints
-a one-line hint to stderr when a newer release exists:
+On top of that, an interactive command performs a **daily best-effort check**
+and prints a one-line hint to stderr when a newer release exists:
 
 ```
-💡 skillnav 0.4.9 已发布（当前 0.4.8）：运行 skillnav update 升级
+Update available: 0.4.8 -> 0.4.9 (run: skillnav update)
 ```
+
+- The hint is **interactive-only** and plain ASCII (same wording as
+  `update --check`): it is skipped for `--json` and whenever stderr is not a
+  TTY — pipes, CI jobs and agent harnesses stay silent, so machine-read
+  output is never polluted.
 
 - The result is cached in `~/.config/skillnav/update-check.json`; the
   network is touched at most once per 24h (a failed lookup also backs off
