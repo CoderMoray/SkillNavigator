@@ -1,7 +1,7 @@
 {
   "skill": "demo-skill",
   "contentHash": "9d167658dae9eebf8d3efb807a1c68ca41ffd3deede981b04404df31cbe1c79c",
-  "generatedAt": "2026-09-15T05:09:50.625Z",
+  "generatedAt": "2026-09-15T12:37:09.970Z",
   "generator": {
     "note": "VT summary/link only. SkillSpector + HaluCatch re-run live at seed time."
   },
@@ -16,5 +16,11 @@
     "totalEngines": 74,
     "analysisUrl": "https://www.virustotal.com/gui/file/9626de9461c283e873972d4761ba9f4971f93313b9868279c5d80cb4a5e7f6b5",
     "engineResults": []
-  }
+  },
+  "stageStatuses": {
+    "skillspector": "passed",
+    "virustotal": "passed",
+    "halucatch": "done"
+  },
+  "stageFailureMessages": {}
 }

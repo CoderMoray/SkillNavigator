@@ -18,6 +18,8 @@ skillnav config add embed --registry https://host/SkillNavigator/api
 | `name` | ✅ | profile 名称（positional） |
 | `--registry` | ✅ | API 根 URL；**可含路径前缀**，CLI 用字符串拼接，勿省略前缀 |
 
+若该名字**已存在**，`config add` 会拒绝并提示改用 `skillnav config use <name>`（同名 profile 不会静默覆盖）——沿用既有配置走 `config use` 是正常路径，不是错误。
+
 ---
 
 ## config use / list / test
@@ -74,6 +76,8 @@ skillnav whoami     # 显示当前用户名与用户 ID
 skillnav update --check   # 仅检查
 skillnav update           # 从 PyPI 升级
 ```
+
+版本探测 **PyPI 优先，失败自动回退阿里云镜像**（每源 10s 超时），回退会在 **stderr** 打印含 `falling back to` 的提示；两个源都失败时错误会列出各自原因。`--json` 时 stdout 保持干净（提示只走 stderr），可直接管道给 `jq`。查询失败也会记录时间戳，24 小时内不再重复尝试（离线/内网环境每天最多付一次超时代价）。
 
 ---
 

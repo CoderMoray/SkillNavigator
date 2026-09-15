@@ -19,7 +19,7 @@ skillnav search keyword --json --limit 20
 | `--sort` | 排序（默认 downloads） |
 | `--limit` | 结果数量上限 |
 
-公开接口，无需登录。
+公开接口，无需登录。输出会以 `N skills found:` 明确给出结果条数——这样"0 结果"与"被 `--limit` 截断"可以区分。
 
 ---
 

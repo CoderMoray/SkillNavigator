@@ -38,7 +38,7 @@ skillnav publish ./my-skill \
 | `--release-tag` | 可重复；首版至少 `latest` |
 | `--changelog` | 版本 changelog 文本 |
 | `--dry-run` | 调用 preview 接口，不写入数据库 |
-| `--wait` | 阻塞至审查结束再返回（默认仅上传并后台审查） |
+| `--wait` | 阻塞至审查结束再返回（默认仅上传并后台审查）。请求预算 **600s**，`SKILLNAV_PUBLISH_WAIT_TIMEOUT` 可覆盖 |
 
 ## retry-publish — 重新审查已上传的包
 
@@ -47,7 +47,9 @@ skillnav retry-publish my-skill
 skillnav retry-publish my-skill --wait
 ```
 
-对已暂存但审查失败或未完成的 Skill 重新跑审查，**无需重新上传**。默认 **只重试失败或未完成的审查环节**（SkillSpector / VirusTotal / HaluCatch）。
+对已暂存但审查**中断**（`interrupted`）的 Skill 重新跑审查，**无需重新上传**。默认 **只重试失败或未完成的审查环节**（SkillSpector / VirusTotal / HaluCatch）。
+
+⚠️ 仅在 `interrupted` 时使用：若 `status` 显示 `inspecting`（VirusTotal 报告待后台补取，通常几分钟），那是**正常等待**，此时 retry-publish 会返回 409 `skill_inspection_in_progress`。
 
 ---
 
@@ -59,7 +61,7 @@ skillnav status my-skill --version 1.0.0
 skillnav status my-skill --json
 ```
 
-显示 **单个版本**（默认 latest）的 **审查状态**（`inspectionStatus`：审查中 / 审查失败 / 审查完成）、可见性，以及该版本的 `inspection`（含 verdict）、hash 与 VirusTotal 摘要。`--version` 可选。
+显示 **单个版本**（默认 latest）的 **verdict**（已发布 / 需复核 / 已拒绝）、**审查状态**（`inspectionStatus`：`completed` 审查完成 / `inspecting` 审查中（含 VirusTotal 待补取，属正常等待）/ `interrupted` 审查中断 / `rejected` 审查拒绝）、**安全摘要**、可见性，以及该版本的 `inspection`、hash 与 VirusTotal 摘要。`--version` 可选；`--json` 在顶层额外给出 `verdict` 字段。
 
 ---
 
