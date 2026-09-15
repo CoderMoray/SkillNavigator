@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# MonoSkillNavigator CLI (skillnav) 一键安装与配置脚本
-# 部署后访问：https://localhost:3001/install.sh（勿直接改 apps/web/public/install.sh）
+# SkillNavigator CLI (skillnav) 一键安装与配置脚本
+# 部署后访问：（部署方未配置对外 Web 地址——请向平台维护者索取）/install（勿直接改 apps/web/public/install）
 # 规范与特性：
 # 1. 自动判定环境并安装 CLI（PyPI 优先，10s 超时后回退阿里云镜像；兼容 pipx、PEP 668）
 # 2. 自动探测安装路径并修复 PATH（自动写入 ~/.zshrc 或 ~/.bash_profile）
@@ -11,8 +11,8 @@
 
 set -e
 
-REGISTRY_URL="http://127.0.0.1:3000"
-WEB_URL="https://localhost:3001"
+REGISTRY_URL="（部署方未配置 Registry API 地址——请向平台维护者索取）"
+WEB_URL="（部署方未配置对外 Web 地址——请向平台维护者索取）"
 PIP_INDEX_PYPI="https://pypi.org/simple"
 PIP_INDEX_ALIYUN="https://mirrors.aliyun.com/pypi/simple/"
 PIP_INSTALL_TIMEOUT=10
@@ -32,7 +32,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         -h|--help)
-            echo "用法: curl -fsSL ${WEB_URL}/install.sh | bash -s -- [选项]"
+            echo "用法: curl -fsSL ${WEB_URL}/install | bash -s -- [选项]"
             echo ""
             echo "选项:"
             echo "  --api-key <KEY>     可选，自动完成登录验证（在 Web 端「设置 → API 密钥」获取）"
@@ -99,7 +99,7 @@ try_install_skillnav() {
 }
 
 echo "=================================================="
-echo "🚀 欢迎使用 MonoSkillNavigator 一键安装引导"
+echo "🚀 欢迎使用 SkillNavigator 一键安装引导"
 echo "=================================================="
 echo ""
 
@@ -173,7 +173,7 @@ if [ -n "$FOUND_BIN" ]; then
     # 检查是否已包含在配置文件中
     if ! grep -q "$FOUND_BIN" "$TARGET_RC" 2>/dev/null; then
         echo "" >> "$TARGET_RC"
-        echo "# Added by MonoSkillNavigator installer" >> "$TARGET_RC"
+        echo "# Added by SkillNavigator installer" >> "$TARGET_RC"
         echo "export PATH=\"$FOUND_BIN:\$PATH\"" >> "$TARGET_RC"
         echo "  ✅ 已将 $FOUND_BIN 自动追加写入到 $TARGET_RC"
     else
@@ -243,7 +243,7 @@ fi
 
 echo ""
 echo "=================================================="
-echo "🎉 MonoSkillNavigator 安装与配置流程已全部就绪！"
+echo "🎉 SkillNavigator 安装与配置流程已全部就绪！"
 echo "=================================================="
 echo "👉 请在新打开的终端窗口中使用 skillnav"
 echo "   或者在当前窗口运行: source ~/.zshrc"
