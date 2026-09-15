@@ -7,15 +7,17 @@ SkillNavigator 是 Agent Skill 的发布、审查与分发平台。通过 **skil
 ## 适用场景（先判断，避免打扰用户）
 
 - **仅搜索/安装某个 Skill**（CLI 已安装且已登录）→ 直接跳到第三节执行命令，**不要重复询问 Registry 或 API 密钥**。
-- **首次安装 / 用户明确要求配置本平台** → 走第一、二节，**只在此场景询问，且只问这两件事**：① 是否现在登录（只有发版 / 评分 / 提 Issue 等写操作才需要；只做搜索与安装可先不登录）；② 安装 Skill 的目标目录（仅当你无法从 harness 判断，见第四节）。**不要**询问 Registry 地址、是否把本平台设为默认、是否创建 profile —— 这些由本指引直接决定。
+- **首次安装 / 用户明确要求配置本平台** → 走第一、二节，**只在此场景询问，且只问这两件事**：① 是否现在登录（仅 `search` / `top` / `info` **匿名可用**；`install` / `download` / `publish` / `rate` / `issue` 等**都需要登录**）；② 安装 Skill 的目标目录（仅当你无法从 harness 判断，见第四节）。**不要**询问 Registry 地址、是否把本平台设为默认、是否创建 profile —— 这些由本指引直接决定。
 
 ## 一、检查并安装 CLI
 
 ```bash
 command -v skillnav && skillnav --version   # 是否已安装 + 当前版本
 skillnav update --check                     # 是否有新版本
-skillnav config test                        # Registry 连通性
+skillnav config test                        # Registry 连通性（测的是「当前默认 profile」）
 ```
+
+⚠️ **`config test` 返回 OK 只代表"当前默认 profile 可达"，不代表"已连接本平台"** —— 全新环境里 default 往往指向别的地址，同样会 OK。请继续走第二节，核对该 profile 是否指向本平台。
 
 - **已安装** → 依次执行上面三行：先确认版本，有新版本则 `skillnav update`，再 `config test`。
   - `update --check` / `update` **失败不阻断流程**（内网、镜像不可达很常见）：把提示转述给用户，继续下一步。
@@ -50,7 +52,7 @@ pip install skillnav
 
 **先判断，能跳过就跳过**：`skillnav whoami` 成功 **且** `skillnav config test` 通过 → **整节跳过**，直接进入第三节。
 
-> `config test` **不带参数时测的是当前 profile**（即 `defaultProfile`，与 `--profile` 无关）。多 profile 环境下先 `skillnav config list` 确认当前 profile 指向 `（部署方未配置 Registry API 地址——请向平台维护者索取）`，必要时用 `skillnav config test <name>` 指定，否则可能把"另一个 registry 通"误判成"本平台已就绪"。
+> `config test` 不带参数时测试**当前默认 profile**（`defaultProfile` 指向的那个）；如需测试其他 profile，先 `skillnav config use <name>` 切换（或用 `skillnav config test <name>` 指定）。多 profile 环境下请先 `skillnav config list` 确认它指向 `（部署方未配置 Registry API 地址——请向平台维护者索取）`，否则可能把"另一个 registry 通"误判成"本平台已就绪"。
 
 否则按下面顺序处理。**不要询问「是否将 SkillNavigator 设为默认平台」**——本指引来自平台首页的一键复制，意图已经明确，直接执行：
 
@@ -175,6 +177,17 @@ skillnav report <slug>          # 完整安全/质量报告
 ```
 
 发布后若 `status` 显示 `inspectionStatus: inspecting`（阶段 `virustotal: processing`），表示 VirusTotal 报告正在后台补取（通常几分钟）——这是**正常等待**：不要 `retry-publish`（会返回 409 `skill_inspection_in_progress`），也不要重复上传同版本；补齐后会自动判定并公开。只有 `interrupted` 才用 `retry-publish`。
+
+**下架（用户要求时）**：
+
+```bash
+skillnav unpublish <slug>                    # 从公开搜索移除（交互确认 y/N）
+skillnav --no-input unpublish <slug>         # 自动化：跳过确认
+skillnav unpublish <slug> --version <版本>    # 只下架某个版本（latest 不可，会报 cannot_unpublish_latest_version）
+skillnav unpublish <slug> --purge            # 移入回收站（等价 Web 端删除，可在回收站恢复）
+```
+
+**不是删除**：包、审查数据与版本历史都保留，之后可重新上架（Web 详情页）或用新版本发布。仅 owner / contributor 可执行，非本人 Skill 返回 **403**。下架后 `skillnav status <slug>` 会显示 `Visibility: private`。**写操作，须用户明确要求后再执行。**
 
 ## 文档
 
