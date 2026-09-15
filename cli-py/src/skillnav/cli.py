@@ -1063,6 +1063,108 @@ def remove_contributor_cmd(
         _handle_error(exc)
 
 
+@app.command("unpublish")
+def unpublish_cmd(
+    slug: Annotated[str, typer.Argument(help="Skill slug")],
+    version: Annotated[
+        Optional[str],
+        typer.Option("--version", help="Unpublish one version instead of the whole skill"),
+    ] = None,
+    purge: Annotated[
+        bool,
+        typer.Option(
+            "--purge",
+            help="Move the skill to the recycle bin instead of only unpublishing it",
+        ),
+    ] = False,
+) -> None:
+    """Remove a skill (or one version) from public search.
+
+    Not a delete: the package, its inspection data and its history are kept — the
+    skill simply stops being publicly listed and can be republished later.
+    """
+    try:
+        if purge and version:
+            raise UsageError.from_hint(
+                enrich_usage_error("--purge removes the whole skill; drop --version")
+            )
+
+        cli = _ctx()
+        token = cli.require_token()
+
+        if not cli.no_input:
+            target = f"{slug}@{version}" if version else slug
+            effect = (
+                "move to the recycle bin"
+                if purge
+                else "remove from public search (republishable)"
+            )
+            if not typer.confirm(f"This will {effect}: {target}. Continue?", default=False):
+                # SystemExit is a BaseException, so it passes the `except
+                # Exception` below untouched: a declined prompt is a normal
+                # outcome with a non-zero code, not an error to be re-hinted.
+                raise SystemExit(1)
+
+        if purge:
+            status, payload = request_json(
+                "DELETE",
+                join_registry_url(cli.registry, f"/skills/{slug_path(slug)}"),
+                token=token,
+            )
+            raise_for_api_status(status, payload)
+            if cli.json_output:
+                emit_json(
+                    {
+                        "slug": slug,
+                        "action": "purged",
+                        "recycleBin": payload.get("recycleBin", True),
+                        "deletedAt": payload.get("deletedAt"),
+                        "purgeAt": payload.get("purgeAt"),
+                    }
+                )
+            else:
+                purge_at = payload.get("purgeAt")
+                suffix = f" (restorable until {purge_at})." if purge_at else "."
+                typer.echo(f"Moved '{slug}' to the recycle bin{suffix}")
+            return
+
+        path = (
+            f"/skills/{slug_path(slug)}/versions/{slug_path(version)}/unpublish"
+            if version
+            else f"/skills/{slug_path(slug)}/unpublish"
+        )
+        status, payload = request_json(
+            "POST", join_registry_url(cli.registry, path), token=token
+        )
+        raise_for_api_status(status, payload)
+
+        skill = payload.get("skill") if isinstance(payload, dict) else None
+        published = skill.get("published") if isinstance(skill, dict) else None
+        if published is False:
+            visibility = "private"
+        elif published is True:
+            visibility = "public"
+        else:
+            visibility = "unknown"
+        if cli.json_output:
+            emit_json(
+                {
+                    "slug": slug,
+                    "version": version,
+                    "action": "unpublished",
+                    "visibility": visibility,
+                }
+            )
+            return
+        target = f"{slug}@{version}" if version else slug
+        typer.echo(
+            f"Unpublished: {target} — no longer in public search; "
+            "the package is kept and can be republished."
+        )
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
 @app.command("update")
 def update_cmd(
     check_only: Annotated[

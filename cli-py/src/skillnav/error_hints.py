@@ -127,6 +127,35 @@ def enrich_api_error(raw: str, *, status: int, body: Any = None) -> ErrorHint:
         return invalid_api_key()
 
     exact: dict[str, ErrorHint] = {
+        "cannot_unpublish_latest_version": ErrorHint(
+            summary="Cannot unpublish the latest version",
+            detail=(
+                "A skill keeps a public latest version, so a single version cannot be"
+                " unpublished while it is the latest one."
+            ),
+            next_steps=_steps(
+                "Unpublish the whole skill instead: skillnav unpublish <slug>",
+                "Or publish a newer version first, then unpublish the older one.",
+            ),
+        ),
+        "version_already_unpublished": ErrorHint(
+            summary="That version is already unpublished",
+            detail="Nothing to do — the version is not in public search.",
+            next_steps=_steps(
+                "Check the current state: skillnav status <slug> --version <version>",
+                "Re-list it from the Web UI (skill detail page → republish).",
+            ),
+        ),
+        "version_already_published": ErrorHint(
+            summary="That version is already public",
+            detail="Nothing to do — the version is already listed publicly.",
+            next_steps=_steps("Check the current state: skillnav status <slug>"),
+        ),
+        "skill_already_published": ErrorHint(
+            summary="This skill is already public",
+            detail="Nothing to do — the skill is not currently unpublished.",
+            next_steps=_steps("Check the current state: skillnav status <slug>"),
+        ),
         "skill_in_recycle_bin": ErrorHint(
             summary="Skill is in the recycle bin",
             detail="Publishing is blocked while the skill slug is soft-deleted.",
