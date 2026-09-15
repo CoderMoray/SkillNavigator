@@ -331,6 +331,11 @@ def enrich_usage_error(message: str) -> ErrorHint:
             summary=f"Profile already exists: {profile_name}",
             detail="Each profile name must be unique in ~/.config/skillnav/config.json.",
             next_steps=_steps(
+                # Onboarding hits this case the most: the profile usually already
+                # points at the target registry, so removing it would be wrong.
+                f"If this profile already points to your target registry, just run "
+                f"skillnav config use {profile_name} (or skip adding). "
+                "Only remove/rename if you intend to replace it.",
                 "List profiles: skillnav config list",
                 f"Remove it: skillnav config remove {profile_name}",
                 "Or choose another name: skillnav config add <name> --registry <url>",

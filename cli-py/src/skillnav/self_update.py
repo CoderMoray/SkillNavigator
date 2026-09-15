@@ -66,13 +66,21 @@ def fetch_pypi_latest_version(*, timeout: float = RELEASE_SOURCE_TIMEOUT) -> str
         ("pypi.org", _fetch_version_from_pypi_json),
         ("mirrors.aliyun.com", _fetch_version_from_mirror_simple_index),
     )
-    for label, fetch in sources:
+    for index, (label, fetch) in enumerate(sources):
         try:
             return fetch(timeout=timeout)
         except SkillnavError as exc:
             failures.append(f"{label}: {exc}")
         except Exception as exc:  # defensive: a lookup must never break the caller
             failures.append(f"{label}: {exc}")
+        if index == 0:
+            # Degrading is routine (offline hosts, corporate mirrors), but it
+            # silently changes where the answer came from. Say so on stderr only:
+            # stdout has to stay machine-readable for `update --check --json`.
+            print(
+                f"PyPI lookup failed ({failures[-1]}); falling back to mirrors.aliyun.com",
+                file=sys.stderr,
+            )
     raise SkillnavError(
         "Failed to check skillnav updates on both sources — " + "; ".join(failures)
     )

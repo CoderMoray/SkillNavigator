@@ -15,10 +15,47 @@ from skillnav.self_update import (
     UpdateStatus,
     check_for_update,
     compare_versions,
+    fetch_pypi_latest_version,
     format_update_message,
     perform_update,
     read_installed_version,
 )
+
+
+@patch("skillnav.self_update._fetch_version_from_mirror_simple_index", return_value="0.4.0")
+@patch("skillnav.self_update._fetch_version_from_pypi_json", side_effect=SkillnavError("timed out"))
+def test_source_fallback_is_reported_on_stderr(
+    _mock_pypi: object,
+    _mock_mirror: object,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Degrading to the mirror is fine, but it must be visible — on stderr only."""
+    assert fetch_pypi_latest_version(timeout=1) == "0.4.0"
+
+    captured = capsys.readouterr()
+    assert "falling back to mirrors.aliyun.com" in captured.err
+    assert "timed out" in captured.err
+    # stdout stays parseable for `update --check --json`.
+    assert captured.out == ""
+
+
+@patch(
+    "skillnav.self_update._fetch_version_from_mirror_simple_index",
+    side_effect=SkillnavError("mirror down"),
+)
+@patch("skillnav.self_update._fetch_version_from_pypi_json", side_effect=SkillnavError("timed out"))
+def test_both_sources_failing_lists_each_reason(
+    _mock_pypi: object,
+    _mock_mirror: object,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with pytest.raises(SkillnavError) as excinfo:
+        fetch_pypi_latest_version(timeout=1)
+
+    message = str(excinfo.value)
+    assert "pypi.org" in message and "mirrors.aliyun.com" in message
+    # The fallback notice is not noise to keep when nothing worked.
+    assert "falling back to mirrors" in capsys.readouterr().err
 
 
 def test_compare_versions() -> None:

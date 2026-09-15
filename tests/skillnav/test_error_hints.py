@@ -6,10 +6,45 @@ import json
 
 from typer.testing import CliRunner
 
+from conftest import cli_output
 from skillnav.cli import app
 from skillnav.error_hints import enrich_api_error, enrich_usage_error, not_logged_in
 from skillnav.errors import AuthError, SkillnavError
 from skillnav.output import emit_error
+
+
+def test_profile_already_exists_suggests_reusing_it_first() -> None:
+    """Onboarding usually hits an existing profile that already points here."""
+    hint = enrich_usage_error("Profile already exists: skillnav")
+
+    joined = " ".join(hint.next_steps)
+    assert "skillnav config use skillnav" in joined
+    # Reuse comes before the destructive option.
+    assert "config use" in hint.next_steps[0]
+    assert "config remove" in joined
+
+
+def test_config_add_existing_profile_suggests_reuse(
+    runner, isolated_config
+) -> None:
+    """End to end: what the CLI actually prints when the profile exists."""
+    isolated_config.parent.mkdir(parents=True, exist_ok=True)
+    isolated_config.write_text(
+        json.dumps(
+            {
+                "defaultProfile": "default",
+                "profiles": {"default": {"registry": "http://127.0.0.1:3000"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app, ["config", "add", "default", "--registry", "http://127.0.0.1:3000"]
+    )
+
+    assert result.exit_code != 0
+    assert "config use default" in cli_output(result)
 
 
 def test_not_logged_in_hint_has_next_steps() -> None:
