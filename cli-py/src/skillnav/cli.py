@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Annotated, Any, Optional
@@ -590,6 +591,37 @@ def report_cmd(
 # --- publish ---
 
 
+# Accepting a package is fast (async by default: the server answers as soon as
+# it is stored), but `--wait` keeps the connection open for the entire
+# inspection pipeline. That pipeline in turn waits for VirusTotal to analyse a
+# newly uploaded file, which is queued and can take minutes — so the generic
+# 120s request timeout fired first and replaced the authoritative, retryable
+# 503 (`inspection_pipeline_incomplete`) with a bare "connection timed out".
+PUBLISH_UPLOAD_TIMEOUT_SECONDS = 120.0
+PUBLISH_WAIT_TIMEOUT_SECONDS = 600.0
+
+
+def _publish_timeout(*, wait: bool) -> float:
+    """Request timeout for publish / retry-publish.
+
+    A synchronous publish must outlive the server-side pipeline, otherwise the
+    client gives up before the server can report the real outcome. Override the
+    budget with ``SKILLNAV_PUBLISH_WAIT_TIMEOUT`` (seconds) when a deployment
+    runs especially slow stages.
+    """
+    if not wait:
+        return PUBLISH_UPLOAD_TIMEOUT_SECONDS
+    raw = os.environ.get("SKILLNAV_PUBLISH_WAIT_TIMEOUT", "").strip()
+    if raw:
+        try:
+            override = float(raw)
+        except ValueError:
+            override = 0.0
+        if override > 0:
+            return override
+    return PUBLISH_WAIT_TIMEOUT_SECONDS
+
+
 def _print_publish_response(status: int, payload: dict[str, Any], *, waited: bool) -> None:
     if status == 202 or payload.get("inspectionStatus") == "inspecting":
         typer.echo(
@@ -671,6 +703,7 @@ def publish_cmd(
             url=join_registry_url(cli.registry, path),
             body=body,
             token=token,
+            timeout=_publish_timeout(wait=wait and not dry_run),
         )
         if status >= 400:
             hint = enrich_api_error(api_error_message(payload), status=status, body=payload)
@@ -714,6 +747,7 @@ def retry_publish_cmd(
             url=join_registry_url(cli.registry, f"/skills/{slug_path(slug)}/retry-publish"),
             body={"async": not wait},
             token=token,
+            timeout=_publish_timeout(wait=wait),
         )
         if status >= 400:
             hint = enrich_api_error(api_error_message(payload), status=status, body=payload)

@@ -7,7 +7,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from skillnav.error_hints import enrich_api_error, network_unreachable
+from skillnav.error_hints import enrich_api_error, network_unreachable, request_timed_out
 from skillnav.errors import AuthError, NetworkError, SkillnavError
 
 
@@ -36,9 +36,27 @@ def request_bytes(
         return exc.code, exc.read(), dict(exc.headers.items())
     except urllib.error.URLError as exc:
         reason = getattr(exc, "reason", exc)
+        if _is_timeout(reason):
+            raise NetworkError.from_hint(request_timed_out(timeout, registry=url)) from exc
         raise NetworkError.from_hint(network_unreachable(str(reason), registry=url)) from exc
+    except TimeoutError as exc:
+        raise NetworkError.from_hint(request_timed_out(timeout, registry=url)) from exc
     except OSError as exc:
         raise NetworkError.from_hint(network_unreachable(str(exc), registry=url)) from exc
+
+
+def _is_timeout(value: object) -> bool:
+    """Whether a URLError reason / OSError represents a client-side timeout.
+
+    urllib wraps socket timeouts in ``URLError`` with a ``TimeoutError`` reason,
+    but a bare ``TimeoutError`` (and message-only variants) also occur, so both
+    shapes are recognised. A timeout is deliberately *not* reported as
+    "cannot reach the API" — see :func:`request_timed_out`.
+    """
+    if isinstance(value, TimeoutError):
+        return True
+    text = str(value).casefold()
+    return "timed out" in text or "timeout" in text
 
 
 def request_json(

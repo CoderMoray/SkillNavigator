@@ -68,6 +68,33 @@ def network_unreachable(reason: str, *, registry: str | None = None) -> ErrorHin
     )
 
 
+def request_timed_out(timeout: float, *, registry: str | None = None) -> ErrorHint:
+    """The server was reachable but did not answer within the client budget.
+
+    Kept separate from :func:`network_unreachable` on purpose: a slow response
+    usually means a long-running inspection (SkillSpector / VirusTotal /
+    HaluCatch) is still working server-side — the server does not abort just
+    because the client stopped waiting. Retrying blindly, or re-uploading the
+    same version, is the wrong reaction.
+    """
+    registry_line = f" Registry URL: {registry}." if registry else ""
+    return ErrorHint(
+        summary=f"Request timed out after {timeout:g}s",
+        detail=(
+            "The platform API accepted the request but did not answer in time."
+            f"{registry_line} Inspection stages can be slow (VirusTotal queues newly"
+            " uploaded files for minutes), and the server keeps running after the client"
+            " gives up — so the publish or inspection may still be in progress, or already done."
+        ),
+        next_steps=_steps(
+            "Check the server side before retrying: skillnav status <slug>",
+            "If the inspection is incomplete or interrupted: skillnav retry-publish <slug>",
+            "Do not re-upload the same version to work around a timeout.",
+            "For `publish --wait`, raise the wait budget in seconds: SKILLNAV_PUBLISH_WAIT_TIMEOUT=900",
+        ),
+    )
+
+
 def unknown_profile(name: str) -> ErrorHint:
     return ErrorHint(
         summary=f"Unknown profile: {name}",
