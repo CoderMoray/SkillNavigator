@@ -35,7 +35,7 @@ Skill 详情 → **审查与评估** → **HaluCatch 质量评估**（当 provid
 | **标准版** | 平衡长度，详情页摘要通常来自此版 |
 | **行动版** | 面向 AI 助手的可执行修改清单，支持下载 |
 
-报告语言随 Skill 类型与 HaluCatch 配置，常见为中文或英文。
+报告语言当前固定为中文（平台调用 HaluCatch 时传入 `zh-CN`）。
 
 ## 评估状态徽章
 
@@ -46,7 +46,7 @@ Skill 详情 → **审查与评估** → **HaluCatch 质量评估**（当 provid
 | 可靠性失败 | 存在较多 fail 或关键维不达标 |
 | 未配置可靠性评估 | HaluCatch 未运行或回退到其他 provider |
 
-当 HaluCatch 不可用时，平台可能使用 **`tests/*.json` 静态任务集** 做简化评估（provider 非 `halucatch-adapter`），详情页展示方式会不同。
+当 HaluCatch **被显式关闭**（`HALUCATCH_ENABLED=false`）时，平台使用 **`tests/*.json` 静态任务集** 做简化评估（provider 非 `halucatch-adapter`），这属于正常回退；若是**运行时不可用**（Python 或依赖缺失），评估环节会被标记为 **中断（interrupted）**、可重试，详情页展示方式也会不同（见下节）。
 
 ## HaluCatch 不可用时的表现
 

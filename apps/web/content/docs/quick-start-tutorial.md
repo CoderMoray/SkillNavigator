@@ -23,7 +23,7 @@
 | **Skills** | 进入 Skill 广场，搜索、筛选、排序和发布 Skill。 |
 | **Creators** | 查找发布者及其公开的 Skill。 |
 | **榜单** | 按下载量、评分或更新时间浏览 Skill。 |
-| **Audits** | 集中比较各 Skill 最新版本的审查数据，并导出报告。 |
+| **Inspections** | 集中比较各 Skill 最新版本的审查数据，并导出报告（页面标题为「审查中心」）。 |
 | **文档** | 阅读 Skill 格式、发布流程、安全检测和质量审查说明。 |
 
 登录后，点击右上角用户名可打开菜单：进入**个人中心**、修改密码、注销账户、添加 Skill、切换浅色/深色/跟随系统主题，或登出。
@@ -31,7 +31,7 @@
 ![图 01：首页与全局导航](../../public/docs/tutorial/01-home-and-navigation.png)
 *图 01：首页与全局导航*
 
-> `Plugins` 标签目前仍在建设中；本教程中的操作均针对已开放的 **Skills** 功能。
+> Skills 页面顶部还有 `Plugins` 标签页，目前仍在建设中；本教程中的操作均针对已开放的 **Skills** 功能。
 
 ## 2. 注册、登录和个人中心
 
@@ -260,8 +260,8 @@ Skill 所有者或 contributor 可在详情页右侧点击 **发布新版本**�
 2. 点击 **添加 contributor**。
 3. 新成员可以协助发布新版本，但不能添加 contributor 或变更 owner。
 
-![图 13：审查中心](../../public/docs/tutorial/15-skill-card.png)
-*图 13：审查中心*
+![图 13：Skill Card 与 contributor](../../public/docs/tutorial/15-skill-card.png)
+*图 13：Skill Card 与 contributor*
 
 ### 下架、上架和删除
 
@@ -278,7 +278,7 @@ Skill 所有者或 contributor 可在详情页右侧点击 **发布新版本**�
 
 需要集中查看多个 Skill 的审查情况时：
 
-1. 打开顶部 **Audits**。
+1. 打开顶部 **Inspections**（页面标题「审查中心」）。
 2. 使用排序字段比较发布时间、SkillSpector 安全分或 HaluCatch 分数。
 3. 勾选需要导出的记录；全选会选择所有 Skill。
 4. 点击 **导出 CSV** 或 **导出 Excel**。

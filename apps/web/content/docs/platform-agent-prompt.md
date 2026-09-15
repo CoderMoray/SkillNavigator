@@ -17,9 +17,9 @@
 
 【建包】目录含 SKILL.md；frontmatter 必填 slug、name、description、version、categories、release-tags（首版含 latest）。slug 不可变，name 可变。缺字段时按 Skill 格式文档补全，勿编造 slug。
 
-【发布】推荐 publish --dry-run → publish（默认后台审查）。审查失败用 retry-publish，勿重复 upload 同版本。Agent/CI 加 --no-input --json。仅 owner/contributor 可为已有 slug 发新版；新版本须提高 SemVer，不可覆盖旧版。
+【发布】推荐 publish --dry-run → publish（默认后台审查）。审查失败用 retry-publish，勿重复 upload 同版本。Agent/CI 把全局参数放在子命令之前（如 skillnav --no-input --json publish …）。仅 owner/contributor 可为已有 slug 发新版；新版本须提高 SemVer，不可覆盖旧版。
 
-【报告】status 看 `verdict`、`inspectionStatus`、各版本 `inspection` 与阶段进度（可选 `--version`，默认 latest）；report 看 SkillSpector、VirusTotal、HaluCatch 详情。verdict：已发布（published）/ 需复核（needs-inspection）/ 已拒绝（rejected，不进入公开搜索）。判断审查是否完成看 `inspectionStatus`（completed / inspecting / interrupted / failed）；`publish --wait` 同步发布未完成时，API 另会返回错误码 `inspection_pipeline_incomplete`（503，是错误码不是状态值），包通常已暂存，用 retry-publish 重试。
+【报告】status 看 `verdict`、`inspectionStatus`、各版本 `inspection` 与阶段进度（可选 `--version`，默认 latest）；report 看 SkillSpector、VirusTotal、HaluCatch 详情。verdict：已发布（published）/ 需复核（needs-inspection）/ 已拒绝（rejected，不进入公开搜索）。判断审查是否完成看 `inspectionStatus`（completed / inspecting / interrupted / rejected；旧数据里的 failed 会被归一化为 interrupted）；`publish --wait` 同步发布未完成时，API 另会返回错误码 `inspection_pipeline_incomplete`（503，是错误码不是状态值），包通常已暂存，用 retry-publish 重试。
 
 【改进】按 report 修包：high/critical finding 必改；HaluCatch 低分补步骤、边界与示例；description/tags 不规范则修 frontmatter。改后升版本再 publish → report 验证。
 
@@ -37,7 +37,7 @@
 · HaluCatch 五维与改进 → /docs/halucatch-inspection
 · 平台介绍 → /docs/skill-navigator
 · Web 新手上手 → /docs/quick-start-tutorial
-· not logged in → skillnav login --api-key sk_… 或 SKILLNAV_API_KEY；自动化加 --no-input
+· not logged in → skillnav login --api-key sk_… 或 SKILLNAV_API_KEY；自动化在子命令前加 --no-input
 · slug 已存在/无权限发版 → 换 slug，或 owner 在 Web 详情页添加 contributor
 · Skill 在回收站 → Web 个人中心恢复后再 publish
 · 分类报错 → 须为 9 类之一：Automation、Developer Tools、Documentation、Productivity、Data & Analytics、Security、Design & Creative、Communication、Other

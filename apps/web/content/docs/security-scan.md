@@ -82,11 +82,11 @@ SkillSpector 对每条 finding 按 **严重度** 与 **置信度** 贡献分数�
 | --- | --- | --- |
 | **SkillSpector**（已启用） | `high` / `critical`；或 `medium` 且置信度 **≥ 90%** | 其余 SkillSpector finding |
 | **VirusTotal**（已启用） | `high` / `critical`（如 malicious 检出） | 其余（如 suspicious 检出） |
-| **HaluCatch**（已启用） | 评估成功后的 fail 等（见质量文档） | warn 等 |
+| **HaluCatch**（已启用） | 不参与自动拒绝（评估结果只写入报告，不改变 verdict） | — |
 | **平台规则等** | 不自动拒绝 | 存在任意 finding 时为需复核 |
 | **无任何 finding 且各启用步骤均成功** | — | **已发布（published）** |
 
-**审查流水线未完成或失败**（如 VirusTotal 分析超时、SkillSpector/HaluCatch 运行时不可用、审查中断）时，Skill 标记为 **审查失败**（`inspectionStatus: failed`）；**包通常已暂存在服务端**，但 **不会公开**。在 Skill 详情页或 CLI 使用 **重试失败环节 / `skillnav retry-publish`** 重新跑审查（默认只重试失败或未完成的环节）。这与「审查已全部完成但 verdict 为 **已拒绝**」不同（见 [发布流程](./publish-workflow.md)）。
+**审查流水线未完成或失败**（如 VirusTotal 分析超时、SkillSpector/HaluCatch 运行时不可用、审查中断）时，Skill 标记为 **审查中断**（`inspectionStatus: interrupted`；旧数据里的 `failed` 会被归一化）；**包通常已暂存在服务端**，但 **不会公开**。在 Skill 详情页或 CLI 使用 **重试失败环节 / `skillnav retry-publish`** 重新跑审查（默认只重试失败或未完成的环节）。这与「审查已全部完成但 verdict 为 **已拒绝**」不同（见 [发布流程](./publish-workflow.md)）。
 
 SkillSpector 的「不建议安装」是 **包级安全建议**，与页面「已拒绝 / 需复核」徽章相关但不完全等同。
 
@@ -112,7 +112,7 @@ SkillSpector 的「不建议安装」是 **包级安全建议**，与页面「�
 
 - **一般情况下：1 次 API 调用 = 消耗 1 次 quota**（按 API Key 汇总，所有端点共用同一池子）。
 - 限制对象是 **HTTP 请求次数**，不是 AV 引擎数量，也不是 ZIP 包内的文件个数。
-- 超出 Public 速率或日配额时，常见响应为 HTTP **429**；扫描未完成会导致发布 **已拒绝**。
+- 超出 Public 速率或日配额时，常见响应为 HTTP **429**；重试耗尽后该步骤记为 **阶段失败**，整体为 **审查中断（interrupted）**、可重试，**不会**产生 rejected verdict。
 
 Public API 文档中的典型上限：
 
@@ -236,14 +236,14 @@ GET /files/{zipSha256}  → 404
 | --- | --- |
 | 直传上传 | **32 MB**（`POST /files`） |
 | 大文件上传 | **650 MB**（先 `GET /files/upload_url` 再 POST） |
-| 单次 HTTP 超时 | 各步骤独立默认（见下）；未设专用变量时回退 `VIRUSTOTAL_TIMEOUT_MS`（默认 90s） |
+| 单次 HTTP 超时 | 各步骤有独立默认值（lookup / upload_url / analysis_poll / metadata 各 30s，upload 120s）；可用 `VIRUSTOTAL_TIMEOUT_MS` 统一覆盖（`.env.example` 中为 90s） |
 | 步骤级超时 | lookup / upload_url / upload / analysis_poll / metadata_lookup 可分别配置；**超时或 transient 网络错误自动重试 1 次** |
 | 分析 / pending 轮询总时长 | 默认 **300s（5 分钟）**（`VIRUSTOTAL_ANALYSIS_TIMEOUT_MS`；未设则回退 `VIRUSTOTAL_TIMEOUT_MS`，默认 90s） |
 | 轮询间隔 | 默认 **30s**（`VIRUSTOTAL_POLL_INTERVAL_MS`；analysis 与 file pending 共用） |
 
 ## SkillSpector 不可用时
 
-若 Python 或 SkillSpector 依赖缺失，审查记录中可能出现 **SkillSpector unavailable** 类 finding，平台会回退部分内置正则检查。恢复环境后应对该版本 **重跑审查** 以得到完整 SkillSpector 结果。
+若 Python 或 SkillSpector 依赖缺失，该环节会记为 **可重试的阶段失败**（整体 `inspectionStatus: interrupted`），平台同时回退部分内置正则检查；**不会**生成 “SkillSpector unavailable” 类 finding。恢复环境后应对该版本 **重跑审查** 以得到完整 SkillSpector 结果。
 
 环境变量（运维参考，一般用户无需修改）：
 

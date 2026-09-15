@@ -60,7 +60,7 @@ allowed-tools:
 | --- | --- |
 | `slug` | 唯一 ID；小写 kebab-case，或 `@scope/skill-name` 形式。新 Skill 建议在发布页填写，与包内 frontmatter 一致。 |
 | `categories` | 至少 1 个分类（发布页最多选 3 个）。 |
-| `release-tags` | 版本标签；首个版本通常包含 `latest`。 |
+| `release-tags` | 版本标签；**首个版本必须包含 `latest`**，否则会被拒绝（`First version must include latest tag`）。 |
 
 #### 常用可选字段
 

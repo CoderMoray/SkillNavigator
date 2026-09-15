@@ -50,7 +50,7 @@ pip install -e "cli-py[dev]"
 
 ```bash
 skillnav --version
-# skillnav 0.3.1
+# skillnav 0.4.9
 
 skillnav config test
 # 默认连接 http://127.0.0.1:3000，输出 registry 健康检查结果
@@ -59,7 +59,7 @@ skillnav config test
 **升级 CLI：**
 
 ```bash
-skillnav update          # 从 PyPI 升级
+skillnav update          # 升级：版本探测 PyPI 优先，失败回退阿里云镜像（pip 安装使用阿里云索引）
 skillnav update --check  # 仅检查是否有新版本
 ```
 
@@ -139,7 +139,7 @@ skillnav whoami
 ```bash
 export SKILLNAV_API_KEY=sk_...
 export SKILLNAV_REGISTRY=http://127.0.0.1:3000
-skillnav whoami --no-input
+skillnav --no-input whoami
 ```
 
 ---
@@ -285,7 +285,7 @@ skillnav status my-first-skill             # 查看审查进度
 3. VirusTotal 扫描（若平台已配置）  
 4. HaluCatch 五维质量评估（若平台已配置）  
 
-**默认（无 `--wait`）**：上传成功即返回 **202**，包已暂存；审查在后台进行。用 `skillnav status <slug>` 查看进度。审查失败时 Skill 标记为 `failed`，可用 `skillnav retry-publish <slug>` 重试，无需重新上传。
+**默认（无 `--wait`）**：上传成功即返回 **202**，包已暂存；审查在后台进行。用 `skillnav status <slug>` 查看进度。审查未完成时 Skill 标记为 `interrupted`（旧数据里的 `failed` 会被归一化为它），可用 `skillnav retry-publish <slug>` 重试，无需重新上传。
 
 **使用 `--wait` 时**：仅当所有已启用环节均成功完成，CLI 才以 **201** 返回完整 verdict；任一环节失败会返回 `inspection_pipeline_incomplete`（503），此时可 `skillnav retry-publish <slug>`。
 
@@ -302,7 +302,15 @@ skillnav status my-first-skill
 skillnav status my-first-skill --version 1.0.0
 ```
 
-显示 **单个版本**（默认 `latestVersion`）的审查状态：`inspectionStatus`（审查中 / 审查失败 / 审查完成）、`inspection`（含 verdict）、发布与 VirusTotal 摘要。`--version` 可选，省略时与指定 latest 输出格式一致。
+显示 **单个版本**（默认 `latestVersion`）的审查状态：
+
+- `Verdict:`：该版本的 verdict（已发布 / 需复核 / 已拒绝）
+- `Inspection status:`：`inspectionStatus`（审查中 inspecting / 审查完成 completed / 审查中断 interrupted / 审查拒绝 rejected）
+- `Inspection progress:`：各环节状态；平台未返回阶段数据时显示 `unavailable (...)`
+- `Security:`：SkillSpector 安全分与阻塞项、VirusTotal 检出与引擎数
+- `Published`、`Visibility` 等发布信息
+
+`--version` 可选，省略时与指定 latest 输出格式一致；`--json` 会在顶层额外给出 `verdict` 字段。
 
 ### 7.2 完整报告
 
@@ -327,8 +335,8 @@ skillnav report my-first-skill --version 1.0.0
 脚本或 Agent 集成时使用 JSON：
 
 ```bash
-skillnav report my-first-skill --json
-skillnav publish ./my-first-skill --json --no-input ...
+skillnav --json report my-first-skill
+skillnav --json --no-input publish ./my-first-skill ...
 ```
 
 ---
@@ -343,7 +351,7 @@ skillnav publish ./my-first-skill --json --no-input ...
 | **需复核（needs-inspection）** | 有 finding，但未触发自动拒绝 | 版本已入库；评估 finding Severity，可接受则完成，或修复后发新版本 |
 | **已拒绝（rejected）** | 命中 SkillSpector / VirusTotal 等高置信度拒绝规则 | 版本已入库但 **不会出现在公开搜索**；必须修复后发 **新版本** |
 
-**流水线未完成或审查失败：** 包 **通常已暂存** 于服务端（`inspectionStatus: failed`）。使用 **`skillnav retry-publish <slug>`** 重试审查（默认只重跑失败或未完成的环节），**不要**对同版本重复 `publish`（可能得到 `pending_publish_use_retry`）。仅在使用 **`publish --wait`** 同步等待时，失败会以 `inspection_pipeline_incomplete`（503）返回，处理方式相同。
+**流水线未完成或审查失败：** 包 **通常已暂存** 于服务端（`inspectionStatus: interrupted`）。使用 **`skillnav retry-publish <slug>`** 重试审查（默认只重跑失败或未完成的环节），**不要**对同版本重复 `publish`（可能得到 `pending_publish_use_retry`）。仅在使用 **`publish --wait`** 同步等待时，失败会以 `inspection_pipeline_incomplete`（503）返回，处理方式相同。
 
 更多规则见 [发布流程](./publish-workflow.md)、[安全检测](./security-scan.md)、[质量审查](./halucatch-inspection.md)。
 
@@ -391,7 +399,7 @@ skillnav install my-first-skill --dir ./skills/my-first-skill
 skillnav search my-first
 ```
 
-在 Web 上，拥有者还可以添加 **contributor**、下架/上架、在 **Audits** 审查中心导出 CSV。这些操作目前以 Web 为主；CLI 支持评分、Issue 等社区命令（`skillnav rate`、`skillnav issue`）。
+在 Web 上，拥有者还可以添加 **contributor**、下架/上架、在 **Inspections**（页面标题「审查中心」）导出 CSV。这些操作目前以 Web 为主；CLI 支持评分、Issue 等社区命令（`skillnav rate`、`skillnav issue`）。
 
 ---
 
@@ -410,7 +418,7 @@ skillnav search my-first
 | 搜索 | `skillnav search <关键词>` |
 | 退出登录（本地） | `skillnav logout` |
 
-**全局参数：** `--registry`、`--profile`、`--json`、`--no-input`（CI 必加，缺少输入时直接失败）。
+**全局参数：** `--registry`、`--profile`、`--json`、`--no-input`（CI 必加，缺少输入时直接失败）。**必须写在子命令之前**，例如 `skillnav --json status <slug>`；写在子命令之后会被拒绝并提示正确位置（`--no-input` 属于全局参数，不是子命令选项）。
 
 **配置文件：** `~/.config/skillnav/config.json`（权限 `0600`，多 profile 存 `apiKey`）。
 
@@ -422,7 +430,7 @@ skillnav search my-first
 
 ### 提示 not logged in
 
-先执行 `skillnav login --api-key sk_…`，或设置 `SKILLNAV_API_KEY`。自动化加 `--no-input`。
+先执行 `skillnav login --api-key sk_…`，或设置 `SKILLNAV_API_KEY`。自动化把 `--no-input` 放在子命令之前（例如 `skillnav --no-input login --api-key sk_…`）。
 
 ### slug 已存在 / 无权限发布
 
