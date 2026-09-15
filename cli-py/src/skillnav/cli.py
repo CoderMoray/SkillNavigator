@@ -1168,6 +1168,58 @@ def unpublish_cmd(
         _handle_error(exc)
 
 
+@app.command("republish")
+def republish_cmd(
+    slug: Annotated[str, typer.Argument(help="Skill slug")],
+    version: Annotated[
+        Optional[str],
+        typer.Option("--version", help="Republish one version instead of the whole skill"),
+    ] = None,
+) -> None:
+    """Re-list an unpublished skill (or version) in public search.
+
+    The counterpart of `unpublish`: it only flips visibility back. It cannot be
+    used to bypass review — the server refuses while an inspection is running,
+    interrupted or rejected.
+    """
+    try:
+        cli = _ctx()
+        token = cli.require_token()
+
+        path = (
+            f"/skills/{slug_path(slug)}/versions/{slug_path(version)}/republish"
+            if version
+            else f"/skills/{slug_path(slug)}/republish"
+        )
+        status, payload = request_json(
+            "POST", join_registry_url(cli.registry, path), token=token
+        )
+        raise_for_api_status(status, payload)
+
+        skill = payload.get("skill") if isinstance(payload, dict) else None
+        published = skill.get("published") if isinstance(skill, dict) else None
+        if published is True:
+            visibility = "public"
+        elif published is False:
+            visibility = "private"
+        else:
+            visibility = "unknown"
+        if cli.json_output:
+            emit_json(
+                {
+                    "slug": slug,
+                    "version": version,
+                    "action": "republished",
+                    "visibility": visibility,
+                }
+            )
+            return
+        target = f"{slug}@{version}" if version else slug
+        typer.echo(f"Republished: {target} — it is listed in public search again.")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
 @app.command("update")
 def update_cmd(
     check_only: Annotated[

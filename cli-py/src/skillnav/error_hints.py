@@ -127,6 +127,33 @@ def enrich_api_error(raw: str, *, status: int, body: Any = None) -> ErrorHint:
         return invalid_api_key()
 
     exact: dict[str, ErrorHint] = {
+        "skill_republish_blocked_inspection_in_progress": ErrorHint(
+            summary="Cannot republish while an inspection is running",
+            detail="The version is still being reviewed, so there is no verdict to publish yet.",
+            next_steps=_steps(
+                "Wait for the review to finish: skillnav status <slug>",
+                "Then retry: skillnav republish <slug>",
+            ),
+        ),
+        "skill_republish_blocked_inspection_failed": ErrorHint(
+            summary="Cannot republish an interrupted inspection",
+            detail="Republishing would skip review, which the platform does not allow.",
+            next_steps=_steps(
+                "Rerun the review first: skillnav retry-publish <slug>",
+                "Then republish: skillnav republish <slug>",
+            ),
+        ),
+        "skill_republish_blocked_inspection_rejected": ErrorHint(
+            summary="Cannot republish a rejected skill",
+            detail=(
+                "The latest version triggered an automatic rejection, so republishing"
+                " would bypass review."
+            ),
+            next_steps=_steps(
+                "Review the report first: skillnav report <slug>",
+                "Fix the findings, then publish a new version: skillnav publish <package>",
+            ),
+        ),
         "cannot_unpublish_latest_version": ErrorHint(
             summary="Cannot unpublish the latest version",
             detail=(
