@@ -116,7 +116,7 @@ skillnav
 │  ├─ add-contributor <slug> --username USER   # POST /skills/:slug/contributors
 │  └─ remove-contributor <slug> [--id ID | --username USER]  # DELETE /skills/:slug/contributors/:id
 ├─ 生命周期
-│  └─ unpublish <slug> [--version VER] [--purge]   # POST /skills/:slug[/versions/:version]/unpublish；--purge → DELETE /skills/:slug
+│  └─ unpublish <slug> [--version VER] [--delete]  # POST /skills/:slug[/versions/:version]/unpublish；--delete → DELETE /skills/:slug（回收站）
 └─ skill / skill2（预留）
 ```
 
@@ -201,7 +201,7 @@ skillnav
 | issues | `GET /skills/:slug/issues` | 公开 |
 | add-contributor | `POST /skills/:slug/contributors` | Bearer（owner） |
 | remove-contributor | `DELETE /skills/:slug/contributors/:id` | Bearer（owner） |
-| unpublish | `POST /skills/:slug/unpublish`（或 `.../versions/:version/unpublish`；`--purge` → `DELETE /skills/:slug`）| Bearer（owner / contributor）|
+| unpublish | `POST /skills/:slug/unpublish`（或 `.../versions/:version/unpublish`；`--delete` → `DELETE /skills/:slug`）| Bearer（owner / contributor）|
 
 ## 9. 版本与里程碑
 

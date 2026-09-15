@@ -1070,11 +1070,14 @@ def unpublish_cmd(
         Optional[str],
         typer.Option("--version", help="Unpublish one version instead of the whole skill"),
     ] = None,
-    purge: Annotated[
+    delete: Annotated[
         bool,
         typer.Option(
-            "--purge",
-            help="Move the skill to the recycle bin instead of only unpublishing it",
+            "--delete",
+            help=(
+                "Move the skill to the recycle bin (restorable for 3 days, then"
+                " permanently deleted) instead of only unpublishing it"
+            ),
         ),
     ] = False,
 ) -> None:
@@ -1084,9 +1087,9 @@ def unpublish_cmd(
     skill simply stops being publicly listed and can be republished later.
     """
     try:
-        if purge and version:
+        if delete and version:
             raise UsageError.from_hint(
-                enrich_usage_error("--purge removes the whole skill; drop --version")
+                enrich_usage_error("--delete removes the whole skill; drop --version")
             )
 
         cli = _ctx()
@@ -1095,8 +1098,8 @@ def unpublish_cmd(
         if not cli.no_input:
             target = f"{slug}@{version}" if version else slug
             effect = (
-                "move to the recycle bin"
-                if purge
+                "move to the recycle bin (restorable for 3 days)"
+                if delete
                 else "remove from public search (republishable)"
             )
             if not typer.confirm(f"This will {effect}: {target}. Continue?", default=False):
@@ -1105,7 +1108,7 @@ def unpublish_cmd(
                 # outcome with a non-zero code, not an error to be re-hinted.
                 raise SystemExit(1)
 
-        if purge:
+        if delete:
             status, payload = request_json(
                 "DELETE",
                 join_registry_url(cli.registry, f"/skills/{slug_path(slug)}"),
@@ -1116,7 +1119,7 @@ def unpublish_cmd(
                 emit_json(
                     {
                         "slug": slug,
-                        "action": "purged",
+                        "action": "deleted",
                         "recycleBin": payload.get("recycleBin", True),
                         "deletedAt": payload.get("deletedAt"),
                         "purgeAt": payload.get("purgeAt"),

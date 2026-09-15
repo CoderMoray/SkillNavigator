@@ -149,7 +149,7 @@ def test_unpublish_latest_version_error_explains_the_way_out(
     assert "skillnav unpublish <slug>" in output
 
 
-def test_unpublish_purge_uses_delete_and_confirms_the_effect(
+def test_unpublish_delete_moves_to_the_recycle_bin(
     runner: CliRunner, isolated_config: Path, monkeypatch
 ) -> None:
     _login(isolated_config)
@@ -158,7 +158,7 @@ def test_unpublish_purge_uses_delete_and_confirms_the_effect(
         (200, {"ok": True, "recycleBin": True, "purgeAt": "2026-10-15T00:00:00.000Z"}),
     )
 
-    result = runner.invoke(app, ["--no-input", "unpublish", "my-skill", "--purge"])
+    result = runner.invoke(app, ["--no-input", "unpublish", "my-skill", "--delete"])
 
     assert result.exit_code == 0, cli_output(result)
     assert calls[0]["method"] == "DELETE"
@@ -166,18 +166,18 @@ def test_unpublish_purge_uses_delete_and_confirms_the_effect(
     assert "recycle bin" in cli_output(result)
 
 
-def test_unpublish_purge_rejects_a_single_version(
+def test_unpublish_delete_rejects_a_single_version(
     runner: CliRunner, isolated_config: Path, monkeypatch
 ) -> None:
     _login(isolated_config)
     calls = _stub(monkeypatch, (200, {}))
 
     result = runner.invoke(
-        app, ["--no-input", "unpublish", "my-skill", "--purge", "--version", "1.0.0"]
+        app, ["--no-input", "unpublish", "my-skill", "--delete", "--version", "1.0.0"]
     )
 
     assert result.exit_code == 3, cli_output(result)
-    assert "--purge" in cli_output(result)
+    assert "--delete" in cli_output(result)
     assert calls == []
 
 
