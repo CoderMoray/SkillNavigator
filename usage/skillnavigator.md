@@ -86,7 +86,7 @@ skillnav config test
 
 **安全**：勿向用户回显完整密钥；勿将 `sk_…` 写入 Git、日志或 Skill 包。
 
-环境变量（CI 临时注入）：`SKILLNAV_REGISTRY`、`SKILLNAV_PROFILE`、`SKILLNAV_API_KEY`。
+环境变量（CI 临时注入）：`SKILLNAV_REGISTRY`、`SKILLNAV_PROFILE`、`SKILLNAV_API_KEY`；同步发布的等待预算可用 `SKILLNAV_PUBLISH_WAIT_TIMEOUT`（秒，默认 600）覆盖。
 
 ## 三、Skill 操作
 

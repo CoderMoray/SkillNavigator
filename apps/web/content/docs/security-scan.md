@@ -277,7 +277,7 @@ GET /files/{zipSha256}  → 404
 - `SKILLSPECTOR_PYTHON`、`SKILLSPECTOR_DIR`、`SKILLSPECTOR_TIMEOUT_MS` 用于指定解释器、目录与超时  
 - `VIRUSTOTAL_API_KEY` 启用 VirusTotal（未配置则跳过 VT 扫描）  
 - `VIRUSTOTAL_ENABLED=false` 可显式关闭 VirusTotal  
-- `VIRUSTOTAL_UPLOAD_ON_MISS=true` 未命中 hash 时上传 ZIP 并轮询（见上文 **配额与速率**；上传新文件链路官方不扣 quota，但耗时长）  
+- `VIRUSTOTAL_UPLOAD_ON_MISS=true` 未命中 hash 时上传 ZIP（**默认上传后即返回**，报告由后台补取；同步模式才在前台轮询）（见上文 **配额与速率**；上传新文件链路官方不扣 quota，但报告就绪耗时长）  
 - `VIRUSTOTAL_TIMEOUT_MS` 各步骤 HTTP 超时回退值（默认 90000）  
 - `VIRUSTOTAL_LOOKUP_TIMEOUT_MS`、`VIRUSTOTAL_UPLOAD_TIMEOUT_MS`、`VIRUSTOTAL_ANALYSIS_POLL_TIMEOUT_MS` 等步骤专用超时（见 `.env.example`）  
 - `VIRUSTOTAL_WAIT_FOR_ANALYSIS=true` 改为 **同步等待**（前台轮询至分析完成）；默认异步：上传即返回，报告由后台每 5 分钟补取  
