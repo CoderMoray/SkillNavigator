@@ -37,7 +37,8 @@
     "skillnav:lint": "python3 -m ruff check cli-py tests/skillnav && python3 -m mypy cli-py/src/skillnav",
     "setup": "bash scripts/setup.sh",
     "setup:skillspector": "bash scripts/install-skillspector.sh",
-    "seed:inspection": "tsx scripts/seed-inspection.mjs --skill skillnav-skill"
+    "seed:inspection": "tsx scripts/seed-inspection.mjs --skill skillnav-skill",
+    "seed:reconcile": "tsx scripts/reconcile-inspection.mjs"
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",

@@ -306,6 +306,18 @@ export interface RegistryStore {
     evaluation: FunctionalEvaluationReport | undefined,
     options: PersistInspectionStageResultsOptions
   ): Promise<void>;
+  /**
+   * Fill inspection stage statuses that were never persisted (rows written
+   * before the stage-status model, and seed-published versions). Only absent
+   * stages are written — existing values are never overwritten and
+   * `inspectionStatus` is deliberately left untouched. Returns the stages that
+   * were actually patched.
+   */
+  backfillInspectionStageStatuses(
+    slug: string,
+    version: string,
+    stageStatuses: Partial<InspectionStageStatuses>
+  ): Promise<SkillInspectionStage[]>;
   rollbackPendingPublishVersion(slug: string, version: string): Promise<void>;
   stagePendingPublishSnapshot(
     snapshot: SkillSnapshot,

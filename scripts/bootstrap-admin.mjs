@@ -26,6 +26,7 @@ import {
   loadDotEnvIfPresent,
 } from "@skill-platform/storage";
 import { loadSeedArtifact, validateSeedArtifact } from "./seed-artifact.mjs";
+import { reconcileSkillStageStatuses } from "./seed-reconcile.mjs";
 import {
   DEMO_SLUG,
   OFFICIAL_SLUG,
@@ -54,6 +55,31 @@ async function defaultReadPackage(skillDir) {
 
 async function defaultInspect(snapshot) {
   return inspectAndEvaluateSkillSnapshot(snapshot);
+}
+
+/**
+ * Check-and-fill after a bootstrap: seed-published versions carry no stage
+ * statuses (publishSnapshot never persisted them) and a pre-existing official
+ * Skill may predate the stage model entirely. Only absent stages are filled.
+ */
+async function withReconciled(registryStore, result, slug) {
+  const reconciled = await reconcileSkillStageStatuses(registryStore, slug);
+  const notes = [];
+  if (reconciled.patched.length > 0) {
+    notes.push(`Also filled ${reconciled.patched.length} missing inspection stage status(es).`);
+  }
+  if (reconciled.unresolved.length > 0) {
+    notes.push(`${reconciled.unresolved.length} stage(s) still need manual attention.`);
+  }
+  return {
+    ...result,
+    message: [result.message, ...notes].filter(Boolean).join(" ") || undefined,
+    reconciled: {
+      patched: reconciled.patched,
+      unresolved: reconciled.unresolved,
+      skipped: reconciled.skipped,
+    },
+  };
 }
 
 async function main() {
@@ -125,7 +151,7 @@ async function main() {
         },
         { ...admin, refresh }
       );
-      console.log(JSON.stringify(result));
+      console.log(JSON.stringify(await withReconciled(registryStore, result, OFFICIAL_SLUG)));
     } catch (error) {
       console.error(error instanceof Error ? error.stack : String(error));
       console.log(
@@ -177,7 +203,7 @@ async function main() {
       },
       {}
     );
-    console.log(JSON.stringify(result));
+    console.log(JSON.stringify(await withReconciled(registryStore, result, DEMO_SLUG)));
   } catch (error) {
     console.error(error instanceof Error ? error.stack : String(error));
     console.log(

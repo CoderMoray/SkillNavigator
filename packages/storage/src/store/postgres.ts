@@ -4,6 +4,7 @@ import {
   resolvePipelineInspectionStatus,
   type InspectionFinding,
   type InspectionReport,
+  type InspectionStageStatuses,
 } from "@skill-platform/inspection-engine";
 import {
   getSkillSlug,
@@ -33,6 +34,7 @@ import type {
   RegistrySkill, RegistryVersion, SkillSearchResult,
   RecycleBinSkill,
   SkillInspectionFailureInfo,
+  SkillInspectionStage,
   SkillInspectionStatus,
   SkillSlugAvailability,
 } from "../types";
@@ -1343,6 +1345,62 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
 
     await this.syncSkillInspectionDenormFromLatest(slug);
+  }
+
+  async backfillInspectionStageStatuses(
+    slug: string,
+    version: string,
+    stageStatuses: Partial<InspectionStageStatuses>
+  ): Promise<SkillInspectionStage[]> {
+    await this.ensureSchema();
+    const [row] = await this.db
+      .select({
+        skillspector: schema.skillVersions.inspectionSkillspectorStatus,
+        virustotal: schema.skillVersions.inspectionVirustotalStatus,
+        halucatch: schema.skillVersions.inspectionHalucatchStatus,
+      })
+      .from(schema.skillVersions)
+      .where(
+        and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version))
+      );
+    if (!row) {
+      return [];
+    }
+
+    const columns = mapStageStatusesToColumns(stageStatuses);
+    const patched: SkillInspectionStage[] = [];
+    if (!row.skillspector && columns.inspectionSkillspectorStatus) {
+      patched.push("skillspector");
+    }
+    if (!row.virustotal && columns.inspectionVirustotalStatus) {
+      patched.push("virustotal");
+    }
+    if (!row.halucatch && columns.inspectionHalucatchStatus) {
+      patched.push("halucatch");
+    }
+    if (patched.length === 0) {
+      return [];
+    }
+
+    await this.db
+      .update(schema.skillVersions)
+      .set({
+        ...(patched.includes("skillspector")
+          ? { inspectionSkillspectorStatus: columns.inspectionSkillspectorStatus }
+          : {}),
+        ...(patched.includes("virustotal")
+          ? { inspectionVirustotalStatus: columns.inspectionVirustotalStatus }
+          : {}),
+        ...(patched.includes("halucatch")
+          ? { inspectionHalucatchStatus: columns.inspectionHalucatchStatus }
+          : {}),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version))
+      );
+    await this.syncSkillInspectionDenormFromLatest(slug);
+    return patched;
   }
 
   private async syncSkillInspectionDenormFromLatest(slug: string): Promise<void> {

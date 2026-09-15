@@ -3,6 +3,7 @@ import {
   getConfiguredInspectionStages,
   resolvePipelineInspectionStatus,
   type InspectionReport,
+  type InspectionStageStatuses,
 } from "@skill-platform/inspection-engine";
 import { getSkillSlug, type SkillSnapshot } from "@skill-platform/skill-spec";
 import { assertPublishPreflight } from "../publish-preflight.js";
@@ -10,6 +11,7 @@ import {
   INSPECTION_INTERRUPTED_MESSAGE,
   INSPECTION_STALE_MESSAGE,
   INSPECTION_SUPERSEDED_MESSAGE,
+  SKILL_INSPECTION_STAGES,
   buildInspectionFailureFromStageStatuses,
   isInspectionFailureStatus,
   readInspectionStaleMs,
@@ -33,6 +35,7 @@ import type {
   RegistrySkill,
   RegistryVersion,
   RegistryStore,
+  SkillInspectionStage,
   SkillInspectionStatus,
   SkillSearchResult,
   RecycleBinSkill,
@@ -493,6 +496,39 @@ export abstract class JsonRegistryStore implements RegistryStore {
     syncSkillInspectionDenormFromLatest(skill);
     skill.updatedAt = new Date().toISOString();
     await this.save(data);
+  }
+
+  async backfillInspectionStageStatuses(
+    slug: string,
+    version: string,
+    stageStatuses: Partial<InspectionStageStatuses>
+  ): Promise<SkillInspectionStage[]> {
+    const data = await this.load();
+    const skill = data.skills[slug];
+    const entry = skill?.versions[version];
+    if (!skill || !entry) {
+      return [];
+    }
+
+    const merged: Record<string, string> = { ...(entry.inspectionStageStatuses ?? {}) };
+    const patched: SkillInspectionStage[] = [];
+    for (const stage of SKILL_INSPECTION_STAGES) {
+      const value = stageStatuses[stage];
+      if (value && !merged[stage]) {
+        merged[stage] = value;
+        patched.push(stage);
+      }
+    }
+    if (patched.length === 0) {
+      return [];
+    }
+
+    entry.inspectionStageStatuses = merged as InspectionStageStatuses;
+    entry.updatedAt = new Date().toISOString();
+    syncSkillInspectionDenormFromLatest(skill);
+    skill.updatedAt = entry.updatedAt;
+    await this.save(data);
+    return patched;
   }
 
   async upsertEvaluation(slug: string, version: string, evaluation: FunctionalEvaluationReport): Promise<RegistryVersion> {
