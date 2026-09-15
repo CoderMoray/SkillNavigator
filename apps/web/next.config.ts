@@ -47,6 +47,18 @@ const configuredBrandName =
   process.env.NEXT_PUBLIC_BRAND_NAME?.trim() ||
   "SkillNavigator";
 
+// Path of the CLI install script (no `.sh` suffix: cloud WAFs block those).
+// NEXT_PUBLIC_CLI_INSTALL_PATH overrides it; the header rule below follows the
+// same value so the served type stays correct for either path.
+const configuredCliInstallPath = (() => {
+  const raw = process.env.NEXT_PUBLIC_CLI_INSTALL_PATH?.trim() || "";
+  if (!raw) {
+    return "/install";
+  }
+  const withLeading = raw.startsWith("/") ? raw : `/${raw}`;
+  return withLeading.replace(/\/+$/, "") || "/install";
+})();
+
 const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_WEB_URL: configuredWebUrl,
@@ -54,6 +66,7 @@ const nextConfig: NextConfig = {
       process.env.NEXT_PUBLIC_REGISTRY_INSTALL_GUIDE_URL?.trim() || "",
     NEXT_PUBLIC_REGISTRY_API_URL: process.env.NEXT_PUBLIC_REGISTRY_API_URL?.trim() || "",
     NEXT_PUBLIC_BRAND_NAME: configuredBrandName,
+    NEXT_PUBLIC_CLI_INSTALL_PATH: configuredCliInstallPath,
   },
   basePath: process.env.NEXT_PUBLIC_BASE_PATH ?? "",
   reactStrictMode: true,
@@ -63,6 +76,18 @@ const nextConfig: NextConfig = {
     return [
       { source: "/reviews", destination: "/inspections", permanent: true },
       { source: "/docs/halucatch-review", destination: "/docs/halucatch-inspection", permanent: true },
+    ];
+  },
+  async headers() {
+    // The install script is extension-less, so mime sniffing guesses nonsense
+    // ("application/x-install-instructions"). Declare the shell type for the
+    // configured path; `curl | bash` ignores it either way, browsers and
+    // intermediaries do not.
+    return [
+      {
+        source: configuredCliInstallPath,
+        headers: [{ key: "Content-Type", value: "text/x-shellscript; charset=utf-8" }],
+      },
     ];
   },
 };

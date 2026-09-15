@@ -21,13 +21,13 @@ command -v skillnav && skillnav --version
 **方式 A — macOS / Linux 一键脚本（推荐）**
 
 ```bash
-curl -fsSL {{web_url}}/install.sh | bash
+curl -fsSL {{web_url}}/install | bash
 ```
 
 已有 API 密钥时可一并登录（密钥会写入 shell history，演示环境可用）：
 
 ```bash
-curl -fsSL {{web_url}}/install.sh | bash -s -- --api-key sk_…
+curl -fsSL {{web_url}}/install | bash -s -- --api-key sk_…
 ```
 
 脚本会自动：安装 CLI、修复 PATH、配置 Registry（`{{registry_api_url}}`）、可选登录。

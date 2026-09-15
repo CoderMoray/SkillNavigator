@@ -6,8 +6,8 @@ import { fileURLToPath } from "node:url";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const source = path.join(repoRoot, "usage");
 const target = path.join(repoRoot, "apps", "web", "public", "usage");
+const publicDir = path.join(repoRoot, "apps", "web", "public");
 const installScriptSource = path.join(source, "install.sh");
-const installScriptTarget = path.join(repoRoot, "apps", "web", "public", "install.sh");
 const DEFAULT_BRAND_NAME = "SkillNavigator";
 const BRAND_PLACEHOLDER = "{{brand_name}}";
 const REGISTRY_API_URL_PLACEHOLDER = "{{registry_api_url}}";
@@ -26,6 +26,19 @@ try {
 } catch {
   // Missing dotenv file is fine — placeholders render as explicit notices.
 }
+
+/**
+ * Public file name of the install script. Extension-less by default (cloud
+ * WAFs block `.sh` paths); NEXT_PUBLIC_CLI_INSTALL_PATH renames it
+ * consistently for the web app and for this synced artifact.
+ */
+function cliInstallPublicFilename() {
+  const configured = process.env.NEXT_PUBLIC_CLI_INSTALL_PATH?.trim() || "/install";
+  const name = path.basename(configured.replace(/\/+$/, ""));
+  return name || "install";
+}
+
+const installScriptTarget = path.join(publicDir, cliInstallPublicFilename());
 
 // Deployment configuration placeholders render as explicit "ask the maintainer"
 // notices when unset (Option B): .env is a required bootstrap file, so a
@@ -72,7 +85,7 @@ if (existsSync(legacyGuide)) {
   rmSync(legacyGuide);
 }
 
-// install.sh lives at the web app root (/install.sh), not under /usage/.
+// The install script lives at the web app root (/install by default), not under /usage/.
 if (existsSync(installScriptSource)) {
   const installContent = readFileSync(installScriptSource, "utf8");
   writeFileSync(installScriptTarget, applyDeploymentConfig(installContent, config), "utf8");
@@ -80,4 +93,13 @@ if (existsSync(installScriptSource)) {
 const strayInstallInUsage = path.join(target, "install.sh");
 if (existsSync(strayInstallInUsage)) {
   rmSync(strayInstallInUsage);
+}
+
+// Retire public copies that must not be served any more: the old `.sh` path
+// (blocked by cloud WAFs) and the default name when an override renames it.
+for (const staleName of ["install", "install.sh"]) {
+  const stalePath = path.join(publicDir, staleName);
+  if (stalePath !== installScriptTarget && existsSync(stalePath)) {
+    rmSync(stalePath);
+  }
 }

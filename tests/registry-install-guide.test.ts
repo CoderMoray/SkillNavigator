@@ -81,11 +81,20 @@ describe("registry-install-guide URL resolution", () => {
     expect(prompt).not.toContain("https://");
   });
 
-  it("CLI install script URL follows web app root + /install.sh", () => {
+  it("CLI install script URL follows web app root + /install (no .sh suffix)", () => {
     vi.stubEnv("NEXT_PUBLIC_WEB_URL", "https://rapid.example.com/MonoSkillNavigator");
     vi.stubEnv("NEXT_PUBLIC_BASE_PATH", "/MonoSkillNavigator");
     expect(resolveCliInstallScriptUrl()).toBe(
-      "https://rapid.example.com/MonoSkillNavigator/install.sh"
+      "https://rapid.example.com/MonoSkillNavigator/install"
+    );
+  });
+
+  it("NEXT_PUBLIC_CLI_INSTALL_PATH overrides the install script path", () => {
+    vi.stubEnv("NEXT_PUBLIC_WEB_URL", "https://rapid.example.com/MonoSkillNavigator");
+    vi.stubEnv("NEXT_PUBLIC_BASE_PATH", "/MonoSkillNavigator");
+    vi.stubEnv("NEXT_PUBLIC_CLI_INSTALL_PATH", "cli-install");
+    expect(resolveCliInstallScriptUrl()).toBe(
+      "https://rapid.example.com/MonoSkillNavigator/cli-install"
     );
   });
 
@@ -93,10 +102,10 @@ describe("registry-install-guide URL resolution", () => {
     vi.stubEnv("NEXT_PUBLIC_WEB_URL", "https://rapid.example.com/MonoSkillNavigator");
     vi.stubEnv("NEXT_PUBLIC_BASE_PATH", "/MonoSkillNavigator");
     expect(buildCliInstallCurlCommand({ apiKey: "sk_test" })).toBe(
-      "curl -fsSL https://rapid.example.com/MonoSkillNavigator/install.sh | bash -s -- --api-key sk_test"
+      "curl -fsSL https://rapid.example.com/MonoSkillNavigator/install | bash -s -- --api-key sk_test"
     );
     expect(buildCliInstallCurlCommand()).toBe(
-      "curl -fsSL https://rapid.example.com/MonoSkillNavigator/install.sh | bash"
+      "curl -fsSL https://rapid.example.com/MonoSkillNavigator/install | bash"
     );
   });
 

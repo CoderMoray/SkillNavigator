@@ -1,12 +1,31 @@
 import { resolveBrandName } from "./brand-name";
 
 export const REGISTRY_INSTALL_GUIDE_ASSET = "/usage/skillnavigator.md";
-export const CLI_INSTALL_SCRIPT_ASSET = "/install.sh";
+/**
+ * Public path of the CLI install script. Deliberately extension-less: cloud
+ * WAFs commonly block every `.sh` request path (405) before it reaches Next,
+ * which made the historical `/install.sh` one-liner unusable in production.
+ */
+export const DEFAULT_CLI_INSTALL_SCRIPT_ASSET = "/install";
 
 const DEV_WEB_ORIGIN = "http://127.0.0.1:3001";
 
 function normalizeTrailingSlash(value: string): string {
   return value.trim().replace(/\/+$/, "");
+}
+
+/**
+ * Install-script path for this deployment. Overridable at build time via
+ * NEXT_PUBLIC_CLI_INSTALL_PATH (same mechanism as NEXT_PUBLIC_BASE_PATH), so
+ * instances behind other WAF rules can pick their own path.
+ */
+export function resolveCliInstallScriptAsset(): string {
+  const raw = process.env.NEXT_PUBLIC_CLI_INSTALL_PATH?.trim();
+  if (!raw) {
+    return DEFAULT_CLI_INSTALL_SCRIPT_ASSET;
+  }
+  const withLeading = raw.startsWith("/") ? raw : `/${raw}`;
+  return normalizeTrailingSlash(withLeading) || DEFAULT_CLI_INSTALL_SCRIPT_ASSET;
 }
 
 function normalizedBasePath(): string {
@@ -66,7 +85,7 @@ export function buildRegistryInstallGuideUrl(appRoot: string): string {
 }
 
 export function buildCliInstallScriptUrl(appRoot: string): string {
-  return buildPublicAssetUrl(appRoot, CLI_INSTALL_SCRIPT_ASSET);
+  return buildPublicAssetUrl(appRoot, resolveCliInstallScriptAsset());
 }
 
 function buildPublicAssetUrl(appRoot: string, assetPath: string): string {

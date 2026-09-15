@@ -389,7 +389,7 @@ export function ApiKeysPanel() {
             macOS / Linux 可一键安装并配置 CLI：{" "}
             <code className="inline-code">
               {buildCliInstallCurlCommand({ clientOrigin: origin || undefined }) ??
-                "curl -fsSL …/install.sh | bash"}
+                "curl -fsSL …/install | bash"}
             </code>
             。创建 Key 后也可复制带密钥的一键命令（会进入 shell history）。
           </p>

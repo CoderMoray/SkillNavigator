@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # {{brand_name}} CLI (skillnav) 一键安装与配置脚本
-# 部署后访问：{{web_url}}/install.sh（勿直接改 apps/web/public/install.sh）
+# 部署后访问：{{web_url}}/install（勿直接改 apps/web/public/install）
 # 规范与特性：
 # 1. 自动判定环境并安装 CLI（PyPI 优先，10s 超时后回退阿里云镜像；兼容 pipx、PEP 668）
 # 2. 自动探测安装路径并修复 PATH（自动写入 ~/.zshrc 或 ~/.bash_profile）
@@ -32,7 +32,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         -h|--help)
-            echo "用法: curl -fsSL ${WEB_URL}/install.sh | bash -s -- [选项]"
+            echo "用法: curl -fsSL ${WEB_URL}/install | bash -s -- [选项]"
             echo ""
             echo "选项:"
             echo "  --api-key <KEY>     可选，自动完成登录验证（在 Web 端「设置 → API 密钥」获取）"
