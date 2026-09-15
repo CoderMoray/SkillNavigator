@@ -220,7 +220,7 @@ SkillSpector 与 VirusTotal **并行**执行（`Promise.all`），互不阻塞�
 
 - ORM：Drizzle（`packages/storage/src/schema/*.ts`）
 - 迁移：`packages/storage/drizzle/*.sql`，API 首次启动自动执行
-- 后台维护（API，每 5 分钟）：`recoverStaleInspectingSkills`（把超时未完成的 `inspecting` 标为 `interrupted`）+ `resumeDeferredVirusTotalInspections`（补取 VT 报告并 finalize）
+- 后台维护（API，每 5 分钟）：`recoverStaleInspectingSkills`（把超时未完成的 `inspecting` 标为 `interrupted`；**显式排除 `virustotal = processing` 的版本**——等补取的不算 stale，由 `VIRUSTOTAL_DEFERRED_TIMEOUT_MS` 单独兜底）+ `resumeDeferredVirusTotalInspections`（补取 VT 报告并 finalize）
 - 主要表：`skills`、`skill_versions`、`skill_inspections`、`users`、`skill_bookmarks`、`skill_recycle_bin` 等
 - `MINIO_ENABLED=true` 时，新版本的 `skill_version_files.content` 为 `NULL`；该表保留
   path、size、sha256 元数据，读取内容时通过 `skill_versions` 中的 artifact descriptor 获取 ZIP。
