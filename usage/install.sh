@@ -61,6 +61,16 @@ skillnav_config_add_profile() {
         return 0
     fi
 
+    # `config add` refuses a name that already exists (by design) and tells the
+    # caller to reuse it with `config use`. Re-running this installer is normal,
+    # so activate the existing profile instead of failing — otherwise `set -e`
+    # aborts the script right here on a machine that is already configured.
+    if skillnav config use "$profile_name" 2>/dev/null; then
+        echo "  ℹ️  profile '$profile_name' 已存在，已切换为当前 profile。"
+        echo "     如需改指向其它 Registry，请先执行 skillnav config remove $profile_name 再重跑本脚本。" >&2
+        return 0
+    fi
+
     echo "❌ 无法配置 Registry profile '$profile_name'。" >&2
     echo "   请手动尝试：" >&2
     echo "     skillnav config add $profile_name --registry \"$registry_url\"" >&2
@@ -198,8 +208,9 @@ echo ""
 echo "⚙️  [3/4] 配置 Registry 地址..."
 echo "  -> Registry API: $REGISTRY_URL"
 
-# 添加或更新 default profile
-skillnav_config_add_profile default "$REGISTRY_URL"
+# 添加或更新 default profile（profile 已存在时函数内部会退化为 config use）
+# `|| true`：脚本带 set -e，配置失败不应中断安装——连通性由下面的 config test 判定
+skillnav_config_add_profile default "$REGISTRY_URL" || true
 skillnav config use default 2>/dev/null || true
 
 # 测试连通性
