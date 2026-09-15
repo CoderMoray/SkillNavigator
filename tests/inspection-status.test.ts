@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_DEFERRED_VIRUSTOTAL_TIMEOUT_MS,
+  isDeferredVirusTotalExpired,
+  readDeferredVirusTotalTimeoutMs,
   buildInspectionFailureFromStageStatuses,
   buildSkillInspectionFailureFromError,
   buildSkillInspectionFailureFromStages,
@@ -19,6 +22,37 @@ import {
   SKILL_INSPECTION_STAGES,
   SKILL_INSPECTION_STATUSES,
 } from "@skill-platform/storage";
+
+describe("deferred VirusTotal wait budget", () => {
+  it("defaults to 45 minutes and falls back on a bad override", () => {
+    delete process.env.VIRUSTOTAL_DEFERRED_TIMEOUT_MS;
+    expect(DEFAULT_DEFERRED_VIRUSTOTAL_TIMEOUT_MS).toBe(45 * 60 * 1000);
+    expect(readDeferredVirusTotalTimeoutMs()).toBe(DEFAULT_DEFERRED_VIRUSTOTAL_TIMEOUT_MS);
+
+    process.env.VIRUSTOTAL_DEFERRED_TIMEOUT_MS = "600000";
+    expect(readDeferredVirusTotalTimeoutMs()).toBe(600_000);
+
+    process.env.VIRUSTOTAL_DEFERRED_TIMEOUT_MS = "nope";
+    expect(readDeferredVirusTotalTimeoutMs()).toBe(DEFAULT_DEFERRED_VIRUSTOTAL_TIMEOUT_MS);
+    delete process.env.VIRUSTOTAL_DEFERRED_TIMEOUT_MS;
+  });
+
+  it("expires only with a usable clock and a fully elapsed budget", () => {
+    const timeout = DEFAULT_DEFERRED_VIRUSTOTAL_TIMEOUT_MS;
+    const now = Date.parse("2026-01-01T12:00:00.000Z");
+    const startedMinutesAgo = (minutes: number) =>
+      new Date(now - minutes * 60_000).toISOString();
+
+    // A missing or unparsable timestamp must never read as expired: guessing
+    // from "now" would fail versions the sweep simply lost track of.
+    expect(isDeferredVirusTotalExpired(undefined, timeout, now)).toBe(false);
+    expect(isDeferredVirusTotalExpired("not-a-date", timeout, now)).toBe(false);
+
+    expect(isDeferredVirusTotalExpired(startedMinutesAgo(44), timeout, now)).toBe(false);
+    expect(isDeferredVirusTotalExpired(startedMinutesAgo(45), timeout, now)).toBe(true);
+    expect(isDeferredVirusTotalExpired(startedMinutesAgo(90), timeout, now)).toBe(true);
+  });
+});
 
 describe("skill inspection status", () => {
   it("exposes the expected lifecycle values", () => {

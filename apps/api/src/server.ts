@@ -65,6 +65,8 @@ import {
   buildInspectionFailureFromStageStatuses,
   buildSkillInspectionFailureFromError,
   isInspectionFailureStatus,
+  isDeferredVirusTotalExpired,
+  readDeferredVirusTotalTimeoutMs,
   readInspectionRecoverAllOnStartup,
   readInspectionStaleMs,
   VerificationEmailRateLimiter,
@@ -1914,26 +1916,40 @@ async function runBackgroundPublishInspection(
  * marks the stage interrupted, so the owner can fix it and retry.
  */
 /**
- * VirusTotal dropped an analysis it had accepted: re-running the inspection is
- * the only way forward, so fail the stage with a message that says exactly that
- * (the owner reads it via `skillnav status <slug>`).
+ * Give up on a deferred VirusTotal scan: fail the stage with a message that
+ * names the cause and the way out (the owner reads it via `skillnav status`).
  */
-async function markVirusTotalReportUnavailable(
+async function markDeferredVirusTotalFailed(
   store: RegistryStore,
   slug: string,
-  version: string
+  version: string,
+  message: string
 ): Promise<void> {
   const entry = await store.getSkill(slug).then((skill) => skill?.versions?.[version]);
   await store.markSkillInspectionStatus(slug, "interrupted", {
     version,
     stageStatuses: { ...(entry?.inspectionStageStatuses ?? {}), virustotal: "interrupted" },
-    failure: {
-      stages: ["virustotal"],
-      message:
-        "VirusTotal no longer has the analysis of this upload (its report is unavailable), so the " +
-        "scan cannot be completed. Re-run the inspection: skillnav retry-publish <slug>",
-    },
+    failure: { stages: ["virustotal"], message },
   });
+}
+
+/** The two give-up reasons, kept together so their wording stays comparable. */
+function virusTotalReportUnavailableMessage(): string {
+  return (
+    "VirusTotal no longer has the analysis of this upload (its report is unavailable), so the " +
+    "scan cannot be completed. Re-run the inspection: skillnav retry-publish <slug>"
+  );
+}
+
+function virusTotalWaitTimedOutMessage(timeoutMs: number, startedAt?: string): string {
+  const minutes = Math.round(timeoutMs / 60_000);
+  const waited = startedAt ? Math.round((Date.now() - Date.parse(startedAt)) / 60_000) : undefined;
+  const waitedText = waited !== undefined && Number.isFinite(waited) ? ` (waited ${waited}m)` : "";
+  return (
+    `VirusTotal did not produce a report within ${minutes} minutes${waitedText} and the analysis ` +
+    "is still queued on their side, so the scan cannot be completed. " +
+    "Re-run the inspection: skillnav retry-publish <slug>"
+  );
 }
 
 async function resumeDeferredVirusTotalInspections(store: RegistryStore): Promise<void> {
@@ -1942,21 +1958,50 @@ async function resumeDeferredVirusTotalInspections(store: RegistryStore): Promis
     return;
   }
 
-  for (const { slug, version, sha256, analysisId } of pending) {
+  const timeoutMs = readDeferredVirusTotalTimeoutMs();
+
+  for (const { slug, version, sha256, analysisId, startedAt } of pending) {
     try {
-      // The analysis id is the only way to tell "not analysed yet" from "no
-      // longer available": it came back from a successful upload, so a 404 on it
-      // means VirusTotal dropped the report and waiting will never help.
+      // Ask about the analysis first when we have its id: a 404 there means the
+      // analysis existed and is gone, which the file lookup cannot tell apart
+      // from "not indexed yet".
       if (analysisId) {
         const analysis = await checkVirusTotalAnalysis(analysisId);
         if (analysis.state === "unavailable") {
           console.warn(`VirusTotal no longer has the analysis for ${slug}@${version}`);
-          await markVirusTotalReportUnavailable(store, slug, version);
+          await markDeferredVirusTotalFailed(
+            store,
+            slug,
+            version,
+            virusTotalReportUnavailableMessage()
+          );
           continue;
         }
         if (analysis.state === "in-progress") {
+          if (isDeferredVirusTotalExpired(startedAt, timeoutMs)) {
+            console.warn(`VirusTotal analysis for ${slug}@${version} exceeded ${timeoutMs}ms`);
+            await markDeferredVirusTotalFailed(
+              store,
+              slug,
+              version,
+              virusTotalWaitTimedOutMessage(timeoutMs, startedAt)
+            );
+          }
           continue;
         }
+        // completed → collect the report below.
+      } else if (isDeferredVirusTotalExpired(startedAt, timeoutMs)) {
+        // Rows written before the analysis id existed: a missing file report
+        // cannot tell "not indexed yet" from "gone", so the budget is the only
+        // exit. Without a start time nothing expires.
+        console.warn(`Deferred VirusTotal scan for ${slug}@${version} exceeded ${timeoutMs}ms`);
+        await markDeferredVirusTotalFailed(
+          store,
+          slug,
+          version,
+          virusTotalWaitTimedOutMessage(timeoutMs, startedAt)
+        );
+        continue;
       }
 
       const report = await lookupVirusTotalScan(sha256);

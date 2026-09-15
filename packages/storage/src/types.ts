@@ -313,7 +313,14 @@ export interface RegistryStore {
    * be resumed and is therefore not listed.
    */
   listPendingVirusTotalInspections(): Promise<
-    Array<{ slug: string; version: string; sha256: string; analysisId?: string }>
+    Array<{
+      slug: string;
+      version: string;
+      sha256: string;
+      analysisId?: string;
+      /** When the inspection started, so the sweep can time the wait out. */
+      startedAt?: string;
+    }>
   >;
   /**
    * Fill inspection stage statuses that were never persisted (rows written

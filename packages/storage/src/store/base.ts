@@ -515,11 +515,13 @@ export abstract class JsonRegistryStore implements RegistryStore {
         const summary = entry.inspection?.virusTotal;
         const sha256 = summary?.sha256;
         if (typeof sha256 === "string" && sha256) {
+          const startedAt = entry.inspectionStartedAt ?? entry.inspection?.createdAt;
           pending.push({
             slug,
             version,
             sha256,
             ...(summary?.analysisId ? { analysisId: summary.analysisId } : {}),
+            ...(startedAt ? { startedAt } : {}),
           });
         }
       }

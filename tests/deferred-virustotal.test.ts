@@ -107,9 +107,35 @@ function registryData(version: object): RegistryData {
 describe("deferred VirusTotal store support", () => {
   test("lists versions waiting for a report, with the hash and analysis id to resume from", async () => {
     const store = new InMemoryRegistryStore(registryData(versionEntry()));
+    const saved = await store.snapshot();
+    const reportCreatedAt = saved.skills["demo-skill"].versions["1.0.0"].inspection?.createdAt;
 
     await expect(store.listPendingVirusTotalInspections()).resolves.toEqual([
-      { slug: "demo-skill", version: "1.0.0", sha256: SHA256, analysisId: ANALYSIS_ID },
+      {
+        slug: "demo-skill",
+        version: "1.0.0",
+        sha256: SHA256,
+        analysisId: ANALYSIS_ID,
+        // Without a version-level start time the report timestamp is the clock.
+        startedAt: reportCreatedAt,
+      },
+    ]);
+  });
+
+  test("prefers the version's own inspection start time as the clock", async () => {
+    const startedAt = "2026-01-01T00:00:00.000Z";
+    const store = new InMemoryRegistryStore(
+      registryData(versionEntry({ inspectionStartedAt: startedAt }))
+    );
+
+    await expect(store.listPendingVirusTotalInspections()).resolves.toEqual([
+      {
+        slug: "demo-skill",
+        version: "1.0.0",
+        sha256: SHA256,
+        analysisId: ANALYSIS_ID,
+        startedAt,
+      },
     ]);
   });
 
@@ -121,7 +147,9 @@ describe("deferred VirusTotal store support", () => {
     );
 
     await expect(legacy.listPendingVirusTotalInspections()).resolves.toEqual([
-      { slug: "demo-skill", version: "1.0.0", sha256: SHA256 },
+      // No analysis id (it did not exist yet), but the clock is still reported
+      // so the sweep can time the wait out.
+      { slug: "demo-skill", version: "1.0.0", sha256: SHA256, startedAt: expect.any(String) },
     ]);
   });
 

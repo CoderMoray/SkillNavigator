@@ -1361,6 +1361,8 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         version: schema.skillVersions.version,
         sha256: schema.skillInspections.virustotalSha256,
         analysisId: schema.skillInspections.virustotalAnalysisId,
+        startedAt: schema.skillVersions.inspectionStartedAt,
+        inspectionCreatedAt: schema.skillInspections.createdAt,
       })
       .from(schema.skillVersions)
       .innerJoin(schema.skills, eq(schema.skills.slug, schema.skillVersions.skillSlug))
@@ -1379,12 +1381,19 @@ export class PostgresRegistryStore extends JsonRegistryStore {
           isNotNull(schema.skillInspections.virustotalSha256)
         )
       );
-    return rows.map((row) => ({
-      slug: row.slug,
-      version: row.version,
-      sha256: String(row.sha256),
-      ...(row.analysisId ? { analysisId: row.analysisId } : {}),
-    }));
+    return rows.map((row) => {
+      // `inspection_started_at` is set by the publish/retry paths and is never
+      // refreshed by the sweep; `created_at` is the report's first-write time
+      // and is not touched by later upserts. Either is a stable clock.
+      const startedAt = row.startedAt ?? row.inspectionCreatedAt;
+      return {
+        slug: row.slug,
+        version: row.version,
+        sha256: String(row.sha256),
+        ...(row.analysisId ? { analysisId: row.analysisId } : {}),
+        ...(startedAt ? { startedAt: new Date(startedAt).toISOString() } : {}),
+      };
+    });
   }
 
   async backfillInspectionStageStatuses(

@@ -334,6 +334,42 @@ export function readInspectionStaleMs(): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_INSPECTION_STALE_MS;
 }
 
+/** How long a deferred VirusTotal analysis may stay unresolved. Default: 45 minutes. */
+export const DEFAULT_DEFERRED_VIRUSTOTAL_TIMEOUT_MS = 45 * 60 * 1000;
+
+export function readDeferredVirusTotalTimeoutMs(): number {
+  const raw = process.env.VIRUSTOTAL_DEFERRED_TIMEOUT_MS?.trim();
+  if (!raw) {
+    return DEFAULT_DEFERRED_VIRUSTOTAL_TIMEOUT_MS;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : DEFAULT_DEFERRED_VIRUSTOTAL_TIMEOUT_MS;
+}
+
+/**
+ * Whether a deferred analysis has waited long enough to give up on.
+ *
+ * The one time-based escape hatch in the deferred flow, for the case responses
+ * cannot settle: VirusTotal keeps answering "queued" forever. Without a usable
+ * start time nothing expires — a missing clock must never turn into "expired".
+ */
+export function isDeferredVirusTotalExpired(
+  startedAt: string | undefined,
+  timeoutMs: number,
+  now: number = Date.now()
+): boolean {
+  if (!startedAt) {
+    return false;
+  }
+  const started = Date.parse(startedAt);
+  if (!Number.isFinite(started)) {
+    return false;
+  }
+  return now - started >= timeoutMs;
+}
+
 export function readInspectionRecoverAllOnStartup(): boolean {
   const value =
     process.env.INSPECTION_RECOVER_ALL_ON_STARTUP ??
