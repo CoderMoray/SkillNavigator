@@ -61,7 +61,7 @@ class VirusTotalStepError extends Error {
   }
 }
 
-export type VirusTotalScanStatus = "completed" | "not_found" | "failed";
+export type VirusTotalScanStatus = "completed" | "not_found" | "failed" | "pending";
 
 export type VirusTotalThreatVerdict =
   | "VERDICT_UNKNOWN"
@@ -160,12 +160,78 @@ export async function runVirusTotalScan(
   }
 
   const analysisId = await uploadArchive(archive, apiKey);
+  if (shouldDeferAnalysis()) {
+    // The upload succeeded, so the analysis is queued on VirusTotal's side and
+    // how long it takes is outside our control (minutes for a first-time
+    // upload). Hand back "pending" so the caller can publish right away and a
+    // background sweep collects the report by hash, instead of holding a
+    // request (and a CLI/agent call) open for it.
+    return pendingScan(sha256);
+  }
   const report = await waitForAnalysis(analysisId, apiKey);
   const completedReport = hasCompletedEngineStats(report)
     ? report
     : await waitForCompletedFileReport(sha256, apiKey, report);
   const enrichedReport = await enrichReportWithFileMetadata(sha256, apiKey, completedReport);
   return completeScan(sha256, enrichedReport);
+}
+
+/**
+ * Whether the pipeline hands the analysis to the background sweep instead of
+ * waiting for it. Deferring is the default; waiting is the exception, used by
+ * benchmarks and by report tooling that needs a finished report in one call.
+ */
+function shouldDeferAnalysis(): boolean {
+  if (process.env.REVIEW_BENCHMARK_UNLIMITED?.trim().toLowerCase() === "true") {
+    return false;
+  }
+  return process.env.VIRUSTOTAL_WAIT_FOR_ANALYSIS?.trim().toLowerCase() !== "true";
+}
+
+function pendingScan(
+  sha256: string
+): { summary: VirusTotalScanSummary; findings: InspectionFinding[] } {
+  return {
+    summary: {
+      provider: "virustotal",
+      sha256,
+      status: "pending",
+      malicious: 0,
+      suspicious: 0,
+      harmless: 0,
+      undetected: 0,
+      totalEngines: 0,
+      analysisUrl: `${VIRUSTOTAL_GUI_BASE_URL}/${sha256}`
+    },
+    findings: []
+  };
+}
+
+/**
+ * Fetch the finished report for an already-uploaded package (deferred path).
+ *
+ * Response-driven on purpose: "no result yet" is **not** a failure. A hash VT
+ * does not know yet (404) and a report whose engine stats are still filling in
+ * (200 without stats) both return `pending` and are simply retried later. Only
+ * real transport/auth/quota errors throw, and they carry a `kind` (auth |
+ * rate_limit | server | …) so the caller can separate "retry later" from
+ * "this will not resolve on its own".
+ */
+export async function lookupVirusTotalScan(sha256: string): Promise<
+  | { status: "completed"; summary: VirusTotalScanSummary; findings: InspectionFinding[] }
+  | { status: "pending" }
+> {
+  const apiKey = readApiKey();
+  if (!apiKey) {
+    throw new Error("VIRUSTOTAL_API_KEY is required to look up a VirusTotal report.");
+  }
+  const report = await lookupFileReport(sha256, apiKey);
+  if (!report || !hasCompletedEngineStats(report)) {
+    return { status: "pending" };
+  }
+  const enriched = await enrichReportWithFileMetadata(sha256, apiKey, report);
+  const scan = completeScan(sha256, enriched);
+  return { status: "completed", summary: scan.summary, findings: scan.findings };
 }
 
 function completeScan(
@@ -331,6 +397,11 @@ async function waitForAnalysis(analysisId: string, apiKey: string): Promise<Viru
       return parseAnalysisReportPayload(payload, "VirusTotal analysis");
     }
 
+    // Defensive only: the documented analysis statuses are queued /
+    // in-progress / completed, so VT never reports a terminal failure here —
+    // engine-level problems show up as `failure`/`timeout` counts inside
+    // `last_analysis_stats` instead. Kept so an unexpected value cannot trap
+    // the loop until the timeout.
     if (status === "failed") {
       throw new Error("VirusTotal analysis failed.");
     }
@@ -478,7 +549,7 @@ function describeStepAction(step: VirusTotalStep): string {
   }
 }
 
-function diagnoseVirusTotalError(error: unknown): VirusTotalErrorDiagnosis {
+export function diagnoseVirusTotalError(error: unknown): VirusTotalErrorDiagnosis {
   if (error instanceof VirusTotalHttpError) {
     if (error.status === 429) {
       return {

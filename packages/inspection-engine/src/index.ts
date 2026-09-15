@@ -97,9 +97,11 @@ export interface InspectionAndEvaluationResult {
 
 export type { SkillSpectorScanSummary } from "./skillspector.js";
 export {
+  diagnoseVirusTotalError,
   isVirusTotalEnabled,
   isVirusTotalUploadOnMissEnabled,
   formatVirusTotalError,
+  lookupVirusTotalScan,
   parseEngineResults,
   parseThreatVerdict,
   resolveVirusTotalEngineTotal,
@@ -254,10 +256,13 @@ export async function inspectAndEvaluateSkillSnapshot(
     );
   }
   if (configuredStages.includes("virustotal")) {
-    stageStatuses.virustotal = resolveVirusTotalStageStatus(
-      findings,
-      Boolean(virusTotalResult.failure)
-    );
+    // A deferred upload has no verdict yet: keep the stage "processing" so the
+    // aggregate stays "inspecting" and nobody reads it as "passed". The
+    // background sweep finalizes it once the report exists.
+    stageStatuses.virustotal =
+      virusTotal?.status === "pending"
+        ? "processing"
+        : resolveVirusTotalStageStatus(findings, Boolean(virusTotalResult.failure));
   }
   if (configuredStages.includes("halucatch")) {
     stageStatuses.halucatch = resolveHaluCatchStageStatus(haluCatchInterrupted);

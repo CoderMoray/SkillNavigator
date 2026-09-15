@@ -1347,6 +1347,44 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     await this.syncSkillInspectionDenormFromLatest(slug);
   }
 
+  /**
+   * Versions waiting for a deferred VirusTotal report: the stage is still
+   * "processing" and the stored hash lets the sweep fetch the analysis.
+   */
+  async listPendingVirusTotalInspections(): Promise<
+    Array<{ slug: string; version: string; sha256: string }>
+  > {
+    await this.ensureSchema();
+    const rows = await this.db
+      .select({
+        slug: schema.skillVersions.skillSlug,
+        version: schema.skillVersions.version,
+        sha256: schema.skillInspections.virustotalSha256,
+      })
+      .from(schema.skillVersions)
+      .innerJoin(schema.skills, eq(schema.skills.slug, schema.skillVersions.skillSlug))
+      .innerJoin(
+        schema.skillInspections,
+        and(
+          eq(schema.skillInspections.skillSlug, schema.skillVersions.skillSlug),
+          eq(schema.skillInspections.version, schema.skillVersions.version)
+        )
+      )
+      .where(
+        and(
+          isNull(schema.skills.deletedAt),
+          eq(schema.skillVersions.inspectionStatus, "inspecting"),
+          eq(schema.skillVersions.inspectionVirustotalStatus, "processing"),
+          isNotNull(schema.skillInspections.virustotalSha256)
+        )
+      );
+    return rows.map((row) => ({
+      slug: row.slug,
+      version: row.version,
+      sha256: String(row.sha256),
+    }));
+  }
+
   async backfillInspectionStageStatuses(
     slug: string,
     version: string,
@@ -2643,7 +2681,14 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       .where(
         and(
           isNull(schema.skills.deletedAt),
-          eq(schema.skillVersions.inspectionStatus, "inspecting")
+          eq(schema.skillVersions.inspectionStatus, "inspecting"),
+          // A version waiting for a deferred VirusTotal report is not stale —
+          // the sweep is still collecting it. Rows without a stage model are
+          // NULL, which must keep matching, hence the explicit or().
+          or(
+            isNull(schema.skillVersions.inspectionVirustotalStatus),
+            ne(schema.skillVersions.inspectionVirustotalStatus, "processing")
+          )
         )
       );
 

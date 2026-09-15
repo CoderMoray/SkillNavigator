@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import {
+  lookupVirusTotalScan,
   parseEngineResults,
   parseThreatVerdict,
   inspectAndEvaluateSkillSnapshot,
@@ -18,6 +19,7 @@ const configuredVariables = [
   "VIRUSTOTAL_TIMEOUT_MS",
   "VIRUSTOTAL_ANALYSIS_TIMEOUT_MS",
   "VIRUSTOTAL_POLL_INTERVAL_MS",
+  "VIRUSTOTAL_WAIT_FOR_ANALYSIS",
   "HALUCATCH_ENABLED"
 ] as const;
 const originalEnvironment = new Map(
@@ -56,6 +58,9 @@ function configureVirusTotal(): void {
   process.env.VIRUSTOTAL_TIMEOUT_MS = "1000";
   process.env.VIRUSTOTAL_ANALYSIS_TIMEOUT_MS = "1000";
   process.env.VIRUSTOTAL_POLL_INTERVAL_MS = "1";
+  // Production defers the analysis ("upload now, collect later"); these tests
+  // cover the waiting path, so opt back into it unless a test says otherwise.
+  process.env.VIRUSTOTAL_WAIT_FOR_ANALYSIS = "true";
 }
 
 beforeAll(async () => {
@@ -300,6 +305,89 @@ describe("VirusTotal package review adapter", () => {
     expect(inspection.findings.some((finding) => finding.id === "virustotal-scan-failed")).toBe(false);
     expect(stageStatuses.virustotal).toBe("interrupted");
     expect(stageFailureMessages.virustotal).toMatch(/analysis did not complete/i);
+  });
+
+  test("defers the analysis after upload instead of holding the request open", async () => {
+    configureVirusTotal();
+    process.env.VIRUSTOTAL_WAIT_FOR_ANALYSIS = "false";
+    process.env.VIRUSTOTAL_UPLOAD_ON_MISS = "true";
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({}, 404)) // file_lookup: unknown hash
+      .mockResolvedValueOnce(jsonResponse({ data: { id: "analysis-id" } })); // upload
+    vi.stubGlobal("fetch", fetchMock);
+
+    const scan = await runVirusTotalScan(snapshot);
+
+    // Only the lookup and the upload: polling /analyses or /files is the
+    // background sweep's job once the upload is accepted.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[1]?.[0])).toMatch(/\/files$/);
+    expect(scan.summary).toMatchObject({ status: "pending", totalEngines: 0 });
+    expect(scan.summary.sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(scan.findings).toEqual([]);
+  });
+
+  test("keeps the VirusTotal stage processing while the analysis is deferred", async () => {
+    configureVirusTotal();
+    process.env.VIRUSTOTAL_WAIT_FOR_ANALYSIS = "false";
+    process.env.VIRUSTOTAL_UPLOAD_ON_MISS = "true";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn()
+        .mockResolvedValueOnce(jsonResponse({}, 404)) // file_lookup: unknown hash
+        .mockResolvedValueOnce(jsonResponse({ data: { id: "analysis-id" } })) // upload
+    );
+
+    const { stageStatuses, inspection } = await inspectAndEvaluateSkillSnapshot(snapshot);
+
+    // No verdict yet -> "processing", never "passed": nothing may read a
+    // deferred upload as a clean scan, and the aggregate stays "inspecting"
+    // so the version is not published publicly until the sweep finalizes it.
+    expect(stageStatuses.virustotal).toBe("processing");
+    expect(inspection.virusTotal).toMatchObject({ status: "pending" });
+  });
+
+  test("looks up a deferred report by hash and only completes on a real one", async () => {
+    configureVirusTotal();
+    const hash = "a".repeat(64);
+
+    // VT does not know the hash yet (404) -> still pending, not a failure.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(jsonResponse({}, 404)));
+    await expect(lookupVirusTotalScan(hash)).resolves.toEqual({ status: "pending" });
+
+    // Report exists but the engine stats are still filling in -> still pending.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(jsonResponse({ data: { attributes: {} } }))
+    );
+    await expect(lookupVirusTotalScan(hash)).resolves.toEqual({ status: "pending" });
+
+    // Finished report -> completed, with the engine total and no findings.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            attributes: {
+              last_analysis_stats: {
+                malicious: 0,
+                suspicious: 0,
+                harmless: 5,
+                undetected: 60
+              },
+              last_analysis_results: {},
+              threat_verdict: "VERDICT_UNDETECTED"
+            }
+          }
+        })
+      )
+    );
+    const result = await lookupVirusTotalScan(hash);
+    expect(result.status).toBe("completed");
+    if (result.status === "completed") {
+      expect(result.summary).toMatchObject({ status: "completed", totalEngines: 65 });
+      expect(result.findings).toEqual([]);
+    }
   });
 
   test("uploads an unknown archive and waits for its analysis when enabled", async () => {

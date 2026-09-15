@@ -307,6 +307,15 @@ export interface RegistryStore {
     options: PersistInspectionStageResultsOptions
   ): Promise<void>;
   /**
+   * Versions whose VirusTotal stage is still "processing" because the analysis
+   * was deferred at publish time. Each entry carries the stored package hash the
+   * background sweep needs to fetch the report; a version without a hash cannot
+   * be resumed and is therefore not listed.
+   */
+  listPendingVirusTotalInspections(): Promise<
+    Array<{ slug: string; version: string; sha256: string }>
+  >;
+  /**
    * Fill inspection stage statuses that were never persisted (rows written
    * before the stage-status model, and seed-published versions). Only absent
    * stages are written — existing values are never overwritten and

@@ -68,12 +68,17 @@ export function parseVirusTotalInspectionRow(row: {
     return undefined;
   }
 
-  const status =
+  // `pending` survives a round-trip deliberately: the deferred-flow sweep needs
+  // the stored hash to fetch the report, and a version whose VT stage is still
+  // processing must not read back as "completed".
+  const status: VirusTotalScanSummary["status"] =
     row.virustotalStatus === "not_found"
       ? "not_found"
       : row.virustotalStatus === "failed"
         ? "failed"
-        : "completed";
+        : row.virustotalStatus === "pending"
+          ? "pending"
+          : "completed";
 
   const threatVerdict = parseThreatVerdict(row.virustotalThreatVerdict);
   const summary = {

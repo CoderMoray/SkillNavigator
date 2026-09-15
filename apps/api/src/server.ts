@@ -4,15 +4,21 @@ import { pathToFileURL } from "node:url";
 import { evaluateSkillSnapshot } from "@skill-platform/evaluator";
 import {
   buildRetryStageStatusesForMark,
+  calculateInspectionVerdict,
+  diagnoseVirusTotalError,
   getConfiguredInspectionStages,
   isPipelineIncomplete,
+  isVirusTotalInspectionFinding,
+  lookupVirusTotalScan,
   resolveInspectionStagesToRun,
   resolvePipelineInspectionStatus,
+  resolveVirusTotalStageStatus,
   inspectAndEvaluateSkillSnapshot,
   runInspectionPipeline,
   type InspectionAndEvaluationResult,
   type InspectionPipelineState,
   type InspectionStage,
+  type InspectionStageStatuses,
 } from "@skill-platform/inspection-engine";
 import { freeDevListenPort } from "./free-port.js";
 import {
@@ -324,7 +330,13 @@ export function buildServer() {
   if (readInspectionRecoverAllOnStartup()) {
     runInspectionRecovery(true);
   }
-  const inspectionRecoveryTimer = setInterval(() => runInspectionRecovery(false), 5 * 60 * 1000);
+  const runInspectionMaintenance = () => {
+    runInspectionRecovery(false);
+    void resumeDeferredVirusTotalInspections(store).catch((error) => {
+      app.log.error({ err: error }, "Deferred VirusTotal sweep failed");
+    });
+  };
+  const inspectionRecoveryTimer = setInterval(runInspectionMaintenance, 5 * 60 * 1000);
   inspectionRecoveryTimer.unref?.();
 
   const runUnverifiedUserPurge = () => {
@@ -958,13 +970,19 @@ export function buildServer() {
 
       await ensureLatestInspectionTarget(store, prepared.slug, prepared.version);
 
+      // A deferred VirusTotal analysis is not a failure: the package is stored
+      // and published for its owner, and the background sweep finalizes it once
+      // the report lands.
+      const deferredVirusTotal = isVirusTotalAnalysisDeferred(pipelineResult.stageStatuses);
+
       const registryVersion = await publishInspectedSnapshot(
         store,
         prepared,
         inspection,
         evaluation,
         { userId: user.id, username: user.username },
-        changelog
+        changelog,
+        deferredVirusTotal ? pipelineResult : undefined
       );
 
       return reply.code(201).send({
@@ -973,7 +991,7 @@ export function buildServer() {
         version: registryVersion.version,
         releaseTags: registryVersion.releaseTags,
         status: registryVersion.status,
-        inspectionStatus: "completed",
+        inspectionStatus: deferredVirusTotal ? "inspecting" : "completed",
         contentHash: registryVersion.contentHash,
         inspection: registryVersion.inspection,
         evaluation: registryVersion.evaluation,
@@ -1865,7 +1883,8 @@ async function runBackgroundPublishInspection(
       inspection,
       evaluation,
       { userId: ownerUserId, username: ownerUsername },
-      changelog
+      changelog,
+      isVirusTotalAnalysisDeferred(pipelineResult.stageStatuses) ? pipelineResult : undefined
     );
     console.info(`Background publish inspection completed for ${prepared.slug}@${prepared.version}`);
   } catch (error) {
@@ -1883,20 +1902,111 @@ async function runBackgroundPublishInspection(
   }
 }
 
+/**
+ * Collect VirusTotal reports for packages whose analysis was deferred at publish
+ * time.
+ *
+ * Response-driven with no time-based give-up: a finished report finalizes the
+ * version (which is what makes it public), while "VT does not know this hash
+ * yet" (404) or a report whose engine stats are still filling in simply waits
+ * for the next tick. Only a non-retryable failure — bad key, exhausted quota —
+ * marks the stage interrupted, so the owner can fix it and retry.
+ */
+async function resumeDeferredVirusTotalInspections(store: RegistryStore): Promise<void> {
+  const pending = await store.listPendingVirusTotalInspections();
+  if (pending.length === 0) {
+    return;
+  }
+
+  for (const { slug, version, sha256 } of pending) {
+    try {
+      const report = await lookupVirusTotalScan(sha256);
+      if (report.status === "pending") {
+        continue;
+      }
+
+      const skill = await store.getSkill(slug);
+      const entry = skill?.versions?.[version];
+      const inspection = entry?.inspection;
+      if (!inspection) {
+        continue;
+      }
+
+      // Swap in the finished VT findings, then let the platform rules decide the
+      // verdict again: the deferred run had no VT verdict to contribute.
+      const findings = [
+        ...(inspection.findings ?? []).filter(
+          (finding) => !isVirusTotalInspectionFinding(finding)
+        ),
+        ...report.findings,
+      ];
+      const stageStatuses: InspectionStageStatuses = {
+        ...(entry.inspectionStageStatuses ?? {}),
+        virustotal: resolveVirusTotalStageStatus(findings, false),
+      };
+
+      await store.persistInspectionStageResults(
+        slug,
+        version,
+        {
+          ...inspection,
+          findings,
+          virusTotal: report.summary,
+          verdict: calculateInspectionVerdict(findings),
+        },
+        entry.evaluation,
+        {
+          stageStatuses,
+          configuredStages: getConfiguredInspectionStages(),
+          finalize: true,
+        }
+      );
+      console.info(`Deferred VirusTotal report collected for ${slug}@${version}`);
+    } catch (error) {
+      const diagnosis = diagnoseVirusTotalError(error);
+      if (diagnosis.retryable) {
+        // Network hiccup, VT 5xx or quota reset: retry on the next tick.
+        continue;
+      }
+      console.error(`Deferred VirusTotal report failed for ${slug}@${version}:`, error);
+      const entry = await store.getSkill(slug).then((skill) => skill?.versions?.[version]);
+      await store.markSkillInspectionStatus(slug, "interrupted", {
+        version,
+        stageStatuses: { ...(entry?.inspectionStageStatuses ?? {}), virustotal: "interrupted" },
+      });
+    }
+  }
+}
+
+/**
+ * True while the VirusTotal stage is still waiting for a report (deferred
+ * upload). The version is published so its owner can see it, but it is not
+ * finalized: "inspecting" keeps it out of the public index (which requires
+ * "completed") until the background sweep collects the report.
+ */
+function isVirusTotalAnalysisDeferred(stageStatuses: Partial<InspectionStageStatuses>): boolean {
+  return stageStatuses.virustotal === "processing";
+}
+
 async function publishInspectedSnapshot(
   store: RegistryStore,
   prepared: PreparedPublishRequest,
   inspection: Awaited<ReturnType<typeof inspectAndEvaluateSkillSnapshot>>["inspection"],
   evaluation: Awaited<ReturnType<typeof inspectAndEvaluateSkillSnapshot>>["evaluation"],
   owner: { userId: string; username: string },
-  changelog?: string
+  changelog?: string,
+  deferred?: Pick<
+    Awaited<ReturnType<typeof inspectAndEvaluateSkillSnapshot>>,
+    "stageStatuses" | "stageFailureMessages"
+  >
 ) {
   await store.commitInspectionResultsBeforePublish(prepared.snapshot, inspection, evaluation, {
     releaseTags: prepared.releaseTags,
   });
 
+  let published;
   try {
-    return await store.publishSnapshot(prepared.snapshot, inspection, evaluation, {
+    published = await store.publishSnapshot(prepared.snapshot, inspection, evaluation, {
       owner,
       releaseTags: prepared.releaseTags,
       changelog,
@@ -1906,6 +2016,26 @@ async function publishInspectedSnapshot(
     await markPublishInspectionFailed(store, prepared.slug, prepared.version, error);
     throw error;
   }
+
+  if (deferred) {
+    // Both commitInspectionResultsBeforePublish and publishSnapshot force
+    // "completed", so write the stage statuses back afterwards: a version whose
+    // VirusTotal stage is still processing must read (and index) as inspecting.
+    await store.persistInspectionStageResults(
+      prepared.slug,
+      prepared.version,
+      inspection,
+      evaluation,
+      {
+        stageStatuses: deferred.stageStatuses,
+        stageFailureMessages: deferred.stageFailureMessages,
+        configuredStages: getConfiguredInspectionStages(),
+        finalize: false,
+      }
+    );
+  }
+
+  return published;
 }
 
 async function markPublishInspectionFailed(

@@ -167,10 +167,12 @@ async function runVirusTotalStage(
   await emitStageComplete(snapshot, version, state, "virustotal", onStageComplete);
 
   let interrupted = false;
+  let pending = false;
   try {
     const scan = await runVirusTotalScan(snapshot);
     state.virusTotal = scan.summary;
     state.findings.push(...scan.findings);
+    pending = scan.summary.status === "pending";
   } catch (error) {
     const message = formatVirusTotalError(error);
     interrupted = true;
@@ -178,7 +180,13 @@ async function runVirusTotalStage(
     state.stageFailureMessages.virustotal = message;
   }
 
-  state.stageStatuses.virustotal = resolveVirusTotalStageStatus(state.findings, interrupted);
+  // A deferred analysis has no verdict yet, so the stage stays "processing"
+  // rather than "passed": the aggregate becomes "inspecting", the version is
+  // not finalized (owner-only visibility), and the background sweep finishes
+  // it once VirusTotal has the report.
+  state.stageStatuses.virustotal = pending
+    ? "processing"
+    : resolveVirusTotalStageStatus(state.findings, interrupted);
   await emitStageComplete(snapshot, version, state, "virustotal", onStageComplete);
 }
 

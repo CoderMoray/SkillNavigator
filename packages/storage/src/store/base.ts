@@ -498,6 +498,29 @@ export abstract class JsonRegistryStore implements RegistryStore {
     await this.save(data);
   }
 
+  /** Versions waiting for a deferred VirusTotal report (JSON/file store). */
+  async listPendingVirusTotalInspections(): Promise<
+    Array<{ slug: string; version: string; sha256: string }>
+  > {
+    const data = await this.load();
+    const pending: Array<{ slug: string; version: string; sha256: string }> = [];
+    for (const [slug, skill] of Object.entries(data.skills)) {
+      if (skill.deletedAt) {
+        continue;
+      }
+      for (const [version, entry] of Object.entries(skill.versions)) {
+        if (entry.inspectionStageStatuses?.virustotal !== "processing") {
+          continue;
+        }
+        const sha256 = entry.inspection?.virusTotal?.sha256;
+        if (typeof sha256 === "string" && sha256) {
+          pending.push({ slug, version, sha256 });
+        }
+      }
+    }
+    return pending;
+  }
+
   async backfillInspectionStageStatuses(
     slug: string,
     version: string,
@@ -935,6 +958,12 @@ export abstract class JsonRegistryStore implements RegistryStore {
 
       for (const version of Object.values(skill.versions)) {
         if (resolveVersionInspectionStatus(version) !== "inspecting") {
+          continue;
+        }
+
+        // Waiting for a deferred VirusTotal report: the sweep is still
+        // collecting it, so it is not stale.
+        if (version.inspectionStageStatuses?.virustotal === "processing") {
           continue;
         }
 
