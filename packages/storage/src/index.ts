@@ -63,6 +63,10 @@ export {
 } from "./store/minio";
 
 export {
+  JsonRegistryStore,
+} from "./store/base";
+
+export {
   PostgresRegistryStore,
 } from "./store/postgres";
 
