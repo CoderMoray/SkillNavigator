@@ -116,7 +116,8 @@ skillnav
 │  ├─ add-contributor <slug> --username USER   # POST /skills/:slug/contributors
 │  └─ remove-contributor <slug> [--id ID | --username USER]  # DELETE /skills/:slug/contributors/:id
 ├─ 生命周期
-│  └─ unpublish <slug> [--version VER] [--delete]  # POST /skills/:slug[/versions/:version]/unpublish；--delete → DELETE /skills/:slug（回收站）
+│  ├─ unpublish <slug> [--version VER] [--delete]  # POST /skills/:slug[/versions/:version]/unpublish；--delete → DELETE /skills/:slug（回收站）
+│  └─ republish <slug> [--version VER]             # POST .../republish（恢复公开；受审查状态约束）
 └─ skill / skill2（预留）
 ```
 
@@ -202,6 +203,7 @@ skillnav
 | add-contributor | `POST /skills/:slug/contributors` | Bearer（owner） |
 | remove-contributor | `DELETE /skills/:slug/contributors/:id` | Bearer（owner） |
 | unpublish | `POST /skills/:slug/unpublish`（或 `.../versions/:version/unpublish`；`--delete` → `DELETE /skills/:slug`）| Bearer（owner / contributor）|
+| republish | `POST /skills/:slug/republish`（或 `.../versions/:version/republish`）| Bearer（owner / contributor）|
 
 ## 9. 版本与里程碑
 
@@ -210,7 +212,7 @@ skillnav
 - `0.2.0` ✅：发布流（publish/--dry-run）+ report 完整展示。
 - `0.3.0` ✅：分发（download/install）+ 社区（rate/issue/issues/add-contributor）。
 - `0.4.x` ✅（当前 `0.4.10`）：`report` 三维完整展示（SkillSpector / VirusTotal / HaluCatch）、`status` 改为 Inspection 聚合状态（含 Verdict / Security 摘要）、`config remove`、登录错误区分与 `--version`/自更新修复、`install` 必填 `--dir`、`config add` 复用提示、`update` 镜像回退提示、`publish --wait` 600s 请求预算。
-- `1.0.0`：冻结命令集；错误处理与帮助文档 polish；`apps/cli` TS 版下线。（`--json` 已覆盖全部 23 个子命令。）
+- `1.0.0`：冻结命令集；错误处理与帮助文档 polish；`apps/cli` TS 版下线。（`--json` 已覆盖全部 24 个子命令。）
 
 ## 10. 待定事项
 

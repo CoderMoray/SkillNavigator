@@ -79,7 +79,7 @@
 
 ### CLI 与分发（skillnav）
 
-- [x] Python `skillnav`（typer，纯 API 客户端）：config/login/whoami/publish/report/status/search/top/info/download/install/rate/issue/unpublish 等 23 个子命令，`--json` 全覆盖
+- [x] Python `skillnav`（typer，纯 API 客户端）：config/login/whoami/publish/report/status/search/top/info/download/install/rate/issue/unpublish/republish 等 24 个子命令，`--json` 全覆盖
 - [x] PyPI 已发布至 **0.4.10**（Trusted Publishing，push `skillnav-*` tag 触发；版本号单一来源 `skillnav.__version__`，CI 校验 tag 与版本一致且 tag 在 main 上）
 - [x] 多 Profile 配置（`~/.config/skillnav/config.json`），支持独立部署与多平台嵌入
 

@@ -115,6 +115,21 @@ skillnav unpublish my-skill --delete           # 移入回收站（3 天内可�
 
 ---
 
+## republish — 重新上架（恢复公开）
+
+`unpublish` 的逆操作：只改可见性，不产生新版本、不改版本历史。
+
+```bash
+skillnav republish my-skill                    # 恢复整个 Skill 到公开搜索
+skillnav republish my-skill --version 1.0.0    # 只恢复该版本
+```
+
+⚠️ **不能绕过审查**：审查中（`skill_republish_blocked_inspection_in_progress`）、审查中断（`..._failed`）、已被拒绝（`..._rejected`）时服务端拒绝。被拒后想重新公开的正确路径是 **修 finding → 发新版本**（`skillnav publish`），而不是反复尝试 republish。
+
+`--json` 返回 `{slug, version, action: "republished", visibility}`。**仅在用户明确要求时执行。**
+
+---
+
 ## 常见错误
 
 | 现象 | 处理 |

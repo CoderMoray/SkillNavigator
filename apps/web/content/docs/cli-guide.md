@@ -302,6 +302,15 @@ skillnav unpublish my-first-skill --delete     # 移入回收站（3 天内可�
 
 仅 owner / contributor 可执行（否则返回 403）；下架后 `skillnav status <slug>` 显示 `Visibility: private`。
 
+**想要重新上架（`skillnav republish`）**：`unpublish` 的逆操作，只恢复可见性——不产生新版本、不改版本历史。
+
+```bash
+skillnav republish my-first-skill                    # 恢复整个 Skill 到公开搜索
+skillnav republish my-first-skill --version 1.0.0    # 只恢复某个版本
+```
+
+⚠️ **不能用来绕过审查**：审查中 / 审查中断 / 已被拒绝时服务端会拒绝（`skill_republish_blocked_*`），需先 `retry-publish` 或发新版本。被拒后想重新公开的正确路径是**修 finding → 发新版本**。
+
 ---
 
 ## 7. 查看状态与审查报告
@@ -428,6 +437,7 @@ skillnav search my-first
 | 报告 | `skillnav report <slug> [--version VER]` |
 | 搜索 | `skillnav search <关键词>` |
 | 下架（从公开搜索移除） | `skillnav unpublish <slug>`（`--version VER` 单版本；`--delete` 入回收站）|
+| 重新上架（恢复公开） | `skillnav republish <slug>`（`--version VER` 单版本）|
 | 退出登录（本地） | `skillnav logout` |
 
 **全局参数：** `--registry`、`--profile`、`--json`、`--no-input`（CI 必加，缺少输入时直接失败）。**必须写在子命令之前**，例如 `skillnav --json status <slug>`；写在子命令之后会被拒绝并提示正确位置（`--no-input` 属于全局参数，不是子命令选项）。

@@ -187,7 +187,16 @@ skillnav unpublish <slug> --version <版本>    # 只下架某个版本（latest
 skillnav unpublish <slug> --delete           # 移入回收站（3 天内可恢复；到期永久删除全部数据）
 ```
 
-**不是删除**：包、审查数据与版本历史都保留，之后可重新上架（Web 详情页）或用新版本发布。仅 owner / contributor 可执行，非本人 Skill 返回 **403**。下架后 `skillnav status <slug>` 会显示 `Visibility: private`。**写操作，须用户明确要求后再执行。**
+**不是删除**：包、审查数据与版本历史都保留，之后可重新上架或用新版本发布。仅 owner / contributor 可执行，非本人 Skill 返回 **403**。下架后 `skillnav status <slug>` 会显示 `Visibility: private`。**写操作，须用户明确要求后再执行。**
+
+**重新上架（恢复公开）**：
+
+```bash
+skillnav republish <slug>                    # 恢复整个 Skill 到公开搜索
+skillnav republish <slug> --version <版本>    # 只恢复某个版本
+```
+
+`unpublish` 的逆操作：只改可见性，不产生新版本、不改版本历史。⚠️ **不能用来绕过审查**——审查中 / 审查中断 / 被拒绝时服务端会拒绝（`skill_republish_blocked_*`），需先 `retry-publish` 或发新版本。**写操作，须用户明确要求后再执行。**
 
 ## 文档
 
