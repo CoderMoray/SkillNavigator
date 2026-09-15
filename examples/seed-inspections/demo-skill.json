@@ -1,0 +1,20 @@
+{
+  "skill": "demo-skill",
+  "contentHash": "9d167658dae9eebf8d3efb807a1c68ca41ffd3deede981b04404df31cbe1c79c",
+  "generatedAt": "2026-09-15T05:09:50.625Z",
+  "generator": {
+    "note": "VT summary/link only. SkillSpector + HaluCatch re-run live at seed time."
+  },
+  "virusTotal": {
+    "provider": "virustotal",
+    "sha256": "9626de9461c283e873972d4761ba9f4971f93313b9868279c5d80cb4a5e7f6b5",
+    "status": "completed",
+    "malicious": 0,
+    "suspicious": 0,
+    "harmless": 0,
+    "undetected": 65,
+    "totalEngines": 74,
+    "analysisUrl": "https://www.virustotal.com/gui/file/9626de9461c283e873972d4761ba9f4971f93313b9868279c5d80cb4a5e7f6b5",
+    "engineResults": []
+  }
+}
