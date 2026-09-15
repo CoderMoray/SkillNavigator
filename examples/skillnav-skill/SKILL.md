@@ -1,8 +1,8 @@
 ---
 slug: skillnav-skill
 name: skillnav CLI
-description: "SkillNavigator 官方 CLI（skillnav）：多 profile 配置、API Key 登录、Skill 发布与远程审查、状态/报告查询、搜索下载、评分与 Issue。当用户需要通过命令行发布/更新 Skill、预审查包、查看 verdict 与 HaluCatch 报告、搜索或安装 Skill，或 Agent 需要代用户操作本平台 CLI 时使用本技能。"
-version: 1.0.0
+description: "SkillNavigator 官方 CLI（skillnav）：多 profile 配置、API Key 登录、Skill 发布与远程审查、下架、状态/报告查询、搜索下载、评分与 Issue。当用户需要通过命令行发布/更新/下架 Skill、预审查包、查看 verdict 与 HaluCatch 报告、搜索或安装 Skill，或 Agent 需要代用户操作本平台 CLI 时使用本技能。"
+version: 1.0.1
 categories:
   - Developer Tools
 release-tags:
@@ -81,6 +81,9 @@ skillnav
 ├── login / logout / whoami / update
 ├── publish <dir|zip>               # 发布 → [references/skillnav-publish.md](references/skillnav-publish.md)
 ├── retry-publish <slug>            # 对已暂存包重新跑审查
+├── unpublish <slug>                # 下架：从公开搜索移除（非删除）→ [references/skillnav-publish.md](references/skillnav-publish.md)
+│   ├── --version VER               # 仅下架该版本（latest 不可）
+│   └── --purge                     # 移入回收站（等价 Web 删除，可恢复）
 ├── status <slug> [--version VER]   # 审查状态与各版本摘要
 ├── report <slug> [--version VER]   # 完整安全/质量报告
 ├── search <query> [--category]     # 搜索 → [references/skillnav-discover.md](references/skillnav-discover.md)
@@ -105,6 +108,8 @@ skillnav publish ./my-skill [--version … --category …]
     ↓
 skillnav status <slug> / report <slug>
 ```
+
+**下架是高危写操作**：仅在用户**明确要求**时执行 `skillnav unpublish <slug>`，执行前说明影响（从公开搜索移除，可重新上架）并取得确认；`--purge`（入回收站）风险更高，须单独确认。下架**不是删除**，包与审查数据保留。
 
 ### 自动化场景
 

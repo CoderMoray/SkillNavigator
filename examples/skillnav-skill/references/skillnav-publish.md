@@ -94,6 +94,27 @@ skillnav report my-skill --version 1.0.1
 
 ---
 
+## unpublish — 下架（从公开搜索移除）
+
+**不是删除**：包、审查数据与版本历史都保留，之后可重新上架（Web 详情页）或发布新版本。
+
+```bash
+skillnav unpublish my-skill                    # 交互确认（y/N，显示影响）
+skillnav --no-input unpublish my-skill         # Agent / CI：跳过确认
+skillnav unpublish my-skill --version 1.0.0    # 仅下架该版本（latest 不可 → cannot_unpublish_latest_version）
+skillnav unpublish my-skill --purge            # 移入回收站（等价 Web 删除，可在回收站恢复）
+```
+
+| 参数 | 说明 |
+| --- | --- |
+| `slug` | 目标 Skill（positional） |
+| `--version` | 只下架该版本；latest 不能单独下架 |
+| `--purge` | 整个 Skill 入回收站（不能与 `--version` 同用） |
+
+权限：仅 **owner / contributor**（否则 403）。下架后 `skillnav status <slug>` 显示 `Visibility: private`；`--json` 返回 `{slug, version, action: "unpublished", visibility}`。**仅在用户明确要求时执行。**
+
+---
+
 ## 常见错误
 
 | 现象 | 处理 |
@@ -103,6 +124,8 @@ skillnav report my-skill --version 1.0.1
 | 回收站 | Web 先恢复 Skill |
 | 重复上传同版本 | `pending_publish_use_retry` → `skillnav retry-publish <slug>` |
 | 限流 | `publish_rate_limited`，等待后重试 |
+| 下架 latest 版本被拒 | `cannot_unpublish_latest_version` → 改用整包下架，或先发新版本 |
+| 下架别人的 Skill | 403 → 仅 owner / contributor 可下架 |
 
 ## 参考
 
