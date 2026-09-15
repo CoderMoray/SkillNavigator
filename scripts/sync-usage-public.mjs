@@ -71,6 +71,25 @@ mkdirSync(target, { recursive: true });
 cpSync(source, target, { recursive: true });
 
 const config = deploymentConfig();
+
+// The platform agent prompt is authored with the docs (it is a page too) but must
+// also be fetchable as raw markdown under /usage/: an agent cannot use the
+// rendered HTML page, and the copy button only helps a human.
+const agentPromptSource = path.join(
+  repoRoot,
+  "apps",
+  "web",
+  "content",
+  "docs",
+  "platform-agent-prompt.md"
+);
+if (existsSync(agentPromptSource)) {
+  writeFileSync(
+    path.join(target, "platform-agent-prompt.md"),
+    applyDeploymentConfig(readFileSync(agentPromptSource, "utf8"), config),
+    "utf8"
+  );
+}
 for (const filename of ["skillnavigator.md"]) {
   const filePath = path.join(target, filename);
   if (!existsSync(filePath)) {

@@ -4,6 +4,7 @@ import { DocsMarkdownContent } from "../../../components/DocsMarkdownContent";
 import { getDocNavBySlug, getDocSlugs } from "../../../lib/docs-nav";
 import { loadDocFile } from "../../../lib/docs-server";
 import { resolveBrandName } from "../../../lib/brand-name";
+import { applyDeploymentConfig } from "../../../lib/deployment-config";
 import { PLATFORM_AGENT_PROMPT_DOC_SLUG } from "../../../lib/platform-agent-prompt";
 
 type PageProps = {
@@ -33,7 +34,10 @@ export default async function DocSlugPage({ params }: PageProps) {
     notFound();
   }
 
-  const markdown = await loadDocFile(nav.filename);
+  // Guides are authored with {{brand_name}} / {{web_url}} / {{registry_api_url}}
+  // placeholders; render them here so a page never shows a raw placeholder (the
+  // same values are inlined for the raw markdown under /usage/).
+  const markdown = applyDeploymentConfig(await loadDocFile(nav.filename));
 
   return (
     <article className="docs-page-inner">
