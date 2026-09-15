@@ -204,6 +204,8 @@ skillnav publish ./demo    # 发布到当前默认平台
 - 页面 URL 前缀：Web basePath，构建时由 `NEXT_PUBLIC_BASE_PATH` 注入（嵌入部署时与 Nginx location 保持一致）。
 - 界面显示名：`BRAND_NAME` / `NEXT_PUBLIC_BRAND_NAME` 环境变量注入，默认 `SkillNavigator`；用户可见文案统一经 `{{brand_name}}` 占位符替换，**不要硬编码品牌串**。
 - **变更流程**：改显示名 → 设 `BRAND_NAME` 重新构建 Web；改 URL 前缀 → 设 `NEXT_PUBLIC_BASE_PATH=/{brand}` 重新构建 Web 并同步改 Nginx location → 通知所有已配置 profile 的 CLI 用户更新 registry。
+- **对外地址同样是构建期常量**：`NEXT_PUBLIC_WEB_URL`（Web 地址）与 `NEXT_PUBLIC_REGISTRY_API_URL`（Registry API 地址）会被内联进 `public/usage/*.md`、`public/install` 以及 `/docs/*` 页面里的占位符（`{{web_url}}` / `{{registry_api_url}}`）；**改了也必须重新构建 Web**，否则页面与 `curl` 到的原文仍是旧地址或"（部署方未配置…请向平台维护者索取）"提示。
+- **构建要走 npm script**：usage / install 产物由 `prebuild` 钩子（`scripts/sync-usage-public.mjs`）生成，只有 `npm run build:web` 会触发；CI 或部署脚本若直接调 `next build`，产物不会刷新。发布后可用 `curl -fsSL {webRoot}/usage/platform-agent-prompt.md | grep -c "请向平台维护者索取"` 自检（期望 `0`）。
 
 ## 7. 相关文档
 

@@ -115,11 +115,15 @@ Web 发布路径会在审查前补全缺失或不完整的 frontmatter，避免�
 2. 并行执行：
    ├── SkillSpector 静态安全扫描（Python，可选）
    └── VirusTotal 静态 AV 扫描（可选，见 §5.3）
+        └─ 默认「上传即结束」：上传成功后本阶段返回 processing，
+           报告由 5 分钟后台补取（VIRUSTOTAL_WAIT_FOR_ANALYSIS=true 才同步等待）
 3. HaluCatch 五维可靠性评估（Python，可选；否则回退 tests/*.json）
 4. 汇总 findings → verdict + 三维度评分
 ```
 
-**审查失败**（任一已启用环节未成功完成）：`inspectionStatus: failed`，包通常 **已暂存**；通过 `POST /skills/:slug/retry-publish` 或 CLI `retry-publish` **增量重试**失败/未完成环节。
+**待补取 ≠ 失败**：VirusTotal 报告尚未就绪时该阶段为 `processing`，整体 `inspectionStatus: inspecting`，**仅拥有者可见**、不进公开搜索；补齐后自动 finalize 并公开。判定由响应驱动（404 / 统计未齐 → 继续等；401/403/429 或超过 `VIRUSTOTAL_DEFERRED_TIMEOUT_MS`（默认 45 分钟）→ 中断），补取完成后换入 VT findings 并 **重新判定 verdict**。
+
+**审查中断**（任一已启用环节未成功完成）：`inspectionStatus: interrupted`（旧数据里的 `failed` 归一化为它），包通常 **已暂存**；通过 `POST /skills/:slug/retry-publish` 或 CLI `retry-publish` **增量重试**失败/未完成环节。`inspecting` 期间调用 retry 会返回 409 `skill_inspection_in_progress`。
 
 **Verdict 规则**（`calculateInspectionVerdict`，仅 SkillSpector / VirusTotal 触发自动拒绝）：
 
@@ -127,7 +131,7 @@ Web 发布路径会在审查前补全缺失或不完整的 frontmatter，避免�
 - **needs-inspection**：存在其他 finding（含 suspicious VT、平台合规/质量规则等）
 - **published**：无任何 finding
 
-**公开发现**：`search()` / 榜单排除最新版本 verdict 为 `rejected` 的 Skill；拥有者个人中心通过 `listRejectedSkillsForOwner` 合并展示。
+**公开发现**：`search()` / 榜单要求最新版本 `inspectionStatus: completed`，因此 verdict 为 `rejected`、以及仍在 `inspecting`（含 VT 待补取）或 `interrupted` 的 Skill 都不在公开结果中；拥有者个人中心通过 `listRejectedSkillsForOwner` 合并展示。
 
 **评分维度**：`qualityScore`、`securityScore`、`reliabilityScore` 三个独立维度，不计算综合分。
 
@@ -166,7 +170,7 @@ Worker POST /inspections/rerun → 对注册表 Skill 重跑审查
 | ------------ | ------------------------------------------------------------------------ |
 | 平台规则         | 合规、泄露、隐私、混淆代码等静态模式                                                       |
 | SkillSpector | 调用 Python SkillSpector，解析 per-finding 结果与 summary                        |
-| VirusTotal   | SHA256 查 hash；可选 upload-on-miss；**按 category 合并** malicious / suspicious findings（每类一条） |
+| VirusTotal   | SHA256 查 hash；可选 upload-on-miss；**按 category 合并** malicious / suspicious findings（每类一条）；报告默认由后台 5 分钟 sweep 补取 |
 | 评分/裁决        | `calculateScores`、`calculateInspectionVerdict`                                     |
 
 
@@ -178,7 +182,7 @@ SkillSpector 与 VirusTotal **并行**执行（`Promise.all`），互不阻塞�
 | 项目                                              | 状态                             |
 | ----------------------------------------------- | ------------------------------ |
 | `GET /files/{sha256}` hash lookup               | ✅                              |
-| upload-on-miss + poll + re-fetch                | ✅（`VIRUSTOTAL_UPLOAD_ON_MISS`） |
+| upload-on-miss + **默认 defer**（后台按 sha256 补取） | ✅（`VIRUSTOTAL_UPLOAD_ON_MISS`；`VIRUSTOTAL_WAIT_FOR_ANALYSIS=true` 才同步 poll） |
 | `last_analysis_stats` / `last_analysis_results` | ✅                              |
 | 按 category 合并 malicious / suspicious findings | ✅（每类一条；无逐引擎明细时 aggregate fallback） |
 | `engineResults` 逐引擎明细持久化于 review summary      | ✅（供 stats；UI finding 已合并展示）          |
@@ -186,7 +190,7 @@ SkillSpector 与 VirusTotal **并行**执行（`Promise.all`），互不阻塞�
 | sandbox_verdicts / behaviours / GTI             | ❌ 未接入                          |
 
 
-配置：`VIRUSTOTAL_API_KEY`（必需）、`VIRUSTOTAL_UPLOAD_ON_MISS`（默认 false）、超时与轮询间隔见 `.env.example`。
+配置：`VIRUSTOTAL_API_KEY`（必需）、`VIRUSTOTAL_UPLOAD_ON_MISS`（默认 false）、`VIRUSTOTAL_WAIT_FOR_ANALYSIS`（默认异步）、`VIRUSTOTAL_DEFERRED_TIMEOUT_MS`（默认 45 分钟）、`VIRUSTOTAL_ANALYSIS_TIMEOUT_MS`（仅同步模式，默认 300000），其余超时与轮询间隔见 `.env.example`。
 
 扫描对象：发布包整体 ZIP 的 SHA256（非单文件扫描）。
 
@@ -216,6 +220,7 @@ SkillSpector 与 VirusTotal **并行**执行（`Promise.all`），互不阻塞�
 
 - ORM：Drizzle（`packages/storage/src/schema/*.ts`）
 - 迁移：`packages/storage/drizzle/*.sql`，API 首次启动自动执行
+- 后台维护（API，每 5 分钟）：`recoverStaleInspectingSkills`（把超时未完成的 `inspecting` 标为 `interrupted`）+ `resumeDeferredVirusTotalInspections`（补取 VT 报告并 finalize）
 - 主要表：`skills`、`skill_versions`、`skill_inspections`、`users`、`skill_bookmarks`、`skill_recycle_bin` 等
 - `MINIO_ENABLED=true` 时，新版本的 `skill_version_files.content` 为 `NULL`；该表保留
   path、size、sha256 元数据，读取内容时通过 `skill_versions` 中的 artifact descriptor 获取 ZIP。
@@ -223,7 +228,7 @@ SkillSpector 与 VirusTotal **并行**执行（`Promise.all`），互不阻塞�
 Review 扩展列（近期）：
 
 - SkillSpector summary + findings
-- VirusTotal：status、stats、sha256、link、error、threat_verdict、**engineResults**（逐引擎明细）
+- VirusTotal：status、stats、sha256、link、error、threat_verdict、**engineResults**（逐引擎明细）、**virustotal_analysis_id**（迁移 `0033`，供后台补取定位）
 - HaluCatch report JSON
 - finding confidence
 

@@ -50,7 +50,7 @@ pip install -e "cli-py[dev]"
 
 ```bash
 skillnav --version
-# skillnav 0.4.9
+# skillnav 0.4.10
 
 skillnav config test
 # 默认连接 http://127.0.0.1:3000，输出 registry 健康检查结果
@@ -274,7 +274,7 @@ CLI 会将目录打包为 ZIP，调用 `POST /skills/publish`（**默认上传�
 
 ```bash
 skillnav publish ./my-first-skill          # 上传 + 后台审查
-skillnav publish ./my-first-skill --wait   # 阻塞至审查结束（旧行为）
+skillnav publish ./my-first-skill --wait   # 阻塞至审查结束（可选；请求预算 600s）
 skillnav status my-first-skill             # 查看审查进度
 ```
 
@@ -285,9 +285,9 @@ skillnav status my-first-skill             # 查看审查进度
 3. VirusTotal 扫描（若平台已配置）  
 4. HaluCatch 五维质量评估（若平台已配置）  
 
-**默认（无 `--wait`）**：上传成功即返回 **202**，包已暂存；审查在后台进行。用 `skillnav status <slug>` 查看进度。审查未完成时 Skill 标记为 `interrupted`（旧数据里的 `failed` 会被归一化为它），可用 `skillnav retry-publish <slug>` 重试，无需重新上传。
+**默认（无 `--wait`）**：上传成功即返回 **202**，包已暂存；审查在后台进行。用 `skillnav status <slug>` 查看进度。**VirusTotal 报告默认也由后台补取**：上传后该阶段为 `processing`、整体 `inspecting`（仅拥有者可见，通常几分钟），补齐后自动判定——这是**等待而非失败**，不要 `retry-publish`（此时会返回 409 `skill_inspection_in_progress`）。若某环节确实失败，Skill 标记为 `interrupted`（旧数据里的 `failed` 会被归一化为它），可用 `skillnav retry-publish <slug>` 重试，无需重新上传。
 
-**使用 `--wait` 时**：仅当所有已启用环节均成功完成，CLI 才以 **201** 返回完整 verdict；任一环节失败会返回 `inspection_pipeline_incomplete`（503），此时可 `skillnav retry-publish <slug>`。
+**使用 `--wait` 时**：仅当所有已启用环节均成功完成，CLI 才以 **201** 返回完整 verdict；任一环节失败会返回 `inspection_pipeline_incomplete`（503），此时可 `skillnav retry-publish <slug>`。`--wait`（含 `retry-publish --wait`）的请求预算为 **600 秒**（默认 120s），可用 `SKILLNAV_PUBLISH_WAIT_TIMEOUT` 覆盖——流水线里含 VT 排队时耗时会接近这个量级。若客户端先超时，报错会明确写作 `Request timed out after <N>s`（与「无法连接 API」是两条不同的提示），请改用 `status` / `retry-publish` 查服务端结果，**不要**重复上传同版本。
 
 上传成功后，CLI 会提示 slug 与版本；`author` 字段会自动写入当前登录用户名。
 

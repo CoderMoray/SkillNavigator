@@ -8,13 +8,13 @@
 - 校验 `SKILL.md` frontmatter 和目录结构。
 - 提供质量、安全和可靠性三个独立评分维度，不计算综合分：质量由平台规则汇总合规与文档质量，安全由 SkillSpector 静态扫描与 VirusTotal hash 查毒生成。
 - 使用内置 HaluCatch 对每个发布包进行五维静态可靠性评估：地基、代码风险、规则、护栏与复杂度；无 Python 运行时时回退到 `tests/*.json` 任务集检查。
-- 登录后发布 Skill 到本地注册表，上传内容会绑定发布用户。
-- 搜索、查看、下载 zip 包和安装 Skill；**rejected** 版本从公开搜索与榜单隐藏，创作者个人中心仍可见。
+- 登录后发布 Skill 到本地注册表，上传内容会绑定发布用户；发布默认**异步**（上传即返回，审查在后台跑，VirusTotal 报告由后台每 5 分钟补取）。
+- 搜索、查看、下载 zip 包和安装 Skill；**rejected**、**审查中（`inspecting`，含 VirusTotal 待补取）** 与 **interrupted** 的版本都不进公开搜索与榜单（公开索引要求 `inspectionStatus: completed`），创作者个人中心仍可见。
 - contributor、issue、rating、榜单等社区协作能力，支持多个 contributor 共同维护同一个 Skill。
 - 用户注册、登录、登出、当前用户查询、密码修改、忘记密码/重置密码；可选邮箱验证（本地默认关闭）。
 - 账户设置（`/account/settings/*`）：个人资料、API 密钥、修改密码、注销账户；旧路径自动重定向。
 - Web 站内文档（8 篇）：格式规范、发布流程、CLI 指南、平台 Agent 系统提示词、安全扫描与 HaluCatch 审查等。
-- **skillnav** Python CLI（PyPI 分发）：搜索、发布（含 `--dry-run` 预览）、`retry-publish`、状态/报告、下载等；Web 创建 API 密钥后 `skillnav login --api-key sk_...`。
+- **skillnav** Python CLI（PyPI 分发，当前 0.4.10）：搜索、发布（含 `--dry-run` 预览与 `--wait` 同步等待，请求预算 600s）、`retry-publish`、状态/报告、下载、`install --dir`（目录必填）等；Web 创建 API 密钥后 `skillnav login --api-key sk_...`。
 - Worker 支持重跑注册表审查。
 - PostgreSQL 注册表存储与 MinIO Skill artifact 对象存储（可选）。
 
@@ -153,16 +153,18 @@ npm run test:e2e       # Playwright 浏览器端到端测试（e2e/site.e2e.ts�
 发布流程（顺序重要）：
 
 ```bash
-# 1. 修改 cli-py/src/skillnav/__init__.py 的 __version__（例如 0.4.9）
+# 1. 修改 cli-py/src/skillnav/__init__.py 的 __version__（例如 0.4.10）
 # 2. 先提交并推送到 main
-git commit -am "chore(skillnav): bump version to 0.4.9"
+git commit -am "chore(skillnav): bump version to 0.4.10"
 git push origin main
-# 3. 再打 tag 并推送
-git tag skillnav-0.4.9
-git push origin skillnav-0.4.9
+# 3. 再打 tag 并推送（这一步才真正触发发布）
+git tag skillnav-0.4.10
+git push origin skillnav-0.4.10
 ```
 
 推送 `skillnav-*` tag 触发 `.github/workflows/pypi.yml`（Trusted Publishing / OIDC）构建发布；也可手动 `workflow_dispatch`。CI 在构建前会校验 **tag 版本 == `__version__`** 且 **tag 提交已包含在 main 中**，不满足直接拒绝发布——防止“tag 已发、main 未推”导致的 monorepo 与 PyPI 版本漂移。
+
+**推 tag 即发布**：PyPI 不允许覆盖同名版本号，务必确认产物无误后再推 tag。本仓库**不需要**（也不应）本地 `python -m build` + `twine upload`，那会与 CI 冲突；发布后 PyPI 的 simple index 与 JSON API 有几秒到几分钟的同步延迟，`pip install` 可能短暂装不到新版本。
 
 ## 协作开发
 

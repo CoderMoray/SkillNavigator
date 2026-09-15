@@ -20,7 +20,7 @@ npm run test:e2e    # Playwright，自动拉起 API + Web（需 PG/MinIO + Chrom
 | `packages/*`、`apps/api` 逻辑 | `npm run lint` + `npm run test` | 涉及发布链时 `npm run test:smoke` |
 | `apps/web/app/**`（页面/组件） | `npm run lint` + `npm run build:web` | `npm run test:e2e` |
 | `cli-py/**`（Python CLI） | `ruff check` + `mypy` + `pytest`（`pip install -e "cli-py[dev]"` 后） | — |
-| 品牌名 / BRAND_NAME 相关 | `npm run build:web`（确认产物内联 + `public/usage/` 产物同步） | — |
+| 品牌名 / `BRAND_NAME` / `NEXT_PUBLIC_*` 相关 | `npm run build:web`（确认内联生效 + `public/usage/`、`public/install` 产物同步） | — |
 
 要点：
 
@@ -45,7 +45,8 @@ npm run test:e2e    # Playwright，自动拉起 API + Web（需 PG/MinIO + Chrom
 ## 三、品牌名与生成产物
 
 - 一切用户可见品牌名经 `BRAND_NAME` 环境变量注入（`apps/web/lib/brand-name.ts` 等），**禁止硬编码**品牌字符串。
-- `apps/web/public/usage/`、`.next/types` 等是构建/prebuild 生成物，**不要手工编辑**；出现 diff 属预期时用构建产物提交（参考 usage 产物同步提交 `af19586`）。
+- `apps/web/public/usage/`、`apps/web/public/install`、`.next/types` 等是构建/prebuild 生成物（`scripts/sync-usage-public.mjs`），**不要手工编辑**；出现 diff 属预期时用构建产物提交（参考 usage 产物同步提交 `af19586`）。
+- 该同步靠 **`prebuild` 钩子**触发，只有 `npm run build:web` 会跑；CI/部署脚本若直接调 `next build`，产物不会刷新——部署侧应在 env 变更后走 `build:web`，或显式执行 `node scripts/sync-usage-public.mjs`。
 
 ## 四、提交纪律
 

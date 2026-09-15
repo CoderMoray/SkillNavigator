@@ -63,7 +63,7 @@ curl -s -o /dev/null -w "%{http_code}\n" {webRoot}/install.sh
 |---|---|
 | `apps/web/lib/registry-install-guide.ts` | 路径常量与 env 解析（所有安装 URL / curl 命令的拼装源） |
 | `apps/web/next.config.ts` | `NEXT_PUBLIC_CLI_INSTALL_PATH` 注入 + Content-Type header |
-| `scripts/sync-usage-public.mjs` | 同步 `usage/install.sh` → `apps/web/public/<name>`，清理旧文件 |
+| `scripts/sync-usage-public.mjs` | 同步 `usage/install.sh` → `apps/web/public/<name>`，同时渲染 `{{web_url}}` / `{{registry_api_url}}` / `{{brand_name}}` 占位符（与 `public/usage/*.md` 同批生成），清理旧文件 |
 | `apps/web/components/ApiKeysPanel.tsx` | API 密钥页展示的一键安装命令 |
 | `usage/install.sh`、`usage/skillnavigator.md` | 脚本自引用与安装文档示例 |
 | `tests/registry-install-guide.test.ts` | URL/curl 断言 + 路径覆盖用例 |

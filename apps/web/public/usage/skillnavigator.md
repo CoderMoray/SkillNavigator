@@ -163,10 +163,13 @@ skillnav install skillnav-skill --dir <skills 目录>/skillnav-skill
 
 ```bash
 skillnav publish ./my-skill --dry-run  # 预览 metadata（不发布）
-skillnav publish ./my-skill             # 正式发布（须用户确认）
-skillnav status <slug>          # 查看版本与 verdict 摘要
+skillnav publish ./my-skill             # 正式发布（须用户确认；默认后台审查，上传即返回）
+skillnav publish ./my-skill --wait      # 可选：同步等待整条流水线（请求预算 600s）
+skillnav status <slug>          # 版本摘要：Verdict / Inspection status / Security
 skillnav report <slug>          # 完整安全/质量报告
 ```
+
+发布后若 `status` 显示 `inspectionStatus: inspecting`（阶段 `virustotal: processing`），表示 VirusTotal 报告正在后台补取（通常几分钟）——这是**正常等待**：不要 `retry-publish`（会返回 409 `skill_inspection_in_progress`），也不要重复上传同版本；补齐后会自动判定并公开。只有 `interrupted` 才用 `retry-publish`。
 
 ## 文档
 

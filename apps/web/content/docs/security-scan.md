@@ -3,7 +3,7 @@
 {{brand_name}} 对每次发布（或重审）的 Skill 快照做 **静态安全扫描**，主要包括：
 
 1. **SkillSpector**（默认启用）：规则与静态分析，不执行包内脚本。
-2. **VirusTotal**（可选）：对发布 ZIP 的 SHA-256 做 hash lookup；未命中时可按配置上传样本并轮询结果。若 hash 已存在但引擎统计尚未就绪，平台会继续等待，**不会**把「零检出 / 零引擎数」误判为扫描完成。
+2. **VirusTotal**（可选）：对发布 ZIP 的 SHA-256 做 hash lookup；未命中时可按配置上传样本，报告由后台补取（见下文「VirusTotal 的异步补取」）。平台**不会**把「零检出 / 零引擎数」误判为扫描完成：引擎统计尚未就绪时该阶段保持「等待分析中」，补齐后才判定。
 
 扫描在隔离副本上完成；SkillSpector 默认 **关闭 LLM**，仅使用规则与静态分析。
 
@@ -22,8 +22,8 @@
    每条包含：标题、**严重度徽章**（低/中/高/严重）、**置信度**（SkillSpector 规则若提供）、说明、修复建议、命中证据片段。VirusTotal 的 malicious/suspicious 按上节 **按类别合并** 展示。
 
 3. **VirusTotal 摘要**（已配置 API 时）  
-   独立卡片展示扫描器名称、状态（已完成 / 未命中历史报告 / 扫描失败）、恶意与可疑 **检出数量**、**厂家总数**（参与扫描的 AV 引擎数）、威胁结论（若有）、SHA-256 前缀与 **VirusTotal 报告链接**（若有）。  
-   **已完成** 仅当参与扫描的 **厂家总数 > 0**；hash 命中但 VT 仍在排队分析时，平台会继续轮询，超时则视为审查未完成（详情页或 `retry-publish` 可重试），**不会**在审查记录中标记为「已完成且零检出」。
+   独立卡片展示扫描器名称、状态（已完成 / 等待分析中 / 未命中历史报告 / 扫描失败）、恶意与可疑 **检出数量**、**厂家总数**（参与扫描的 AV 引擎数）、威胁结论（若有）、SHA-256 前缀与 **VirusTotal 报告链接**（若有）。  
+   **已完成** 仅当参与扫描的 **厂家总数 > 0**；hash 命中但 VT 仍在排队或引擎统计未就绪时，该阶段为 **等待分析中**（`processing`）——平台**不会**在审查记录中标记为「已完成且零检出」，版本整体为 `inspecting`，报告由后台补取，**不需要**重新发布（见下文「VirusTotal 的异步补取」）。
 
 4. **VirusTotal finding**（扫描 **completed** 且存在 malicious 或 suspicious 检出时）  
    按 **风险类别** 合并展示，**不是** 每个 AV 引擎单独一条：
@@ -86,11 +86,16 @@ SkillSpector 对每条 finding 按 **严重度** 与 **置信度** 贡献分数�
 | **平台规则等** | 不自动拒绝 | 存在任意 finding 时为需复核 |
 | **无任何 finding 且各启用步骤均成功** | — | **已发布（published）** |
 
-**审查流水线未完成或失败**（如 VirusTotal 分析超时、SkillSpector/HaluCatch 运行时不可用、审查中断）时，Skill 标记为 **审查中断**（`inspectionStatus: interrupted`；旧数据里的 `failed` 会被归一化）；**包通常已暂存在服务端**，但 **不会公开**。在 Skill 详情页或 CLI 使用 **重试失败环节 / `skillnav retry-publish`** 重新跑审查（默认只重试失败或未完成的环节）。这与「审查已全部完成但 verdict 为 **已拒绝**」不同（见 [发布流程](./publish-workflow.md)）。
+**审查流水线未完成** 有两种性质不同的情况，处理方式也不同：
+
+- **仍在等待 VirusTotal 报告**（`inspectionStatus: inspecting`，该阶段 `processing`）：属 **正常等待**，不是失败。VT 对新上传文件通常要排队 1–5 分钟，平台每 5 分钟在后台补取一次报告，补齐后自动重新判定 verdict 并公开。**不要**对它 `retry-publish`（此时会返回 409 `skill_inspection_in_progress`），也不要重复上传同版本。
+- **审查中断**（`inspectionStatus: interrupted`；旧数据里的 `failed` 会被归一化）：由鉴权/配额错误（401 / 403 / 429）、VT 明确丢弃了报告，或等待超过兜底上限（`VIRUSTOTAL_DEFERRED_TIMEOUT_MS`，默认 45 分钟）导致。**包通常已暂存在服务端**，但 **不会公开**。在 Skill 详情页或 CLI 使用 **重试失败环节 / `skillnav retry-publish`** 重新跑审查（默认只重试失败或未完成的环节）。
+
+以上都与「审查已全部完成，但 verdict 为 **已拒绝**」不同（见 [发布流程](./publish-workflow.md)）。
 
 SkillSpector 的「不建议安装」是 **包级安全建议**，与页面「已拒绝 / 需复核」徽章相关但不完全等同。
 
-**已拒绝** 的 Skill 不会出现在 Skill 搜索与榜单；Skill **拥有者** 可在个人中心查看并进入详情页处理 finding（见 [发布流程](./publish-workflow.md)）。
+**已拒绝** 与 **审查中（`inspecting`，含 VT 待补取）** 的 Skill 都不会出现在 Skill 搜索与榜单——公开索引要求 `inspectionStatus: completed`；Skill **拥有者** 可在个人中心查看并进入详情页（见 [发布流程](./publish-workflow.md)）。
 
 ## 覆盖的安全主题（示例）
 
@@ -153,7 +158,7 @@ Premium / 企业 Key 按合同 SLA，无公开固定数字；可用 `/users/{id}
 
 VirusTotal 收到 ZIP 后可能在内部解压扫描，那是 VT 侧行为，**不会** 按包内文件数倍增你的 API quota。
 
-### 扫描流程与两种轮询
+### 扫描流程
 
 平台按以下顺序处理 VirusTotal（简化）：
 
@@ -161,18 +166,38 @@ VirusTotal 收到 ZIP 后可能在内部解压扫描，那是 VT 侧行为，**�
 GET /files/{zipSha256}
     │
     ├─ 404 ──►（可选）POST /files 上传
-    │              └─► GET /analyses/{id} 轮询（analysis 轮询）
+    │              └─►（默认）本阶段立即结束，报告由后台补取
+    │                  （VIRUSTOTAL_WAIT_FOR_ANALYSIS=true 时才 GET /analyses/{id} 轮询）
     │
     └─ 200 ──► 若 last_analysis_stats 合计为 0
-                   └─► GET /files/{zipSha256} 轮询（file 轮询，直至引擎数 > 0 或超时）
+                   └─►（默认）本阶段立即结束，报告由后台补取
+                       （同步模式才 GET /files/{zipSha256} 轮询至引擎数 > 0 或超时）
 ```
 
 | 轮询类型 | 接口 | 典型场景 | quota（Public 档） |
 | --- | --- | --- | --- |
-| **analysis 轮询** | `GET /analyses/{id}` | 新文件 upload 后等本次分析任务 | 新文件链路通常 **不扣** |
-| **file 轮询** | `GET /files/{hash}` | hash 已存在但 VT 仍在分析（如首次 upload 超时后重试） | 每次 lookup 通常 **算 1 次** |
+| **analysis 轮询** | `GET /analyses/{id}` | 仅同步模式：新文件 upload 后等本次分析任务 | 新文件链路通常 **不扣** |
+| **file 轮询** | `GET /files/{hash}` | 后台补取；或同步模式下 hash 已存在但分析未完成 | 每次 lookup 通常 **算 1 次** |
 
-hash lookup 响应 **不包含** 进行中的 `analysisId`，因此无法在无 upload 上下文时直接把 file 轮询改成 analysis 轮询；平台通过 file 轮询等待 VT 把结果写入 file 资源。
+hash lookup 响应 **不包含** 进行中的 `analysisId`，因此无法在无 upload 上下文时直接把 file 轮询改成 analysis 轮询；平台通过 file 轮询等待 VT 把结果写入 file 资源。（上传时拿到的 `analysisId` 会随版本记录持久化，供后台补取定位。）
+
+### VirusTotal 的异步补取
+
+**默认（`VIRUSTOTAL_WAIT_FOR_ANALYSIS` 未开启）**：上传被接受后本阶段立即结束，**发布接口不再等待 VT**。此后平台每 **5 分钟**（与审查恢复共用的维护定时器）用该包的 sha256 查一次 `GET /files/{sha256}`：
+
+| 补取时拿到的响应 | 平台的判定 |
+| --- | --- |
+| 200 且引擎统计完整 | ✅ 完成 → 换入 VT findings，按平台规则 **重新判定 verdict** |
+| 200 但统计仍为 0 | ⏳ 继续等（**不判失败**） |
+| 404（VT 尚未收录） | ⏳ 继续等（**不判失败**） |
+| 401 / 403 / 429 | ❌ 阶段失败 → `interrupted`，可 `retry-publish` |
+| 5xx | ⏳ 本轮跳过，下轮再试 |
+
+判定 **完全由响应驱动**；唯一的时间兜底是 `VIRUSTOTAL_DEFERRED_TIMEOUT_MS`（默认 **45 分钟**）——VT 未公开样本保留规则，长时间停在「排队中」的极端情况需要一个出口，超时后转 `interrupted`（可 `retry-publish`）。
+
+等待期间：该阶段为 `processing`，版本整体为 `inspecting` → **仅拥有者可见**，不进公开搜索与榜单；补齐后自动公开。
+
+**同步模式（`VIRUSTOTAL_WAIT_FOR_ANALYSIS=true`）**：恢复为前台轮询，用 `VIRUSTOTAL_ANALYSIS_TIMEOUT_MS` 作为总超时；benchmark 与一次性报告工具用这个模式。
 
 ### 一次发布消耗多少次 API？
 
@@ -189,12 +214,13 @@ GET /files/{zipSha256}  → 200，last_analysis_stats 合计 > 0
 **路径 A2：Hash 已在 VT 但分析尚未完成（pending）**
 
 ```text
-GET /files/{zipSha256}  → 200，引擎统计为 0
-GET /files/{zipSha256} × N  → 轮询直至 stats 就绪或超时
+默认：GET /files/{zipSha256} → 200，引擎统计为 0 → 本阶段立即返回「等待分析中」
+      此后每 5 分钟由后台补取一次，直至统计就绪 / 报告丢失 / 超过兜底上限
+同步：GET /files/{zipSha256} × N → 前台轮询直至 stats 就绪或超时
 ```
 
-→ **1 + N 次 quota**（每次 file lookup 通常算 1 次）；超时则审查流水线失败，Skill 标记为 **审查失败**（包通常已暂存），在详情页或 `skillnav retry-publish` 重试。  
-常见原因：首次 upload 已成功但平台在分析完成前超时；或他人刚上传同 hash、VT 仍在排队。
+→ 默认模式约 **1 + N 次 quota**（N = 后台补取次数，每次 file lookup 通常算 1 次），但 **不阻塞发布**；同步模式若超时则阶段失败、版本 `interrupted`（包通常已暂存），在详情页或 `skillnav retry-publish` 重试。  
+常见原因：他人刚上传同 hash、VT 仍在排队，或首次上传后分析尚未就绪。
 
 **路径 B：Hash 不存在且开启 upload-on-miss**
 
@@ -226,7 +252,7 @@ GET /files/{zipSha256}  → 404
 | 全新包 upload-on-miss（路径 B） | 1（首查 404）+ 0（upload/analysis 轮询） | quota 通常不是瓶颈；**耗时与 429** 是瓶颈 |
 | 主动重扫 | 额外 +1 / 次 | 额外占用 |
 
-**注意：** 即使 upload 链路不扣 quota，高并发 upload 仍可能触发 **429** 或服务端排队；路径 A2 的 file 轮询每次通常消耗 quota，**不宜**把 `VIRUSTOTAL_POLL_INTERVAL_MS` 设得过短。生产环境建议：串行或队列化发布、lookup 间隔 ≥15s、加大 `VIRUSTOTAL_ANALYSIS_TIMEOUT_MS`（默认 5 分钟）以容纳 VT 排队。
+**注意：** 即使 upload 链路不扣 quota，高并发 upload 仍可能触发 **429** 或服务端排队；路径 A2 的 file 轮询（后台补取也算）每次通常消耗 quota，**不宜**把 `VIRUSTOTAL_POLL_INTERVAL_MS` 设得过短。生产环境建议：串行或队列化发布、lookup 间隔 ≥15s；默认异步模式下发布已不再被 VT 排队阻塞，通常只需按需调整 `VIRUSTOTAL_DEFERRED_TIMEOUT_MS`（默认 45 分钟）；若改用同步模式，再加大 `VIRUSTOTAL_ANALYSIS_TIMEOUT_MS`（默认 5 分钟）。
 
 本地可用 `npm run vt:stress`（`scripts/vt-lookup-stress.mjs`）探测当前 Key 的实际 429 行为。
 
@@ -238,7 +264,7 @@ GET /files/{zipSha256}  → 404
 | 大文件上传 | **650 MB**（先 `GET /files/upload_url` 再 POST） |
 | 单次 HTTP 超时 | 各步骤有独立默认值（lookup / upload_url / analysis_poll / metadata 各 30s，upload 120s）；可用 `VIRUSTOTAL_TIMEOUT_MS` 统一覆盖（`.env.example` 中为 90s） |
 | 步骤级超时 | lookup / upload_url / upload / analysis_poll / metadata_lookup 可分别配置；**超时或 transient 网络错误自动重试 1 次** |
-| 分析 / pending 轮询总时长 | 默认 **300s（5 分钟）**（`VIRUSTOTAL_ANALYSIS_TIMEOUT_MS`；未设则回退 `VIRUSTOTAL_TIMEOUT_MS`，默认 90s） |
+| 分析 / pending 轮询总时长（**仅同步模式**） | 默认 **300s（5 分钟）**（`VIRUSTOTAL_ANALYSIS_TIMEOUT_MS`；未设则回退 `VIRUSTOTAL_TIMEOUT_MS`，默认 90s）。默认异步模式前台不等待，改由后台补取，兜底 `VIRUSTOTAL_DEFERRED_TIMEOUT_MS`（默认 45 分钟） |
 | 轮询间隔 | 默认 **30s**（`VIRUSTOTAL_POLL_INTERVAL_MS`；analysis 与 file pending 共用） |
 
 ## SkillSpector 不可用时
@@ -254,7 +280,9 @@ GET /files/{zipSha256}  → 404
 - `VIRUSTOTAL_UPLOAD_ON_MISS=true` 未命中 hash 时上传 ZIP 并轮询（见上文 **配额与速率**；上传新文件链路官方不扣 quota，但耗时长）  
 - `VIRUSTOTAL_TIMEOUT_MS` 各步骤 HTTP 超时回退值（默认 90000）  
 - `VIRUSTOTAL_LOOKUP_TIMEOUT_MS`、`VIRUSTOTAL_UPLOAD_TIMEOUT_MS`、`VIRUSTOTAL_ANALYSIS_POLL_TIMEOUT_MS` 等步骤专用超时（见 `.env.example`）  
-- `VIRUSTOTAL_ANALYSIS_TIMEOUT_MS` upload 后 analysis 轮询，以及 hash 命中 pending 时 file 轮询的总超时（默认 **300000**）  
+- `VIRUSTOTAL_WAIT_FOR_ANALYSIS=true` 改为 **同步等待**（前台轮询至分析完成）；默认异步：上传即返回，报告由后台每 5 分钟补取  
+- `VIRUSTOTAL_ANALYSIS_TIMEOUT_MS` **仅同步模式**：upload 后 analysis 轮询、以及 hash 命中 pending 时 file 轮询的总超时（默认 **300000**）  
+- `VIRUSTOTAL_DEFERRED_TIMEOUT_MS` **异步模式的兜底**：等待超过此时长仍未拿到报告则判 `interrupted`（默认 **2700000**，即 45 分钟）  
 - `VIRUSTOTAL_POLL_INTERVAL_MS` 轮询间隔（默认 **30000**；Public Key 下不建议低于 15s）
 
 ## 如何修复与重新发布

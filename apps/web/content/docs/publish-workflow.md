@@ -54,17 +54,25 @@
 | **需复核（needs-inspection）** | 存在 finding，但未触发自动拒绝规则；版本已入库，建议人工确认后再推广 |
 | **已拒绝（rejected）** | 审查流水线已全部完成，但触发 SkillSpector 或 VirusTotal 的 **自动拒绝** 规则（见下）；版本 **已入库** |
 
+### 等待 VirusTotal 报告（inspectionStatus: inspecting）
+
+VirusTotal 对新上传的文件通常要排队 **1–5 分钟**。默认模式下平台 **不等它**：上传被接受后 VT 阶段即为 `processing`，版本整体为 `inspecting`，报告由后台每 5 分钟补取，补齐后自动重新判定 verdict 并公开。
+
+- 期间 **仅拥有者 / contributor 可见**（公开索引要求 `inspectionStatus: completed`），**这不是失败**
+- **不要** 对它 `retry-publish`：此时会返回 409 `skill_inspection_in_progress`；也不要重复上传同版本
+- 判定由响应驱动：404 或引擎统计未齐 → 继续等；401/403/429、报告被 VT 丢弃、或超过 `VIRUSTOTAL_DEFERRED_TIMEOUT_MS`（默认 45 分钟）→ 转为下面的「审查中断」
+
 ### 审查中断（inspectionStatus: interrupted）
 
-若 VirusTotal 分析超时、SkillSpector/HaluCatch 运行时不可用、服务重启导致审查中断等，使 **任一已启用环节未成功完成**：
+SkillSpector/HaluCatch 运行时不可用、服务重启导致审查中断、VT 的鉴权/配额错误（401/403/429）、报告被 VT 丢弃或等待超过兜底上限等，使 **任一已启用环节未成功完成**：
 
 - **包与版本元数据通常已暂存**（与「verdict 已拒绝但审查已完成」不同）
-- Skill 标记为 **审查失败**，**不会公开**；拥有者在详情页看到 **已下架（审查失败）** 与阶段进度
+- Skill 标记为 **审查中断**，**不会公开**；拥有者在详情页看到 **审查中断** 提示与阶段进度
 - 在详情页点击 **重新发布** 或 **重试失败环节**（或 CLI：`skillnav retry-publish <slug>`）**重新跑审查**，**无需重新上传**；默认 **只重试失败或未完成的环节**
 - 若暂存包已丢失，需重新上传；同版本再次 `publish` 可能返回 `pending_publish_use_retry`，应改用 `retry-publish`
 - 使用 CLI **`publish --wait`** 同步等待时，失败会返回 `inspection_pipeline_incomplete`（503），同样应 **`retry-publish`**，而不是重复上传
 
-典型场景：首次 upload 已成功但 VT 仍在分析，平台在超时前结束；重试时 hash 已命中，平台会轮询直至引擎统计就绪（见 [安全检测](./security-scan.md) 路径 A2）。
+典型场景：某次上传后平台在报告就绪前重启，或 VT 的 Key 配额耗尽；重试时 hash 可能已命中，由前台轮询（同步模式）或后台补取取回统计（见 [安全检测](./security-scan.md) 路径 A2）。
 
 ### 自动拒绝规则（rejected）
 
@@ -96,10 +104,10 @@ Skill 是否出现在 **首页、Skill 列表 / 搜索、榜单** 以及 **其�
 
 说明：
 
-- **审查失败**、**已拒绝** 与 **手动下架** 是不同机制；前两者来自审查流水线，后者由拥有者主动操作。
-- **审查未完成或失败** 时，不能使用「重新上架」绕过审查；须先 **完成审查** 或 **发布新版本**。
-- 拥有者登录后进入 **个人中心**，可看到审查中、审查失败、已拒绝与已下架的 Skill；页面顶部会有相应提示。
-- 其他用户在搜索与浏览流程中 **看不到** 审查中、审查失败或已拒绝的 Skill。
+- **审查中（等待 VT 报告）**、**审查中断**、**已拒绝** 与 **手动下架** 是不同机制；前三者来自审查流水线，最后一项由拥有者主动操作。
+- **审查未完成或中断** 时，不能使用「重新上架」绕过审查；须先 **完成审查** 或 **发布新版本**。
+- 拥有者登录后进入 **个人中心**，可看到审查中、审查中断、已拒绝与已下架的 Skill；页面顶部会有相应提示。
+- 其他用户在搜索与浏览流程中 **看不到** 审查中、审查中断或已拒绝的 Skill。
 
 ## 下架与重新上架
 
@@ -109,7 +117,7 @@ Skill **所有者** 可在详情页右侧 **当前查看版本** 卡片中：
 - **下架（unpublish）** / **重新上架（republish）**：控制 **已通过审查且未因审查失败/拒绝而锁定** 的 Skill 是否在广场公开可见。
 - **删除**：移入回收站（保留期内可恢复）。
 
-审查 **失败** 或 **已拒绝** 时，详情页 Hero 区提供 **重新发布 / 重试失败环节**（或跳转发布页重新上传），而非普通的「重新上架」。
+审查 **中断** 或 **已拒绝** 时，详情页 Hero 区提供 **重新发布 / 重试失败环节**（或跳转发布页重新上传），而非普通的「重新上架」。（**审查中（等待 VT 报告）** 不属此列，无需任何操作。）
 
 左侧 Hero 区仍提供 **收藏**、**下载 Skill** 与 **复制 prompt**。对非 latest 版本，还可在 **Versions** 列表中单独下架某个历史版本。
 
@@ -122,10 +130,13 @@ Skill **所有者** 可在详情页右侧 **当前查看版本** 卡片中：
 ```bash
 skillnav login --api-key sk_…
 skillnav publish ./my-skill              # 默认：上传后 202，后台审查
+skillnav publish ./my-skill --wait       # 同步等待整条流水线（请求预算 600s，见下）
 skillnav status my-skill               # 查看审查进度与各版本状态
 skillnav status my-skill --version 1.0.0
-skillnav retry-publish my-skill          # 审查失败后重试（无需重新上传）
+skillnav retry-publish my-skill          # 审查中断后重试（无需重新上传）
 ```
+
+> `publish --wait` / `retry-publish --wait` 会保持连接直到流水线结束，因此请求预算为 **600 秒**（默认 120s），可用 `SKILLNAV_PUBLISH_WAIT_TIMEOUT` 覆盖。请求超时会明确报为超时（形如 `Request timed out after <N>s`，与「无法连接 API」区分），此时应查 `status` / `retry-publish`，**不要**重复上传同版本。
 
 CLI 与 Web 共用同一 API 与审查逻辑；Web 发布额外校验分类等表单字段。
 

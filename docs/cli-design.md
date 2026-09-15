@@ -1,13 +1,13 @@
 # skillnav CLI 设计文档
 
-> 状态：设计定稿 · 实现进行中（skillnav 0.4.8，见 `cli-py/`；版本号单一来源 `skillnav/__init__.py`）
+> 状态：设计定稿 · 实现进行中（skillnav 0.4.10，见 `cli-py/`；版本号单一来源 `skillnav/__init__.py`）
 > 日期：2026-08-19
 
 ## 1. 背景与定位
 
 Skill 管理平台（SkillNavigator）对外提供 Web UI 与 HTTP API。`skillnav` 是平台的**官方命令行客户端**，面向开发者与 Agent：
 
-- **纯 API 客户端**：所有审查（SkillSpector 安全扫描）、评估（HaluCatch 质量评估）均在服务端同步执行，CLI 不包含任何本地审查逻辑。
+- **纯 API 客户端**：所有审查（SkillSpector 安全扫描）、评估（HaluCatch 质量评估）均在服务端执行，CLI 不包含任何本地审查逻辑；发布默认 **异步**（上传即返回，`--wait` 才阻塞至流水线结束）。
 - **职责边界**：鉴权、上传发布、查询状态、获取安全/质量报告、搜索、下载、社区交互（评分/Issue/贡献者）。
 - 对标调研：skillhub CLI（Python/argparse）、clawhub CLI（Node/Commander）。吸收点：`--dry-run` 预检、`--no-input`（Agent 场景）、API Key 登录 / `whoami`（CI 调试）、`--registry` 多环境指向。
 
@@ -39,6 +39,7 @@ Skill 管理平台（SkillNavigator）对外提供 Web UI 与 HTTP API。`skilln
 - `SKILLNAV_REGISTRY`：API base URL（覆盖 profile 的 registry）
 - `SKILLNAV_PROFILE`：指定平台 profile
 - `SKILLNAV_API_KEY`：直接提供 API Key（CI 场景，不落盘；兼容旧名 `SKILLNAV_TOKEN`）
+- `SKILLNAV_PUBLISH_WAIT_TIMEOUT`：`publish --wait` / `retry-publish --wait` 的请求预算（秒）。默认 600（不传 `--wait` 的上传为 120）；流水线含 VT 排队时耗时会接近该量级，可按部署调整
 
 ## 4. 配置与鉴权（多 Profile 模型）
 
@@ -126,7 +127,7 @@ skillnav
 - 请求体携带 `metadata` 对象，服务端 `applySkillPublishMetadata` 写入 frontmatter；`author` 由服务端写入当前登录用户。
 - 缺少必填 metadata 时，交互模式下会逐项提示补全；`--no-input` 或 `--json` 下直接报错。
 - `--dry-run`：调用 `POST /skills/publish/preview`（服务端预检：元数据 + 打包校验），不落库、不发版；CLI 本地先校验 metadata 完整性。
-- 默认 **异步审查**：上传并暂存包后立即返回 **202**（`inspectionStatus: inspecting`），审查在服务端后台执行；传 `async: false` 或 CLI `--wait` 可阻塞至审查结束。
+- 默认 **异步审查**：上传并暂存包后立即返回 **202**（`inspectionStatus: inspecting`），审查在服务端后台执行；传 `async: false` 或 CLI `--wait` 可阻塞至审查结束。`--wait` 的请求预算默认 **600s**（`SKILLNAV_PUBLISH_WAIT_TIMEOUT` 可覆盖）；客户端超时与「无法连接 API」分开报错（`Request timed out after <N>s`），并提示查 `status` / `retry-publish`、勿重复上传同版本。VirusTotal 报告默认由服务端后台补取，`inspecting` 属正常等待。
 - 成功（201，仅 `async: false`）：打印 slug、version、status、contentHash，并按需展示 inspection / evaluation 摘要；`--json` 输出完整响应体。
 - 失败语义：`skill_in_recycle_bin` → 提示先恢复；`Only skill contributors can publish new versions` → 提示需要贡献者权限；`inspection_pipeline_incomplete`（503）→ 提示可重试。
 
@@ -205,7 +206,7 @@ skillnav
 - `0.1.0` ✅：平台配置（config add/use/list/test）+ 登录与身份（login/logout/whoami）+ 检索（search/top/info/status）。
 - `0.2.0` ✅：发布流（publish/--dry-run）+ report 完整展示。
 - `0.3.0` ✅：分发（download/install）+ 社区（rate/issue/issues/add-contributor）。
-- `0.4.x` ✅（当前 `0.4.8`）：`report` 三维完整展示（SkillSpector / VirusTotal / HaluCatch）、`status` 改为 Inspection 聚合状态、`config remove`、登录错误区分与 `--version`/自更新修复。
+- `0.4.x` ✅（当前 `0.4.10`）：`report` 三维完整展示（SkillSpector / VirusTotal / HaluCatch）、`status` 改为 Inspection 聚合状态（含 Verdict / Security 摘要）、`config remove`、登录错误区分与 `--version`/自更新修复、`install` 必填 `--dir`、`config add` 复用提示、`update` 镜像回退提示、`publish --wait` 600s 请求预算。
 - `1.0.0`：冻结命令集；错误处理与帮助文档 polish；`apps/cli` TS 版下线。（`--json` 已覆盖全部 22 个子命令。）
 
 ## 10. 待定事项

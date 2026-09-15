@@ -8,8 +8,10 @@ VirusTotal 配额、依赖 SkillSpector 运行环境。
 
 | Skill | 工件内容 | setup 时 |
 |---|---|---|
-| `skillnav-skill` | 完整 InspectionReport（平台规则 + SkillSpector findings + scores/verdict）+ VT summary/报告链接 | 直接关联；仅 HaluCatch 现场重跑（离线 vendored） |
-| `demo-skill` | 仅 VT summary/报告链接 | SkillSpector + HaluCatch 现场跑，VT 链接注入结果 |
+| `skillnav-skill` | 完整 InspectionReport（平台规则 + SkillSpector findings + scores/verdict）+ VT summary/报告链接 + **`stageStatuses` / `stageFailureMessages`** | 直接关联；仅 HaluCatch 现场重跑（离线 vendored） |
+| `demo-skill` | 仅 VT summary/报告链接（+ `stageStatuses` / `stageFailureMessages`） | SkillSpector + HaluCatch 现场跑，VT 链接注入结果 |
+
+工件里的 `stageStatuses` / `stageFailureMessages` 会被 bootstrap **原样写入**版本记录。没有它们，初始化出来的版本会出现 `inspectionStatus: completed` 但**阶段列表为空**——`skillnav status` 的 `Inspection progress:` 行会是空白。
 
 ## 何时需要重新生成
 
@@ -23,7 +25,7 @@ node_modules/.bin/tsx scripts/seed-inspection.mjs --skill demo-skill
 ```
 
 预跑会打印全部 findings——对 `skillnav-skill` 请确认没有异常 finding
-（scores/verdict 会被固化），再提交工件。
+（scores/verdict 与 `stageStatuses` / `stageFailureMessages` 都会被固化），再提交工件。
 
 ## 设计要点
 

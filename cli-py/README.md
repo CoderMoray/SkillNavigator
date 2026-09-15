@@ -63,7 +63,7 @@ On top of that, an interactive command performs a **daily best-effort check**
 and prints a one-line hint to stderr when a newer release exists:
 
 ```
-Update available: 0.4.8 -> 0.4.9 (run: skillnav update)
+Update available: 0.4.9 -> 0.4.10 (run: skillnav update)
 ```
 
 - The hint is **interactive-only** and plain ASCII (same wording as
@@ -77,7 +77,7 @@ Update available: 0.4.8 -> 0.4.9 (run: skillnav update)
 - **A given release is announced at most once, ever.** The hint is driven by
   a new release appearing, not by time: staying on an older version goes
   permanently silent for that version, and only a newer `latest`
-  (0.4.9 → 0.5.0) announces again. So you are never nagged about the same
+  (0.4.10 → 0.5.0) announces again. So you are never nagged about the same
   version day after day.
 - A missed hint is never fatal: `skillnav --version` prints the same hint to
   stderr (its stdout stays a single parseable version line), and

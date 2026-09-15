@@ -7,7 +7,7 @@
 - Skill 包以 `SKILL.md` 为入口，可从文件夹或 `.zip` 读取。
 - `slug` 是 Skill 不可变的唯一标识，用于数据库主键、API/CLI 参数、URL 和 MinIO 对象路径。
 - `name` 是可变的展示名称；不要将其作为查找键、外键或路由参数。
-- 审查覆盖合规、泄露、隐私、安全和轻量功能性评估；平台不会执行 Skill 内的脚本。
+- 审查覆盖合规、泄露、隐私、安全，以及 HaluCatch 静态可靠性评估（Python 不可用时回退 `tests/*.json` 功能性检查）；平台不会执行 Skill 内的脚本。
 
 ## 仓库结构
 
@@ -20,7 +20,7 @@ apps/
 packages/
   skill-spec/     SKILL.md 解析、校验、快照与 ZIP
   inspection-engine/  静态风险审查与评分
-  evaluator/      tests/*.json 功能性评估
+  evaluator/      HaluCatch 五维静态可靠性评估 + tests/*.json 回退
   storage/        PostgreSQL 注册表 + MinIO artifact
 cli-py/      对外 Python CLI skillnav（PyPI 分发）
 tests/       vitest 单元/集成测试 + skillnav pytest

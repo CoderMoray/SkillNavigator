@@ -14,7 +14,7 @@
 | Phase 0 | 核心规范与静态审查 | ✅ 完成 |
 | Phase 1 | API / CLI / 注册表 | ✅ 完成 |
 | Phase 1.5 | Web UI + PostgreSQL + MinIO | ✅ 完成 |
-| Phase 2 | 外部扫描集成与安全增强 | ✅ 完成（静态链路；遗留 VT 分步超时策略） |
+| Phase 2 | 外部扫描集成与安全增强 | ✅ 完成（静态链路；VT 分步超时 + 默认 defer 后台补取已落地） |
 | Phase 3 | 社区、治理与规模化 | 🔄 进行中（账号体系基线已交付） |
 
 ---
@@ -80,7 +80,7 @@
 ### CLI 与分发（skillnav）
 
 - [x] Python `skillnav`（typer，纯 API 客户端）：config/login/whoami/publish/report/status/search/top/info/download/install/rate/issue 等 22 个子命令，`--json` 全覆盖
-- [x] PyPI 已发布至 **0.4.8**（Trusted Publishing，push `skillnav-*` tag 触发；版本号单一来源 `skillnav.__version__`，CI 校验 tag 与版本一致且 tag 在 main 上）
+- [x] PyPI 已发布至 **0.4.10**（Trusted Publishing，push `skillnav-*` tag 触发；版本号单一来源 `skillnav.__version__`，CI 校验 tag 与版本一致且 tag 在 main 上）
 - [x] 多 Profile 配置（`~/.config/skillnav/config.json`），支持独立部署与多平台嵌入
 
 ### 品牌与集成
@@ -98,8 +98,8 @@
 | 认证 | Bearer token + API Key；无 OAuth/JWT/RBAC |
 | 发现 | **默认下载仍指向 latest 版本**，尚未切换为「最新通过审查」版本 |
 | 测试 | smoke 未覆盖重复注册、token 过期、回收站边界等 |
-| CI / VT | upload-on-miss 轮询默认 90s 超时；无分步 timeout + retry |
-| CLI（skillnav） | 0.4.8：report 三维完整展示、status 聚合状态已交付；1.0.0 稳定化待完成 |
+| CI / VT | 分步 timeout + retry 已落地；默认异步 defer（上传即返回，后台每 5 分钟按 sha256 补取，兜底 45 分钟）；同步模式用 `VIRUSTOTAL_ANALYSIS_TIMEOUT_MS`（默认 300000） |
+| CLI（skillnav） | 0.4.10：report 三维完整展示、status 聚合状态、`install` 必填 `--dir`、`config use` 复用提示、`update` 镜像回退、`publish --wait` 600s 预算已交付；1.0.0 稳定化待完成 |
 | 旧 CLI | `apps/cli`（TypeScript/Commander）为内部形态，逐步下线 |
 
 ---
@@ -108,7 +108,7 @@
 
 ### P1 — 审查与安全
 
-- [ ] VirusTotal API 分步 timeout + retry（hash lookup / upload / poll / re-fetch 各步独立超时 + 重试一次，失败写入 review summary）
+- [x] VirusTotal API 分步 timeout + retry（hash lookup / upload / poll / re-fetch 各步独立超时 + 重试一次，失败写入 review summary）——已落地；VT 阶段另默认异步 defer（上传即返回，后台 5 分钟补取，兜底 `VIRUSTOTAL_DEFERRED_TIMEOUT_MS`）
 - [ ] **默认下载指向最新通过审查版本**
 
 ### P2 — Web UX
