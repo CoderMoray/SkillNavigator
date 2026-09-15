@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import Annotated, Any, Optional
 
+import click
 import typer
 
 from skillnav import __version__
@@ -60,10 +61,71 @@ from skillnav.publish_metadata import build_publish_metadata, read_frontmatter_h
 from skillnav.urls import join_registry_url, slug_path
 from skillnav.version_check import maybe_notify_update
 
+# Options that exist only on the root command. When one of them is placed after
+# the subcommand, click answers with a name-similarity guess (``--no-input`` ->
+# "Did you mean '--output'?"), which reads like a valid fix but is not: agents
+# re-run a command that cannot work.
+GLOBAL_ONLY_OPTIONS = ("--registry", "--profile", "--json", "--no-input")
+
+
+def _misplaced_global_option(args: list[str], supported: set[str]) -> str | None:
+    """Return an actionable hint when a global option follows the subcommand.
+
+    Options the subcommand path declares itself (e.g. `config add --registry`)
+    are legitimate and never flagged.
+    """
+    subcommand_index = next(
+        (index for index, arg in enumerate(args) if not arg.startswith("-")),
+        None,
+    )
+    if subcommand_index is None:
+        return None
+
+    for arg in args[subcommand_index + 1 :]:
+        token = arg.split("=", 1)[0]
+        if token in GLOBAL_ONLY_OPTIONS and token not in supported:
+            return (
+                f"'{token}' is a global option and must come before the subcommand, "
+                f"e.g. `skillnav {token} {args[subcommand_index]} ...`."
+            )
+    return None
+
+
+class SkillnavGroup(typer.core.TyperGroup):
+    """Reject misplaced global options with a position hint.
+
+    Runs on the full argv before subcommand parsing, so the hint also covers
+    options typed after the subcommand (where click would otherwise blame an
+    unrelated option).
+    """
+
+    def _subcommand_options(self, ctx: click.Context, args: list[str]) -> set[str]:
+        """Option names declared along the subcommand path (`config add ...`)."""
+        supported: set[str] = set()
+        command: click.Command = self
+        for arg in args:
+            if arg.startswith("-"):
+                continue
+            if not isinstance(command, click.Group) or arg not in command.commands:
+                break
+            command = command.commands[arg]
+            for param in command.get_params(ctx):
+                supported.update(param.opts)
+                supported.update(param.secondary_opts)
+        return supported
+
+    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
+        hint = _misplaced_global_option(args, self._subcommand_options(ctx, args))
+        if hint:
+            raise click.UsageError(hint)
+        return super().parse_args(ctx, args)
+
+
 app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
     pretty_exceptions_enable=False,
+    cls=SkillnavGroup,
 )
 config_app = typer.Typer(help="Manage platform profiles.", no_args_is_help=True)
 app.add_typer(config_app, name="config")
