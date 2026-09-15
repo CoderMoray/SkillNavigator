@@ -68,7 +68,7 @@ fi
 # Skill seeding — both paths talk to PostgreSQL directly through the #
 # bootstrap helper (no API / CLI / login required):                  #
 #   ADMIN_* configured         -> admin owns skillnav-skill          #
-#   no ADMIN_* & ON_DEV=true   -> nothing is initialized (dev)       #
+#   no ADMIN_* & ON_DEV=true   -> error: an administrator is required#
 #   no ADMIN_* & ON_DEV=false  -> alice owns demo-skill (demo boot)  #
 # Seed reviews run offline: SkillSpector / VirusTotal are disabled   #
 # inside the helper; HaluCatch runs from the vendored source.        #
@@ -168,10 +168,10 @@ if has_admin_config; then
 fi
 
 if [ "$ON_DEV" = "true" ]; then
-  echo "[1] Development mode without ADMIN_* — no Skill is initialized."
-  echo "    To seed skillnav-skill for an administrator, set ADMIN_USERNAME / ADMIN_EMAIL / ADMIN_DISPLAY_NAME"
-  echo "    in the dotenv file (.env / DOTENV_FILE) and run npm run setup again."
-  exit 0
+  echo "  ❌ ON_DEV=true requires ADMIN_* — nothing is seeded without an administrator."
+  echo "     Set ADMIN_USERNAME / ADMIN_EMAIL / ADMIN_DISPLAY_NAME in the dotenv file (.env / DOTENV_FILE),"
+  echo "     or run with ON_DEV=false to seed the demo Skill under 'alice' instead."
+  exit 1
 fi
 
 echo "[1] No ADMIN_* configured — seeding demo Skill under 'alice' (demo deployment)..."

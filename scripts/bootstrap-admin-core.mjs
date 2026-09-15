@@ -4,7 +4,7 @@
 import { randomBytes } from "node:crypto";
 
 export const OFFICIAL_SLUG = "skillnav-skill";
-/** Dev-mode seed Skill (setup.sh ON_DEV=true) that must not survive production bootstrap. */
+/** Demo-deployment seed Skill (ON_DEV=false without ADMIN_*); must not survive an admin bootstrap. */
 export const DEMO_SLUG = "demo-skill";
 /** Demo deployment account (fixed credentials, mirrors the historical dev seed). */
 export const DEMO_USERNAME = "alice";

@@ -9,10 +9,11 @@
  *   make sure the configured administrator owns the official skillnav-skill,
  *   idempotently (never rebuilds an existing account, never clears data).
  *
- * Mode B — no ADMIN_* configured (setup.sh ON_DEV=false):
- *   make sure the shared demo account ('alice', fixed well-known credentials)
- *   owns the demo Skill, idempotently.
- *   ON_DEV=true (or unset): nothing is initialized — {"action":"skipped"}.
+ * Mode B — no ADMIN_* configured:
+ *   ON_DEV=false: make sure the shared demo account ('alice', fixed well-known
+ *                 credentials) owns the demo Skill, idempotently.
+ *   ON_DEV=true (or unset): error — the dev seed is the official Skill, which
+ *                 needs an administrator to own it.
  *
  * stdout is one JSON line consumed by scripts/setup.sh.
  */
@@ -165,14 +166,15 @@ async function main() {
     return;
   }
 
-  // No ADMIN_* configured.
+  // No ADMIN_* configured: ON_DEV=true requires an administrator.
   const onDev = process.env.ON_DEV?.trim().toLowerCase() !== "false";
   if (onDev) {
     console.log(
       JSON.stringify({
-        action: "skipped",
+        action: "error",
+        code: "admin-required",
         message:
-          "No ADMIN_* configured — development mode initializes no Skill. Set ADMIN_USERNAME / ADMIN_EMAIL / ADMIN_DISPLAY_NAME to seed skillnav-skill, or run with ON_DEV=false to seed the demo Skill.",
+          "ON_DEV=true requires ADMIN_USERNAME / ADMIN_EMAIL / ADMIN_DISPLAY_NAME (nothing is seeded without an administrator). Set them, or run with ON_DEV=false to seed the demo Skill under 'alice'.",
       })
     );
     return;
