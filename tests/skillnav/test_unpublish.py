@@ -179,3 +179,15 @@ def test_unpublish_purge_rejects_a_single_version(
     assert result.exit_code == 3, cli_output(result)
     assert "--purge" in cli_output(result)
     assert calls == []
+
+
+def test_unpublish_missing_skill_surfaces_the_error(
+    runner: CliRunner, isolated_config: Path, monkeypatch
+) -> None:
+    _login(isolated_config)
+    _stub(monkeypatch, (404, {"error": "skill_not_found"}))
+
+    result = runner.invoke(app, ["--no-input", "unpublish", "ghost-skill"])
+
+    assert result.exit_code != 0
+    assert "not found" in cli_output(result).casefold()
