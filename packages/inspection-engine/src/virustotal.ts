@@ -550,6 +550,12 @@ function describeStepAction(step: VirusTotalStep): string {
 }
 
 export function diagnoseVirusTotalError(error: unknown): VirusTotalErrorDiagnosis {
+  // A step error already carries its diagnosis. Re-deriving it from the wrapped
+  // message would lose the classification — a 429 or a 5xx read back as
+  // "unknown" flips "wait for it" into "give up and interrupt the version".
+  if (error instanceof VirusTotalStepError) {
+    return error.diagnosis;
+  }
   if (error instanceof VirusTotalHttpError) {
     if (error.status === 429) {
       return {

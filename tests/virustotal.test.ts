@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { afterEach, beforeAll, describe, expect, test, vi } from "vitest";
 import {
+  diagnoseVirusTotalError,
   lookupVirusTotalScan,
   parseEngineResults,
   parseThreatVerdict,
@@ -345,6 +346,39 @@ describe("VirusTotal package review adapter", () => {
     // so the version is not published publicly until the sweep finalizes it.
     expect(stageStatuses.virustotal).toBe("processing");
     expect(inspection.virusTotal).toMatchObject({ status: "pending" });
+  });
+
+  test("keeps the retryable classification of a wrapped step error", async () => {
+    configureVirusTotal();
+    const hash = "a".repeat(64);
+
+    // 429 (quota) and 5xx are retryable: the sweep must wait, not interrupt.
+    for (const status of [429, 503]) {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(jsonResponse({ error: { message: "quota exceeded" } }, status))
+      );
+      const error = await lookupVirusTotalScan(hash).then(
+        () => undefined,
+        (caught: unknown) => caught
+      );
+      expect(error, `HTTP ${status} should reject`).toBeDefined();
+      expect(diagnoseVirusTotalError(error)).toMatchObject({ retryable: true });
+    }
+
+    // 401/403 are not: retrying cannot fix a bad key.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ error: { message: "wrong credentials" } }, 401))
+    );
+    const authError = await lookupVirusTotalScan(hash).then(
+      () => undefined,
+      (caught: unknown) => caught
+    );
+    expect(diagnoseVirusTotalError(authError)).toMatchObject({
+      kind: "auth",
+      retryable: false,
+    });
   });
 
   test("looks up a deferred report by hash and only completes on a real one", async () => {
