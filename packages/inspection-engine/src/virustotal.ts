@@ -141,11 +141,23 @@ export async function runVirusTotalScan(
   const sha256 = createHash("sha256").update(archive).digest("hex");
   const existingReport = await lookupFileReport(sha256, apiKey);
   if (existingReport) {
+    if (shouldDeferAnalysis()) {
+      // VT already knows this sample, so nothing gets uploaded — but its report
+      // may still be filling in. Hand that to the sweep (which resumes by hash,
+      // since this path has no analysis id) instead of polling inline and risking
+      // yet another client-side timeout.
+      return hasCompletedEngineStats(existingReport)
+        ? completeScan(sha256, existingReport)
+        : pendingScan(sha256);
+    }
     const completedReport = await waitForCompletedFileReport(sha256, apiKey, existingReport);
     return completeScan(sha256, completedReport);
   }
 
   if (!isVirusTotalUploadOnMissEnabled()) {
+    // Neither an error nor a clean scan: this deployment simply cannot check a
+    // package VirusTotal has never seen. Say so in the summary — otherwise
+    // `status: not_found` travels to the CLI and Web UI looking like a verdict.
     return {
       summary: {
         provider: "virustotal",
@@ -155,7 +167,8 @@ export async function runVirusTotalScan(
         suspicious: 0,
         harmless: 0,
         undetected: 0,
-        totalEngines: 0
+        totalEngines: 0,
+        error: VIRUSTOTAL_UNKNOWN_PACKAGE_MESSAGE
       },
       findings: []
     };
@@ -190,15 +203,26 @@ function shouldDeferAnalysis(): boolean {
   return process.env.VIRUSTOTAL_WAIT_FOR_ANALYSIS?.trim().toLowerCase() !== "true";
 }
 
+/**
+ * Shown when this deployment refuses to upload a package VirusTotal has never
+ * seen, so no scan could happen at all. It travels in the summary's `error`
+ * field so the CLI and the Web UI can explain the gap instead of letting
+ * `status: not_found` read like a clean verdict.
+ */
+const VIRUSTOTAL_UNKNOWN_PACKAGE_MESSAGE =
+  "Not checked: this deployment does not scan packages that VirusTotal has not seen before " +
+  "(uploading unknown packages is disabled with VIRUSTOTAL_UPLOAD_ON_MISS). " +
+  "The package was not scanned.";
+
 function pendingScan(
   sha256: string,
-  analysisId: string
+  analysisId?: string
 ): { summary: VirusTotalScanSummary; findings: InspectionFinding[] } {
   return {
     summary: {
       provider: "virustotal",
       sha256,
-      analysisId,
+      ...(analysisId ? { analysisId } : {}),
       status: "pending",
       malicious: 0,
       suspicious: 0,

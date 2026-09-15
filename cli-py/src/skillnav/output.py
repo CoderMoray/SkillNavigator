@@ -187,7 +187,10 @@ def print_virustotal_summary(summary: dict[str, Any]) -> None:
         return
 
     if status == "not_found":
-        print("No historical VirusTotal report for this archive hash.")
+        # Not a verdict: no scan happened, and the platform reports why.
+        print("Not checked: no VirusTotal scan was performed for this archive.")
+        if summary.get("error"):
+            print(f"Reason: {summary['error']}")
         return
 
     malicious = int(summary.get("malicious") or 0)
@@ -615,8 +618,11 @@ def _format_security_summary(inspection: dict[str, Any]) -> str | None:
     virustotal = inspection.get("virusTotal")
     if isinstance(virustotal, dict):
         status = str(virustotal.get("status") or "").strip()
-        if status in {"failed", "not_found"}:
-            parts.append(f"VirusTotal {status}")
+        if status == "failed":
+            parts.append("VirusTotal failed")
+        elif status == "not_found":
+            # "not_found" reads like a verdict; it really means "not scanned".
+            parts.append("VirusTotal not checked (unknown package, uploads disabled)")
         else:
             malicious = int(virustotal.get("malicious") or 0)
             suspicious = int(virustotal.get("suspicious") or 0)

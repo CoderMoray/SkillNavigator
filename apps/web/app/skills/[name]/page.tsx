@@ -94,6 +94,7 @@ import {
 } from "../../../lib/skillspector-summary";
 import { averageHaluCatchRadarScores, type HaluCatchRadarScores } from "../../../lib/halucatch-scores";
 import { formatVirusTotalThreatVerdict, resolveVirusTotalEngineTotal } from "../../../lib/virustotal-summary";
+import { resolveBrandName } from "../../../lib/brand-name";
 import type { PublicUser, RegistryIssue, RegistrySkill } from "../../../lib/types";
 
 type DetailPanel =
@@ -1742,7 +1743,9 @@ export default function SkillDetailPage() {
                           ? " VirusTotal 扫描未成功完成，以下错误信息来自扫描器。"
                           : virusTotalScan?.status === "completed"
                             ? ` VirusTotal 已完成：${virusTotalScan.malicious} 个恶意、${virusTotalScan.suspicious} 个可疑检出${virusTotalEngineTotal ? `，共 ${virusTotalEngineTotal} 家厂商参与扫描。` : "。"}`
-                            : " VirusTotal 未命中该归档的历史报告，且未上传新样本。"
+                            : virusTotalScan?.status === "not_found"
+                              ? ` 未做 VirusTotal 扫描：${resolveBrandName()} 不支持对未授权的 Skill 做检查（VirusTotal 尚未收录该包，且本部署未开启未知包上传）；包本身未必有问题，但它没有被扫描。`
+                              : " VirusTotal 未命中该归档的历史报告，且未上传新样本。"
                         : null}
                       {hiddenPlatformFindingCount > 0
                         ? ` 另有 ${hiddenPlatformFindingCount} 条平台质量/合规提示（如 description、tags、tests）计入审查记录，但不在此安全区域展示。`
@@ -1797,14 +1800,22 @@ export default function SkillDetailPage() {
                       <>
                         <div>
                           <span>状态</span>
-                          <strong>{virusTotalScan?.status === "completed" ? "已完成" : "未命中历史报告"}</strong>
+                          <strong>
+                            {virusTotalScan?.status === "completed"
+                              ? "已完成"
+                              : virusTotalScan?.status === "not_found"
+                                ? "未扫描（未知包不上传）"
+                                : "未命中历史报告"}
+                          </strong>
                         </div>
                         <div>
                           <span>检出结果</span>
                           <strong>
-                            {virusTotalDetections
-                              ? `${virusTotalScan!.malicious} 恶意 · ${virusTotalScan!.suspicious} 可疑`
-                              : "未检出"}
+                            {virusTotalScan?.status === "not_found"
+                              ? "未扫描"
+                              : virusTotalDetections
+                                ? `${virusTotalScan!.malicious} 恶意 · ${virusTotalScan!.suspicious} 可疑`
+                                : "未检出"}
                           </strong>
                         </div>
                         {virusTotalScan?.status === "completed" && virusTotalEngineTotal > 0 ? (

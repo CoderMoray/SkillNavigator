@@ -95,6 +95,28 @@ SAMPLE_SKILL = {
 }
 
 
+def test_print_virustotal_summary_not_found_is_not_a_verdict(capsys) -> None:
+    """`not_found` means "no scan happened", so the reason has to be printed."""
+    print_virustotal_summary(
+        {
+            "provider": "virustotal",
+            "sha256": "a" * 64,
+            "status": "not_found",
+            "malicious": 0,
+            "suspicious": 0,
+            "harmless": 0,
+            "undetected": 0,
+            "totalEngines": 0,
+            "error": "Not checked: this deployment does not scan packages that VirusTotal has not seen before.",
+        }
+    )
+
+    out = capsys.readouterr().out
+    assert "Not checked" in out
+    assert "Reason: Not checked:" in out
+    assert "No historical VirusTotal report" not in out
+
+
 def test_print_skill_info(capsys) -> None:
     print_skill_info(SAMPLE_SKILL)
     out = capsys.readouterr().out

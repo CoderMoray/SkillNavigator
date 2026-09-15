@@ -213,7 +213,9 @@ describe("VirusTotal package review adapter", () => {
       provider: "virustotal",
       status: "not_found",
       malicious: 0,
-      suspicious: 0
+      suspicious: 0,
+      // The gap must be stated: `not_found` alone reads like a clean scan.
+      error: expect.stringContaining("was not scanned")
     });
     expect(scan.findings).toEqual([]);
   });
@@ -331,6 +333,32 @@ describe("VirusTotal package review adapter", () => {
       analysisId: "analysis-id",
     });
     expect(scan.summary.sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(scan.findings).toEqual([]);
+  });
+
+  test("defers a known-but-unfinished report instead of polling inline", async () => {
+    configureVirusTotal();
+    process.env.VIRUSTOTAL_WAIT_FOR_ANALYSIS = "false";
+    // VT knows this hash (200) but its engine stats are still filling in.
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        data: {
+          attributes: {
+            last_analysis_stats: { malicious: 0, suspicious: 0, harmless: 0, undetected: 0 },
+            last_analysis_results: {}
+          }
+        }
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const scan = await runVirusTotalScan(snapshot);
+
+    // One lookup only: no /files polling loop and no upload. The sweep resumes
+    // this one by hash, because the deferred path never got an analysis id.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(scan.summary).toMatchObject({ status: "pending", totalEngines: 0 });
+    expect(scan.summary.analysisId).toBeUndefined();
     expect(scan.findings).toEqual([]);
   });
 
