@@ -33,6 +33,25 @@ Configuration: `~/.config/skillnav/config.json` (multi-profile; stores `apiKey` 
 
 Environment: `SKILLNAV_REGISTRY`, `SKILLNAV_PROFILE`, `SKILLNAV_API_KEY` (legacy alias: `SKILLNAV_TOKEN`).
 
+## Long-running publishes
+
+`publish` returns as soon as the package is stored — inspection runs in the
+background unless you ask otherwise. `publish --wait` (and
+`retry-publish --wait`) keep the request open until the whole pipeline is
+done; that pipeline waits on SkillSpector, VirusTotal and HaluCatch, and
+VirusTotal queues newly uploaded files for minutes. Those calls therefore use
+a **600s** request budget instead of the default 120s:
+
+```bash
+skillnav publish ./my-skill --wait
+SKILLNAV_PUBLISH_WAIT_TIMEOUT=900 skillnav publish ./my-skill --wait
+```
+
+A timed-out request is reported as a **timeout**, never as "cannot reach the
+API", and the hint points at `skillnav status <slug>` and
+`skillnav retry-publish <slug>` — the server keeps working after the client
+gives up, so re-uploading the same version is never the right fix.
+
 ## Upgrade and version check
 
 Release lookups try **PyPI first** (`pypi.org/pypi/skillnav/json`) and fall
