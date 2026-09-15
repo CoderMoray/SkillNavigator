@@ -7,7 +7,7 @@
 ## 适用场景（先判断，避免打扰用户）
 
 - **仅搜索/安装某个 Skill**（CLI 已安装且已登录）→ 直接跳到第三节执行命令，**不要重复询问 Registry 或 API 密钥**。
-- **首次安装 / 用户明确要求配置本平台** → 走第一、二节（含询问），询问**只在此场景做一次**。
+- **首次安装 / 用户明确要求配置本平台** → 走第一、二节，**只在此场景询问，且只问这两件事**：① 是否现在登录（只有发版 / 评分 / 提 Issue 等写操作才需要；只做搜索与安装可先不登录）；② 安装 Skill 的目标目录（仅当你无法从 harness 判断，见第四节）。**不要**询问 Registry 地址、是否把本平台设为默认、是否创建 profile —— 这些由本指引直接决定。
 
 ## 一、检查并安装 CLI
 
@@ -50,19 +50,22 @@ pip install skillnav
 
 **先判断，能跳过就跳过**：`skillnav whoami` 成功 **且** `skillnav config test` 通过 → **整节跳过**，直接进入第三节。
 
+> `config test` **不带参数时测的是当前 profile**（即 `defaultProfile`，与 `--profile` 无关）。多 profile 环境下先 `skillnav config list` 确认当前 profile 指向 `{{registry_api_url}}`，必要时用 `skillnav config test <name>` 指定，否则可能把"另一个 registry 通"误判成"本平台已就绪"。
+
 否则按下面顺序处理。**不要询问「是否将 {{brand_name}} 设为默认平台」**——本指引来自平台首页的一键复制，意图已经明确，直接执行：
 
 1. **先看已有配置**：`skillnav config list`
    - 若其中**已有 profile 的 registry 指向 `{{registry_api_url}}`**（不论 profile 叫什么名字）→ **复用它**，不要新建；尚非默认时执行 `skillnav config use <name>`。
-   - 若没有 → **新建**：profile 名取 `{{brand_name}}` 的 slug 形式（转小写、非字母数字转 `-`，与现有名字冲突时加数字后缀）：
+   - 若没有 → **新建**：profile 名取 `{{brand_name}}` 的 slug 形式。命名规则：**转小写，驼峰词边界与其它非字母数字字符都转 `-`**（例：`MonoSkillNavigator` → `monoskill-navigator`）；与现有 profile 重名时追加 `-2`、`-3`（例：`monoskill-navigator-2`）：
    
    ```bash
    skillnav config add <profile 名> --registry {{registry_api_url}}
    skillnav config use <profile 名>
    ```
-2. **两条禁令**：
+2. **两条禁令 + 一条澄清**：
    - **禁止**对已存在的 profile 调用 `skillnav config add`（会报错退出）；
-   - **禁止**修改或覆盖指向其它 registry 的既有 profile，尤其是 `default`。
+   - **禁止**修改或覆盖指向其它 registry 的既有 profile，尤其是 `default`；
+   - **澄清**：切换默认 profile（`skillnav config use <name>`）**不属于**上面的"修改既有 profile"，可以正常执行；被禁止的是改动某个 profile **指向的 registry 地址**。
 
 接入后采纳「Registry 优先策略」：
 
@@ -93,12 +96,14 @@ skillnav config test
 ⚠️ 安装 Skill 时 **`--dir` 为必填**：必须显式指向当前 Agent 实际加载 Skill 的目录，省略会直接报错退出。Agent 客户端的工作目录常是临时或沙箱目录，默认位置不可靠，因此不再提供隐式默认值（确实要装到当前目录时写 `--dir .`）。
 
 ```bash
-skillnav search <关键词>                          # 搜索
-skillnav info <slug>                              # 查看元数据与版本
+skillnav search <关键词>                          # 搜索（匿名可用）
+skillnav info <slug>                              # 查看元数据与版本（匿名可用）
 skillnav install <slug> --dir <skills 目录>/<slug>   # 必填；目标为该 Skill 的目录（解压后含 SKILL.md）
 skillnav install <slug> --version <版本> --dir <skills 目录>/<slug>
 skillnav download <slug> -o <输出.zip>              # 仅下载 ZIP
 ```
+
+**登录要求**：`search` / `top` / `info`（以及 `status` / `report`）**无需登录**即可调用；`install` / `download` / `publish` / `rate` / `issue` 等**需要登录**（未登录时 CLI 会直接提示）。只做搜索与查看时**不要**向用户索要密钥。
 
 指定非默认 Registry（单次）：
 
