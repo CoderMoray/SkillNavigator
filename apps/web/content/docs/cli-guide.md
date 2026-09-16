@@ -32,7 +32,7 @@ skillnav status / report → 解读 verdict
 
 ## 1. 安装 skillnav CLI
 
-**skillnav** 是 {{brand_name}} 的官方命令行客户端（Python ≥ 3.9）。推荐安装：
+**skillnav** 是 {{brand_name}} 的官方命令行客户端（Python ≥ 3.10）。推荐安装：
 
 ```bash
 pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/

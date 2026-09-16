@@ -10,11 +10,17 @@ name = "skillnav"
 dynamic = ["version"]
 description = "CLI client for the Skill management platform (SkillNavigator)"
 readme = "README.md"
-requires-python = ">=3.9"
+# 3.10 是真实下界：3.9 上 pip 只能装到 click 8.1.x，而 CLI 在该组合下会把
+# 合法调用判为用法错误（例如 `--json update` 退出码 2），所以 3.9 是"能装上、
+# 不能用"。与其留一个名不副实的声明，不如把下界写到可用版本。
+requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
 keywords = ["skill", "cli", "agent", "registry"]
 classifiers = [
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
@@ -42,7 +48,7 @@ skillnav = "skillnav.cli:main"
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 src = ["src"]
 
 [tool.ruff.lint]
@@ -50,7 +56,7 @@ src = ["src"]
 select = ["E4", "E7", "E9", "F"]
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 check_untyped_defs = false
 warn_redundant_casts = true
 no_implicit_optional = true

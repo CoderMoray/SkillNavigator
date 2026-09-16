@@ -15,18 +15,9 @@ import re
 import sys
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PACKAGE_ROOT = REPO_ROOT / "cli-py" / "src" / "skillnav"
 PYPROJECT = REPO_ROOT / "cli-py" / "pyproject.toml"
-
-# sys.stdlib_module_names exists from Python 3.10; below that the stdlib can
-# not be told apart reliably, so the check is skipped rather than guessed.
-_NEEDS_STDLIB_NAMES = pytest.mark.skipif(
-    not hasattr(sys, "stdlib_module_names"),
-    reason="stdlib_module_names requires Python 3.10+",
-)
 
 
 def _third_party_imports() -> dict[str, set[str]]:
@@ -69,7 +60,6 @@ def _declared_dependencies() -> set[str]:
     return declared
 
 
-@_NEEDS_STDLIB_NAMES
 def test_third_party_imports_are_declared() -> None:
     imported = _third_party_imports()
     undeclared = sorted(set(imported) - _declared_dependencies())

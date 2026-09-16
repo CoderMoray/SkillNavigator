@@ -16,7 +16,7 @@ Skill 管理平台（SkillNavigator）对外提供 Web UI 与 HTTP API。`skilln
 | 项 | 值 |
 |---|---|
 | 包名 / 命令名 | `skillnav`（PyPI 未占用，2026-08-19 确认；npm 亦可用） |
-| 技术栈 | Python ≥ 3.9，CLI 框架：typer |
+| 技术栈 | Python ≥ 3.10，CLI 框架：typer |
 | 安装 | `pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/` |
 | 环境变量前缀 | `SKILLNAV_` |
 
