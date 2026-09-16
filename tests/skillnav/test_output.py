@@ -870,13 +870,50 @@ def test_print_report_version_virustotal_findings_none(capsys) -> None:
 # Agent-facing status/search readability (agent feedback B2/B3/B5/B6)
 # --------------------------------------------------------------------------
 
-def test_print_skill_status_includes_security_summary(capsys) -> None:
+def test_print_skill_status_includes_inspection_scores(capsys) -> None:
     print_skill_status(SAMPLE_SKILL)
     out = capsys.readouterr().out
-    assert "Security:" in out
-    # 1.0.1 carries VirusTotal counters but no score block, so only the
-    # VirusTotal segment is rendered.
-    assert "VirusTotal 0 malicious, 1 suspicious" in out
+    assert (
+        "Inspection scores: SkillSpector: ?/100 · VirusTotal: 0/1 · HaluCatch: 90/100"
+        in out
+    )
+
+
+def test_print_skill_status_inspection_scores_with_full_data(capsys) -> None:
+    skill = {
+        **SAMPLE_SKILL,
+        "versions": {
+            **SAMPLE_SKILL["versions"],
+            "1.0.1": {
+                **SAMPLE_SKILL["versions"]["1.0.1"],
+                "evaluation": {"status": "passed", "score": 85, "provider": "halucatch-adapter"},
+                "inspection": {
+                    "verdict": "published",
+                    "skillSpector": {
+                        "provider": "skillspector-static",
+                        "riskScore": 10,
+                        "riskSeverity": "LOW",
+                        "recommendation": "SAFE",
+                        "scanMode": "static-only",
+                    },
+                    "virusTotal": {
+                        "status": "completed",
+                        "malicious": 0,
+                        "suspicious": 0,
+                        "harmless": 70,
+                        "undetected": 4,
+                        "totalEngines": 74,
+                    },
+                },
+            },
+        },
+    }
+    print_skill_status(skill)
+    out = capsys.readouterr().out
+    assert (
+        "Inspection scores: SkillSpector: 90/100 · VirusTotal: 74/74 · HaluCatch: 85/100"
+        in out
+    )
 
 
 def test_print_skill_status_without_stage_statuses_explains_the_gap(capsys) -> None:

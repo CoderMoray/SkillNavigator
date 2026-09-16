@@ -592,51 +592,60 @@ def _format_inspection_progress(stage_statuses: dict[str, str]) -> str:
     return " · ".join(parts)
 
 
-_BLOCKING_SEVERITIES = {"critical", "high"}
+def _format_skillspector_status_score(inspection: dict[str, Any]) -> str:
+    skill_spector = inspection.get("skillSpector")
+    if isinstance(skill_spector, dict):
+        risk_score = skill_spector.get("riskScore")
+        if risk_score is not None:
+            try:
+                clamped = max(0, min(100, int(risk_score)))
+                return f"{100 - clamped}/100"
+            except (TypeError, ValueError):
+                pass
+    return "?/100"
 
 
-def _format_security_summary(inspection: dict[str, Any]) -> str | None:
-    """One-line security conclusion for `status` (full detail stays in `report`)."""
-    parts: list[str] = []
-
-    scores = inspection.get("scores") or {}
-    security_score = scores.get("securityScore")
-    skillspector_findings, _virustotal_findings = _partition_inspection_findings(
-        inspection.get("findings") or []
-    )
-    if security_score is not None or skillspector_findings:
-        segment = f"SkillSpector security={security_score if security_score is not None else '?'}"
-        blocking = [
-            finding
-            for finding in skillspector_findings
-            if str(finding.get("severity") or "").strip().lower() in _BLOCKING_SEVERITIES
-        ]
-        if blocking:
-            segment += f", {len(blocking)} blocking"
-        parts.append(segment)
-
+def _format_virustotal_status_score(inspection: dict[str, Any]) -> str:
     virustotal = inspection.get("virusTotal")
-    if isinstance(virustotal, dict):
-        status = str(virustotal.get("status") or "").strip()
-        if status == "failed":
-            parts.append("VirusTotal failed")
-        elif status == "not_found":
-            # "not_found" reads like a verdict; it really means "not scanned".
-            parts.append("VirusTotal not checked (unknown package, uploads disabled)")
-        else:
-            malicious = int(virustotal.get("malicious") or 0)
-            suspicious = int(virustotal.get("suspicious") or 0)
-            engines = _resolve_virustotal_engine_total(virustotal)
-            if engines:
-                parts.append(
-                    f"VirusTotal {malicious} malicious, {suspicious} suspicious / {engines} engines"
-                )
-            elif malicious or suspicious:
-                parts.append(f"VirusTotal {malicious} malicious, {suspicious} suspicious")
+    if not isinstance(virustotal, dict):
+        return "?/?"
 
-    if not parts:
-        return None
-    return " · ".join(parts)
+    status = str(virustotal.get("status") or "").strip()
+    if status in {"failed", "not_found", "pending"}:
+        return "?/?"
+
+    malicious = int(virustotal.get("malicious") or 0)
+    suspicious = int(virustotal.get("suspicious") or 0)
+    total_engines = _resolve_virustotal_engine_total(virustotal)
+    if total_engines <= 0:
+        return "?/?"
+
+    passed_engines = max(0, total_engines - malicious - suspicious)
+    return f"{passed_engines}/{total_engines}"
+
+
+def _format_halucatch_status_score(evaluation: Any) -> str:
+    if not isinstance(evaluation, dict):
+        return "?/100"
+
+    score = evaluation.get("score")
+    if score is not None:
+        try:
+            return f"{int(score)}/100"
+        except (TypeError, ValueError):
+            pass
+    return "?/100"
+
+
+def _format_inspection_scores_summary(
+    inspection: dict[str, Any],
+    evaluation: Any,
+) -> str:
+    """One-line inspection scores for `status` (full detail stays in `report`)."""
+    skillspector = _format_skillspector_status_score(inspection)
+    virustotal = _format_virustotal_status_score(inspection)
+    halucatch = _format_halucatch_status_score(evaluation)
+    return f"SkillSpector: {skillspector} · VirusTotal: {virustotal} · HaluCatch: {halucatch}"
 
 
 def _collect_version_inspection_context(
@@ -725,9 +734,10 @@ def _print_single_version_status(body: dict[str, Any], version: str) -> None:
     print(f"Verdict: {resolve_version_verdict(body, version_id) or 'unknown'}")
     print(f"Inspection progress: {context['progress']}")
     print(f"Inspection status: {context['aggregate_status']}")
-    security = _format_security_summary(_get_inspection_record(entry))
-    if security:
-        print(f"Security: {security}")
+    inspection = _get_inspection_record(entry)
+    print(
+        f"Inspection scores: {_format_inspection_scores_summary(inspection, entry.get('evaluation'))}"
+    )
     print(f"Published: {_format_published_uploaded(entry)}")
     print(f"Visibility: {_format_visibility(body.get('published'))}")
     if context["inspection_started_at"]:
