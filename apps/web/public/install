@@ -4,9 +4,10 @@
 # 部署后访问：（部署方未配置对外 Web 地址——请向平台维护者索取）/install（勿直接改 apps/web/public/install）
 # 规范与特性：
 # 1. 自动判定环境并安装 CLI（PyPI 优先，10s 超时后回退阿里云镜像；兼容 pipx、PEP 668）
-# 2. 自动探测安装路径并修复 PATH（自动写入 ~/.zshrc 或 ~/.bash_profile）
-# 3. 自动配置与测试平台 Registry（支持多 profile / 强制覆盖）
-# 4. 支持传参 --api-key 自动完成登录与 whoami 身份验证，或在终端交互输入
+# 2. 安装后真实运行 CLI 自检；发现依赖缺失（No module named …）自动补装或强制重装
+# 3. 自动探测安装路径并修复 PATH（自动写入 ~/.zshrc 或 ~/.bash_profile）
+# 4. 自动配置与测试平台 Registry（支持多 profile / 强制覆盖）
+# 5. 支持传参 --api-key 自动完成登录与 whoami 身份验证，或在终端交互输入
 # ==============================================================================
 
 set -e
@@ -17,6 +18,14 @@ PIP_INDEX_PYPI="https://pypi.org/simple"
 PIP_INDEX_ALIYUN="https://mirrors.aliyun.com/pypi/simple/"
 PIP_INSTALL_TIMEOUT=10
 API_KEY=""
+# 实际成功使用的 PyPI 索引（第 1 步可能已回退到镜像），供安装后的依赖自愈复用
+USED_INDEX=""
+# CLI 可用性自检：成功时保存 `skillnav --version` 输出，失败时保存原始报错
+SKILLNAV_VERSION_TEXT=""
+SKILLNAV_CHECK_ERROR=""
+# 流程状态：供结尾汇总，避免失败时仍打印"全部就绪"（1=通过）
+REGISTRY_OK=1
+LOGIN_OK=1
 
 # ------------------------------------------------------------------------------
 # 0. 解析输入参数（支持 --api-key sk_...）
@@ -108,6 +117,124 @@ try_install_skillnav() {
     fi
 }
 
+# ------------------------------------------------------------------------------
+# 0.1 安装完整性自检与依赖自愈
+#   pip / pipx 成功只代表"包本身装上了"，不代表依赖完整：网络中断、镜像缺包、
+#   本机 pip 被配置为跳过依赖（--no-deps / PIP_NO_DEPS）等，都会留下
+#   "入口能执行、import 时报 No module named" 的破损环境。
+#   因此安装后必须真正运行一次 CLI，并按报错补齐缺失依赖。
+# ------------------------------------------------------------------------------
+
+# skillnav 入口脚本 shebang 指向的解释器（即实际安装它的 Python 环境）
+skillnav_python() {
+    local bin
+    bin="$(command -v skillnav 2>/dev/null)" || return 1
+    [ -n "$bin" ] || return 1
+    sed -n '1s/^#![[:space:]]*//p' "$bin" | awk '{ if ($1 ~ /(^|\/)env$/) print $2; else print $1 }'
+}
+
+# 从 Python 报错文本中提取缺失的顶层模块名（`No module named 'click'` -> click）
+skillnav_missing_modules() {
+    printf '%s' "$1" \
+        | sed -n "s/.*No module named '\([A-Za-z0-9_.]*\)'.*/\1/p" \
+        | cut -d. -f1 | sort -u | tr '\n' ' ' | sed 's/ $//'
+}
+
+# 真实可用性自检：能正常执行 --version 才算安装成功（退出码 + 输出都检查）
+skillnav_self_check() {
+    local out="" rc=0
+    out="$(skillnav --version 2>&1)" || rc=$?
+    if [ "$rc" -eq 0 ] && [ -n "$out" ]; then
+        SKILLNAV_VERSION_TEXT="$out"
+        return 0
+    fi
+    SKILLNAV_CHECK_ERROR="$out"
+    return 1
+}
+
+# 补装缺失依赖：优先 pipx inject（仍由 pipx 管理），否则用入口解释器的 pip
+skillnav_repair_dependencies() {
+    local modules="$1"
+    local index_url="$2"
+    [ -n "$modules" ] || return 1
+
+    echo "  -> 尝试补装缺失依赖: ${modules% }"
+
+    case "$(command -v skillnav)" in
+        */pipx/venvs/*)
+            if command -v pipx &>/dev/null; then
+                # --force：包已存在但文件不完整时也重装，避免被"already injected, not
+                # modifying"直接跳过（pipx 这种情况下会照常返回成功）
+                # shellcheck disable=SC2086  # 模块名需按空格展开为多个参数
+                if pipx inject --force \
+                    --pip-args="-i ${index_url} --timeout ${PIP_INSTALL_TIMEOUT}" \
+                    skillnav $modules; then
+                    return 0
+                fi
+            fi
+            ;;
+    esac
+
+    local py_bin
+    py_bin="$(skillnav_python)" || return 1
+    case "$py_bin" in
+        /*) ;;
+        *) py_bin="$(command -v "$py_bin" 2>/dev/null)" || return 1 ;;
+    esac
+    # 只接受 Python 解释器（shebang 为 `env 其它命令` 时直接放弃，走重装兜底）
+    case "$py_bin" in
+        *python*) ;;
+        *) return 1 ;;
+    esac
+    [ -x "$py_bin" ] || return 1
+
+    # shellcheck disable=SC2086
+    "$py_bin" -m pip install -i "$index_url" --timeout "$PIP_INSTALL_TIMEOUT" $modules
+}
+
+# 自检失败后的自愈：先补缺失依赖，再退化为强制重装；仍失败则明确报错退出
+ensure_skillnav_usable() {
+    local index_url="${USED_INDEX:-$PIP_INDEX_PYPI}"
+    local modules=""
+    local attempt=0
+
+    # 自己先确认一次：避免沿用调用方过期的报错信息去补装错误的模块
+    if skillnav_self_check; then
+        return 0
+    fi
+
+    echo "  ⚠️ 检测到 skillnav 已安装但无法运行，原始报错如下："
+    printf '%s\n' "$SKILLNAV_CHECK_ERROR" | sed 's/^/      /'
+
+    # 缺失模块可能不止一个（pip 中断时会留下"部分依赖已装"的破损环境），
+    # 每轮从最新报错里取一个模块补齐，最多 3 轮。
+    while [ "$attempt" -lt 3 ]; do
+        modules="$(skillnav_missing_modules "$SKILLNAV_CHECK_ERROR")"
+        [ -n "$modules" ] || break
+        attempt=$((attempt + 1))
+        if ! skillnav_repair_dependencies "$modules" "$index_url"; then
+            break
+        fi
+        if skillnav_self_check; then
+            echo "  ✅ 缺失依赖已自动补装（${modules}），CLI 恢复正常。"
+            return 0
+        fi
+    done
+
+    echo "  -> 依赖补装未生效，尝试强制重装 skillnav..."
+    if try_install_skillnav "$index_url" "已配置的 PyPI 索引" && skillnav_self_check; then
+        echo "  ✅ 重装后 CLI 恢复正常。"
+        return 0
+    fi
+
+    echo "❌ 安装不完整：skillnav 安装后仍无法运行。" >&2
+    echo "   请手动尝试：" >&2
+    echo "     pipx install --force skillnav" >&2
+    echo "     pipx inject skillnav ${modules:-typer click}" >&2
+    echo "   诊断当前环境：pipx list && pipx runpip skillnav list" >&2
+    exit 1
+}
+
 echo "=================================================="
 echo "🚀 欢迎使用 SkillNavigator 一键安装引导"
 echo "=================================================="
@@ -119,8 +246,9 @@ echo ""
 echo "📦 [1/4] 检查环境并安装 skillnav CLI..."
 
 if try_install_skillnav "$PIP_INDEX_PYPI" "PyPI"; then
-    :
+    USED_INDEX="$PIP_INDEX_PYPI"
 elif try_install_skillnav "$PIP_INDEX_ALIYUN" "阿里云 PyPI 镜像"; then
+    USED_INDEX="$PIP_INDEX_ALIYUN"
     echo "  ℹ️  PyPI 不可用或超时，已改用阿里云镜像完成安装。"
 else
     echo "❌ 错误: 连接超时，PyPI 与阿里云镜像均无法在 ${PIP_INSTALL_TIMEOUT}s 内完成安装。" >&2
@@ -193,13 +321,16 @@ else
     echo "⚠️ 未在预期目录找到 skillnav，后续命令可能需要手动指定绝对路径。"
 fi
 
-# 二次确认 CLI 是否可用
+# 二次确认 CLI 真正可用（含依赖完整性）
 if ! command -v skillnav &>/dev/null; then
     echo "❌ 无法调用 skillnav，请检查安装结果。"
     exit 1
 fi
 
-echo "  ✅ CLI 验证成功！当前版本: $(skillnav --version 2>&1 | tr -d '\n')"
+# 自检 + 不可用时自动补装/重装（函数内部先自检一次，可用时静默返回）
+ensure_skillnav_usable
+
+echo "  ✅ CLI 验证成功！当前版本: $(printf '%s' "$SKILLNAV_VERSION_TEXT" | tr -d '\n')"
 echo ""
 
 # ------------------------------------------------------------------------------
@@ -218,6 +349,7 @@ echo "  -> 正在测试与平台的连通性..."
 if skillnav config test; then
     echo "  ✅ Registry 连通正常。"
 else
+    REGISTRY_OK=0
     echo "  ⚠️ Registry 连通性测试未通过，请检查网络（或是否需要开启内网代理/VPN）。"
 fi
 echo ""
@@ -241,11 +373,27 @@ fi
 
 if [ -n "$API_KEY" ]; then
     echo "  -> 正在登录..."
+    LOGIN_RC=0
     if skillnav login --api-key "$API_KEY"; then
         echo "  ✅ 登录成功！当前身份信息："
-        skillnav whoami
+        skillnav whoami || true
     else
-        echo "  ❌ 登录验证失败，请确认 API Key 是否正确有效。"
+        LOGIN_RC=$?
+        LOGIN_OK=0
+        case "$LOGIN_RC" in
+            2)
+                echo "  ❌ 登录失败：API 密钥无效、已过期或已停用（CLI 退出码 2）。" >&2
+                echo "     请到 Web 端「设置 → API 密钥」确认密钥状态后重试。" >&2
+                ;;
+            4)
+                echo "  ❌ 登录失败：无法连接 Registry（CLI 退出码 4）：$REGISTRY_URL" >&2
+                echo "     请检查网络、代理或 VPN；连通后可手动重试：skillnav login --api-key <KEY>" >&2
+                ;;
+            *)
+                echo "  ❌ 登录失败（CLI 退出码 $LOGIN_RC）：这通常不是密钥问题，而是 CLI 或本地环境异常。" >&2
+                echo "     请先执行 skillnav --version 排查；诊断：pipx runpip skillnav list" >&2
+                ;;
+        esac
     fi
 else
     echo "  ℹ️  已跳过自动登录。后续可随时运行以下命令登录："
@@ -254,7 +402,17 @@ fi
 
 echo ""
 echo "=================================================="
-echo "🎉 SkillNavigator 安装与配置流程已全部就绪！"
+if [ "$REGISTRY_OK" -eq 1 ] && [ "$LOGIN_OK" -eq 1 ]; then
+    echo "🎉 SkillNavigator 安装与配置流程已全部就绪！"
+else
+    echo "⚠️  SkillNavigator 安装已完成，但部分步骤未通过："
+    if [ "$REGISTRY_OK" -eq 0 ]; then
+        echo "   • Registry 连通性测试（见上方提示，多为网络/代理问题）"
+    fi
+    if [ "$LOGIN_OK" -eq 0 ]; then
+        echo "   • 账号登录（原因见上方；修复后重跑本脚本是安全的）"
+    fi
+fi
 echo "=================================================="
 echo "👉 请在新打开的终端窗口中使用 skillnav"
 echo "   或者在当前窗口运行: source ~/.zshrc"

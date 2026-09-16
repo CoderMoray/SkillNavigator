@@ -35,7 +35,7 @@ curl -fsSL {{web_url}}/install | bash
 curl -fsSL {{web_url}}/install | bash -s -- --api-key sk_…
 ```
 
-脚本会自动：安装 CLI、修复 PATH、配置 Registry（`{{registry_api_url}}`）、可选登录。
+脚本会自动：安装 CLI（含安装后自检，依赖缺失时自动补装或重装）、修复 PATH、配置 Registry（`{{registry_api_url}}`）、可选登录。
 
 **方式 B — 手动 pip 安装**
 
