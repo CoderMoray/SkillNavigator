@@ -44,8 +44,8 @@
 · not logged in → skillnav login --api-key sk_… 或 SKILLNAV_API_KEY；自动化在子命令前加 --no-input
 · slug 已存在/无权限发版 → 换 slug，或 owner 在 Web 详情页添加 contributor
 · Skill 在回收站 → Web 个人中心恢复后再 publish
-· 需要下架 / 从公开搜索移除 → skillnav unpublish <slug>（仅 owner/contributor；不是删除，可重新上架；--delete 入回收站，3 天内可恢复）
-· 下架后想重新公开 → skillnav republish <slug>（仅 owner/contributor；只改可见性；审查中 / 中断 / 被拒绝时会被拒绝，不能绕过审查）
+· 需要下架 / 从公开搜索移除 → skillnav unpublish <slug>（仅 owner；不是删除，可重新上架；--delete 入回收站，3 天内可恢复）
+· 下架后想重新公开 → skillnav republish <slug>（仅 owner；只改可见性；审查中 / 中断 / 被拒绝时会被拒绝，不能绕过审查）
 · 分类报错 → 须为 9 类之一：Automation、Developer Tools、Documentation、Productivity、Data & Analytics、Security、Design & Creative、Communication、Other
 · 自定义部署 API → registry 传完整 API 根（本实例见上）
 · CLI 命令参数 → skillnav <命令> --help，或安装官方 Skill：skillnav install skillnav-skill --dir <你的 Agent 加载 Skill 的目录>/skillnav-skill（`--dir` 必填，装在临时目录不会被加载）

@@ -210,8 +210,8 @@ skillnav
 | issues | `GET /skills/:slug/issues` | 公开 |
 | add-contributor | `POST /skills/:slug/contributors` | Bearer（owner） |
 | remove-contributor | `DELETE /skills/:slug/contributors/:id` | Bearer（owner） |
-| unpublish | `POST /skills/:slug/unpublish`（或 `.../versions/:version/unpublish`；`--delete` → `DELETE /skills/:slug`）| Bearer（owner / contributor）|
-| republish | `POST /skills/:slug/republish`（或 `.../versions/:version/republish`）| Bearer（owner / contributor）|
+| unpublish | `POST /skills/:slug/unpublish`（或 `.../versions/:version/unpublish`；`--delete` → `DELETE /skills/:slug`）| Bearer（owner）|
+| republish | `POST /skills/:slug/republish`（或 `.../versions/:version/republish`）| Bearer（owner）|
 
 ## 9. 版本与里程碑
 

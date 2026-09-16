@@ -105,7 +105,7 @@ skillnav install <slug> --version <版本> --dir <skills 目录>/<slug>
 skillnav download <slug> -o <输出.zip>              # 仅下载 ZIP
 ```
 
-**登录要求**：`search` / `top` / `info`（以及 `status` / `report`）**无需登录**即可调用（匿名只能看到公开版本；非公开版本仅 owner / contributor 可见）；`install` / `download` / `publish` / `rate` / `issue` 等**需要登录**（未登录时 CLI 会直接提示）。只做搜索与查看时**不要**向用户索要密钥。
+**登录要求**：`search` / `top` / `info`（以及 `status` / `report`）**无需登录**即可调用（匿名只能看到公开版本；非公开版本需 owner / contributor 权限，其中已下架的仅 owner 可见）；`install` / `download` / `publish` / `rate` / `issue` 等**需要登录**（未登录时 CLI 会直接提示）。只做搜索与查看时**不要**向用户索要密钥。
 
 指定非默认 Registry（单次）：
 
