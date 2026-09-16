@@ -47,7 +47,7 @@
 
 ## 安全审查（SkillSpector）
 
-安全分默认由 SkillSpector 的无 LLM 静态扫描生成，风险分汇总了所有 finding，不再将隐私或泄露问题重复计入独立分数。重点覆盖：
+安全结论默认由 SkillSpector 的**无 LLM** 静态扫描生成（包级 `riskScore` + finding），隐私与泄露问题不再重复计入独立分数（`securityScore` 是占位字段，见上文）。重点覆盖：
 
 - 删除或破坏性命令：`rm -rf`、`del /s /q`、`Remove-Item -Recurse -Force`。
 - 权限提升：`sudo`、`Set-ExecutionPolicy Bypass`。
@@ -56,7 +56,7 @@
 - 供应链、远程下载、prompt injection、数据泄露与 SSRF。
 - 敏感文件、环境变量、凭证和 Agent 生态信息的访问或外传。
 
-若 SkillSpector 被显式禁用或运行不可用，平台会保留内置静态规则作为降级路径，并将安全、隐私和泄露 finding 一并计算为安全分；该结果应在恢复 SkillSpector 后通过重审替换。
+若 SkillSpector 被显式禁用或运行不可用，平台会保留内置静态规则作为降级路径，安全、隐私与泄露 finding 一并进入审查记录（**不写入** `securityScore`，该字段为占位）；该结果应在恢复 SkillSpector 后通过重审替换。
 
 ## 可靠性评分
 
@@ -68,6 +68,6 @@
 - 解读护栏：验证、错误回退、确认与输出确定性。
 - 复杂度与可维护性：文档/脚本复杂度、引用链和指令密度。
 
-HaluCatch 结果会映射到统一的 `taskResults` 结构，并只参与 `reliabilityScore`。
+HaluCatch 结果会映射到统一的 `taskResults` 结构，用于详情页雷达与报告；`reliabilityScore` 为占位字段，不由其计算。
 这项检查是静态的，不执行 Skill 脚本；未来引入需要实际运行 Agent
 的动态评估时，应补充 trace、任务通过率、幻觉归因和 judge 解释。

@@ -18,8 +18,9 @@
 HaluCatch 的五维静态检查（地基、代码风险、规则、护栏、复杂度），并将五个维度
 映射为 `taskResults`。这项检查不执行 Skill 内脚本，也不会把报告写入 Skill 包。
 
-`tests/*.json` 的 `static-taskset` 仍保留为 HaluCatch 被显式禁用或 Python 运行时不可用
-时的回退评估。两个 provider 保持相同输出结构：`status`、`score`、`tasksTotal`、
+`tests/*.json` 的 `static-taskset` 仍保留为回退评估，但**仅在 `HALUCATCH_ENABLED=false`（显式禁用）时启用**。
+若 HaluCatch 已启用、只是 Python / vendored 模块不可用，平台会把它当**环境问题**上报为可重试的阶段失败
+（`inspectionStatus: interrupted`），不会静默回退成任务集结果。启用时两个 provider 保持相同输出结构：`status`、`score`、`tasksTotal`、
 `tasksPassed`、`taskResults`、`findings`。
 
 ## Contributor
@@ -61,7 +62,5 @@ Issue 类型：
 
 - `downloads`：下载总量。
 - `rating`：平均用户评分，评分数作为次级排序。
-- `quality`：最新版本质量分（平台合规与质量规则）。
-- `security`：最新版本安全分（SkillSpector 静态扫描）。
-- `reliability`：最新版本可靠性分（HaluCatch 或任务集回退）。
+- `quality` / `security` / `reliability`：按对应分数列排序。⚠️ 这三个分数当前是**占位值**（引擎统一返回 100，不按 finding 或 HaluCatch 计算），因此这三项排序暂无区分度；详见 [review-rubric](./review-rubric.md)。
 - `recent`：最近更新时间。

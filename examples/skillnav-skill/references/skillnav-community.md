@@ -32,7 +32,7 @@ skillnav issues my-skill
 skillnav issues my-skill --status open
 ```
 
-`--type`：bug / feature / question 等；`--severity`：low / medium / high / critical。
+`--type`（平台固定 5 类）：`bug` / `security` / `compatibility` / `feature` / `docs`；`--severity`：low / medium / high / critical。
 
 ---
 

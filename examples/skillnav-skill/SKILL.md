@@ -53,6 +53,8 @@ pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/
 
 环境变量：`SKILLNAV_REGISTRY`、`SKILLNAV_PROFILE`、`SKILLNAV_API_KEY`（CI 临时注入，不落盘）。
 
+> ⚠️ 全局选项（`--registry` / `--profile` / `--json` / `--no-input`）**必须写在子命令之前**：`skillnav --json status <slug>` ✅，`skillnav status <slug> --json` ❌（会被拒绝并提示正确位置）。子命令自己的选项（如 `search --category`、`top --limit`）仍写在子命令之后。
+
 > **帮助**：忘记参数时执行 `skillnav <命令> --help` 或 `skillnav config --help`。
 
 ## 认证与配置（必读）
@@ -77,6 +79,7 @@ skillnav
 │   ├── add <name> --registry URL
 │   ├── use <name>
 │   ├── list
+│   ├── remove <name>
 │   └── test [name]
 ├── login / logout / whoami / update
 ├── publish <dir|zip>               # 发布 → [references/skillnav-publish.md](references/skillnav-publish.md)
@@ -147,7 +150,6 @@ skillnav status <slug> / report <slug>
 
 ## 平台文档
 
-- Web CLI 指南：仓库 `apps/web/content/docs/cli-guide.md`
 - **平台 Agent 系统提示词**：Web `/docs/platform-agent-prompt`（可复制系统提示词，含 FAQ 与文档链接）
-- Skill 包规范：仓库 `docs/rules/skill-spec.md`
-- CLI 设计：仓库 `docs/cli-design.md`
+- Web 站内文档：`/docs/cli-guide`、`/docs/publish-workflow`、`/docs/security-scan`、`/docs/skill-format`
+- 仓库内源头（开发者参考）：`apps/web/content/docs/*.md`、`docs/rules/skill-spec.md`、`docs/cli-design.md`

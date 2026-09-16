@@ -56,7 +56,7 @@ skillnav --registry https://custom/api login --api-key sk_…
 ```bash
 export SKILLNAV_API_KEY=sk_…
 export SKILLNAV_REGISTRY=http://127.0.0.1:3000
-skillnav whoami --no-input
+skillnav --no-input whoami
 ```
 
 ---

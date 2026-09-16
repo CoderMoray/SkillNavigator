@@ -15,9 +15,8 @@ skillnav publish ./my-skill
 # 预览（不落库、不跑完整审查）
 skillnav publish ./my-skill --dry-run
 
-# 显式 metadata（自动化推荐）
-skillnav publish ./my-skill \
-  --no-input \
+# 显式 metadata（自动化推荐；--no-input 是全局选项，须写在子命令之前）
+skillnav --no-input publish ./my-skill \
   --slug my-skill \
   --display-name "My Skill" \
   --description "一句话摘要" \
@@ -58,7 +57,7 @@ skillnav retry-publish my-skill --wait
 ```bash
 skillnav status my-skill
 skillnav status my-skill --version 1.0.0
-skillnav status my-skill --json
+skillnav --json status my-skill
 ```
 
 显示 **单个版本**（默认 latest）的 **verdict**（已发布 / 需复核 / 已拒绝）、**审查状态**（`inspectionStatus`：`completed` 审查完成 / `inspecting` 审查中（含 VirusTotal 待补取，属正常等待）/ `interrupted` 审查中断 / `rejected` 审查拒绝）、**安全摘要**、可见性，以及该版本的 `inspection`、hash 与 VirusTotal 摘要。`--version` 可选；`--json` 在顶层额外给出 `verdict` 字段。
@@ -70,7 +69,7 @@ skillnav status my-skill --json
 ```bash
 skillnav report my-skill
 skillnav report my-skill --version 1.0.0
-skillnav report my-skill --json
+skillnav --json report my-skill
 ```
 
 分区：Verdict → SkillSpector → VirusTotal → HaluCatch。
@@ -111,7 +110,7 @@ skillnav unpublish my-skill --delete           # 移入回收站（3 天内可�
 | `--version` | 只下架该版本；latest 不能单独下架 |
 | `--delete` | 整个 Skill 入回收站（3 天内可恢复，到期永久删除；不能与 `--version` 同用） |
 
-权限：仅 **owner / contributor**（否则 403）。下架后 `skillnav status <slug>` 显示 `Visibility: private`；`--json` 返回 `{slug, version, action: "unpublished", visibility}`。**仅在用户明确要求时执行。**
+权限：仅 **owner**（contributor 与其他人均返回 403）。下架后 `skillnav status <slug>` 显示 `Visibility: private`；`--json` 返回 `{slug, version, action: "unpublished", visibility}`。**仅在用户明确要求时执行。**
 
 ---
 
@@ -140,7 +139,7 @@ skillnav republish my-skill --version 1.0.0    # 只恢复该版本
 | 重复上传同版本 | `pending_publish_use_retry` → `skillnav retry-publish <slug>` |
 | 限流 | `publish_rate_limited`，等待后重试 |
 | 下架 latest 版本被拒 | `cannot_unpublish_latest_version` → 改用整包下架，或先发新版本 |
-| 下架别人的 Skill | 403 → 仅 owner / contributor 可下架 |
+| 下架别人的 Skill | 403 → 仅 **owner** 可下架（contributor 亦不可）|
 
 ## 参考
 
