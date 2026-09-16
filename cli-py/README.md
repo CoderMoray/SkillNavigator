@@ -16,11 +16,12 @@ pip install -e "cli-py[dev]"
 
 ```bash
 skillnav --version
-skillnav config test
+skillnav config test                  # tests the active profile
 # Create an API key in the Web UI (Account → API Keys), then:
 skillnav login --api-key sk_...
-skillnav search demo
+skillnav search demo                  # anonymous
 skillnav info demo-skill
+skillnav install demo-skill --dir ~/skills/demo-skill   # --dir is required
 skillnav publish examples/demo-skill --dry-run
 skillnav download demo-skill -o /tmp/demo.zip
 skillnav update              # upgrade to the latest release
@@ -29,7 +30,15 @@ skillnav update --check      # check only, do not install
 
 Global flags: `--registry`, `--profile`, `--json`, `--no-input`.
 
-Configuration: `~/.config/skillnav/config.json` (multi-profile; stores `apiKey` per profile).
+`search` / `top` / `info` (and `status` / `report`) work without a key;
+`install`, `download`, `publish`, `rate`, `issue`, `unpublish` and `republish`
+need one.
+
+`install` requires an explicit `--dir` — point it at the directory your agent
+actually loads skills from. There is no implicit default, because agent clients
+often run in temporary or sandboxed working directories.
+
+Configuration: `~/.config/skillnav/config.json` (multi-profile; stores `apiKey` per profile). Adding a profile whose name already exists is refused — reuse it with `skillnav config use <name>` instead.
 
 Environment: `SKILLNAV_REGISTRY`, `SKILLNAV_PROFILE`, `SKILLNAV_API_KEY` (legacy alias: `SKILLNAV_TOKEN`).
 
@@ -52,6 +61,35 @@ API", and the hint points at `skillnav status <slug>` and
 `skillnav retry-publish <slug>` — the server keeps working after the client
 gives up, so re-uploading the same version is never the right fix.
 
+VirusTotal defers by default: the upload ends that stage, the report is
+collected by a background sweep (every 5 minutes, 45-minute fallback) and the
+verdict is decided again once it lands. A version waiting for it shows
+`inspectionStatus: inspecting` and stage `virustotal: processing` — that is
+**normal waiting, not a failure**: do not `retry-publish` (it returns 409
+`skill_inspection_in_progress`) and do not re-upload the version. The skill is
+owner-only until the report lands.
+
+## Skill lifecycle (unpublish / delete / republish)
+
+Taking a skill out of public search is **not** a deletion — the package, its
+inspection data and its version history all stay:
+
+```bash
+skillnav unpublish my-skill                   # remove from public search (y/N prompt)
+skillnav --no-input unpublish my-skill        # agents / CI: skip the prompt
+skillnav unpublish my-skill --version 1.0.0   # one version (never the latest)
+skillnav unpublish my-skill --delete          # move to the recycle bin (3 days, then purged)
+skillnav republish my-skill                   # put it back (visibility only)
+```
+
+`--delete` is the Web "delete" button: the skill is hidden and publishing under
+that slug is blocked until it is restored from the recycle bin (or the 3-day
+window expires). `republish` is the counterpart of `unpublish` and **cannot
+bypass review** — the server refuses while an inspection is running, interrupted
+or rejected, pointing at `retry-publish` or at shipping a new version.
+
+An unpublished skill reports `Visibility: private` in `skillnav status`.
+
 ## Upgrade and version check
 
 Release lookups try **PyPI first** (`pypi.org/pypi/skillnav/json`) and fall
@@ -63,7 +101,7 @@ On top of that, an interactive command performs a **daily best-effort check**
 and prints a one-line hint to stderr when a newer release exists:
 
 ```
-Update available: 0.4.9 -> 0.4.10 (run: skillnav update)
+Update available: 0.4.12 -> 0.4.13 (run: skillnav update)
 ```
 
 - The hint is **interactive-only** and plain ASCII (same wording as
@@ -77,7 +115,7 @@ Update available: 0.4.9 -> 0.4.10 (run: skillnav update)
 - **A given release is announced at most once, ever.** The hint is driven by
   a new release appearing, not by time: staying on an older version goes
   permanently silent for that version, and only a newer `latest`
-  (0.4.10 → 0.5.0) announces again. So you are never nagged about the same
+  (0.4.13 → 0.5.0) announces again. So you are never nagged about the same
   version day after day.
 - A missed hint is never fatal: `skillnav --version` prints the same hint to
   stderr (its stdout stays a single parseable version line), and
