@@ -552,6 +552,7 @@ def test_print_inspection_result_includes_sections(capsys) -> None:
     assert "Inspection Type: Security" in out
     assert "Security score: ?/100" in out
     assert "Scores:" not in out
+    assert "Inspection scores:" not in out
     assert "=== VirusTotal ===" in out
     assert "Detections: 0 malicious, 0 suspicious" in out
     assert "=== HaluCatch ===" in out
@@ -704,6 +705,11 @@ def test_print_report_version_includes_virustotal(capsys) -> None:
     out = capsys.readouterr().out
     assert "Report: demo-skill@1.0.0" in out
     assert out.index("Inspection status: rejected") < out.index("=== SkillSpector ===")
+    assert (
+        "Inspection scores: SkillSpector: ?/100 · VirusTotal: 75/76 · HaluCatch: 85/100"
+        in out
+    )
+    assert out.index("Inspection status: rejected") < out.index("Inspection scores:")
     assert "Verdict:" not in out
     assert "=== SkillSpector ===" in out
     assert "Inspection Type: Security" in out

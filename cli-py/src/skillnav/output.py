@@ -220,8 +220,14 @@ def _print_inspection_sections(
     *,
     status_label: str = "Verdict",
     status_value: str | None = None,
+    evaluation: Any = None,
+    include_inspection_scores: bool = False,
 ) -> None:
     print(f"{status_label}: {status_value if status_value is not None else review.get('verdict', '?')}")
+    if include_inspection_scores:
+        print(
+            f"Inspection scores: {_format_inspection_scores_summary(review, evaluation)}"
+        )
     skillspector_findings, virustotal_findings = _partition_inspection_findings(
         review.get("findings") or []
     )
@@ -936,6 +942,8 @@ def print_report_version(body: dict[str, Any], *, slug: str | None = None) -> No
             inspection,
             status_label="Inspection status",
             status_value=_resolve_inspection_aggregate_status(body),
+            evaluation=evaluation,
+            include_inspection_scores=True,
         )
     if evaluation:
         _print_inspection_section_header("HaluCatch", "Quality")
