@@ -1,6 +1,6 @@
 # skillnav CLI 设计文档
 
-> 状态：设计定稿 · 实现进行中（skillnav 0.4.10，见 `cli-py/`；版本号单一来源 `skillnav/__init__.py`）
+> 状态：设计定稿 · 实现进行中（skillnav 0.4.13，见 `cli-py/`；版本号单一来源 `skillnav/__init__.py`）
 > 日期：2026-08-19
 
 ## 1. 背景与定位
@@ -100,7 +100,7 @@ skillnav
 │  │                  [--category C ...] [--topic T ...] [--release-tag TAG ...]
 │  │                  [--changelog] [--dry-run] [--wait] [--json]
 │  ├─ retry-publish <slug> [--wait] [--json]     # 对已暂存包重新跑审查
-│  ├─ status   <slug> [--json]                 # 发布状态 + 各版本审查结论 → GET /skills/:slug
+│  ├─ status   <slug> [--version VER] [--json]  # 发布状态 + 各版本审查结论 → GET /skills/:slug
 │  └─ report   <slug> [--version] [--json]     # 安全/质量报告 → GET /skills/:slug/versions/:version
 ├─ 检索
 │  ├─ search <query> [--category] [--json]     # GET /skills?query=
@@ -146,8 +146,16 @@ skillnav
 
 ### `status`
 
-- 同一 API；人类可读：**单版本审查状态**（默认 latest）、`inspectionStatus`、可见性、`inspection` / `verdict` / hash / VT 摘要；可选 `--version` 指定其他版本（格式一致）。
+- 同一 API；人类可读：**单版本审查状态**（默认 latest），含 `Verdict:`、`Inspection status:`、`Inspection progress:`（各阶段状态；平台未返回阶段数据时显示 `unavailable (...)`）、`Security:`（SkillSpector 安全分与阻塞项、VirusTotal 检出与引擎数）、`Visibility:` 等行；可选 `--version` 指定其他版本（格式一致）。`--json` 在顶层额外给出 `verdict` 字段。
 - 末尾提示使用 `skillnav report <slug> --version <ver>` 查看完整报告。
+
+### `unpublish` / `republish`（生命周期）
+
+- `unpublish <slug>`：`POST /skills/:slug/unpublish`，把 Skill 从公开搜索移除。**不是删除**——包、审查数据与版本历史都保留。交互模式先显示影响并要求 `y/N`（回答 n → 退出码 1 且**不发请求**）；`--no-input` 跳过确认。
+- `unpublish --version VER`：`POST .../versions/:version/unpublish`，只下架某个版本；**latest 不能单独下架**（`cannot_unpublish_latest_version`，400）。
+- `unpublish --delete`：`DELETE /skills/:slug`，移入回收站（保留 3 天，期间可在 Web 恢复，到期永久删除）。回收站期间**同 slug 被禁止发布**（`skill_in_recycle_bin`）。与 `--version` 互斥（用法错误，退出码 3）。命名刻意不用 `purge`——本仓库里 `purge` 指"永久清除"，而这里只是软删除。
+- `republish <slug> [--version VER]`：`POST .../republish`，只恢复可见性、不产生新版本；**不能绕过审查**——审查中 / 中断 / 被拒绝时服务端拒绝（`skill_republish_blocked_*`，409），提示指向 `retry-publish` 或发新版本。
+- 结果：`published=false` 时 `status` 显示 `Visibility: private`；`--json` 返回 `{slug, version, action, visibility}`（action 为 `unpublished` / `deleted` / `republished`）。
 
 ### `update` 与每日版本检查
 
@@ -157,7 +165,7 @@ skillnav
 
 - 缓存文件 `update-check.json`（与 config.json 同目录）；24 小时内直接用缓存值提示，**不联网**
 - 缓存过期才查询一次（默认 3 秒短超时，`SKILLNAV_UPDATE_CHECK_TIMEOUT` 可调）；**查询失败也记录时间戳**，24 小时内不再尝试（离线/内网环境每天最多付出一次超时）
-- 有新版本时向 **stderr** 输出单行提示（`--json` 的 stdout 不受影响）：`💡 skillnav X.Y.Z 已发布（当前 A.B.C）：运行 skillnav update 升级`
+- 有新版本时向 **stderr** 输出单行提示（`--json` 的 stdout 不受影响）：`Update available: A.B.C -> X.Y.Z (run: skillnav update)`（与 `update --check` 同措辞）
 - editable 安装（开发机）自动跳过；`SKILLNAV_UPDATE_CHECK=off` 可关闭
 - 只提示、不自动升级：升级仍走显式 `skillnav update`（处理 pipx/editable 分支）
 
@@ -174,7 +182,7 @@ skillnav
 | 码 | 含义 |
 |---|---|
 | 0 | 成功 |
-| 1 | 业务失败（API 4xx/5xx，已打印错误） |
+| 1 | 业务失败（API 4xx/5xx，已打印错误）；用户取消确认（如 `unpublish` 回答 `n`）也用它 |
 | 2 | 未登录 / 鉴权失败 |
 | 3 | 用法错误（argparse 默认即 2，此处保留为参数错误） |
 | 4 | 网络错误（连接失败/超时） |
@@ -211,7 +219,7 @@ skillnav
 - `0.1.0` ✅：平台配置（config add/use/list/test）+ 登录与身份（login/logout/whoami）+ 检索（search/top/info/status）。
 - `0.2.0` ✅：发布流（publish/--dry-run）+ report 完整展示。
 - `0.3.0` ✅：分发（download/install）+ 社区（rate/issue/issues/add-contributor）。
-- `0.4.x` ✅（当前 `0.4.10`）：`report` 三维完整展示（SkillSpector / VirusTotal / HaluCatch）、`status` 改为 Inspection 聚合状态（含 Verdict / Security 摘要）、`config remove`、登录错误区分与 `--version`/自更新修复、`install` 必填 `--dir`、`config add` 复用提示、`update` 镜像回退提示、`publish --wait` 600s 请求预算。
+- `0.4.x` ✅（当前 `0.4.13`）：`report` 三维完整展示（SkillSpector / VirusTotal / HaluCatch）、`status` 改为 Inspection 聚合状态（含 Verdict / Security 摘要）、`config remove`、登录错误区分与 `--version`/自更新修复、`install` 必填 `--dir`、`config add` 复用提示、`update` 镜像回退提示、`publish --wait` 600s 请求预算、`unpublish`（含 `--delete` 入回收站）与 `republish` 生命周期命令。
 - `1.0.0`：冻结命令集；错误处理与帮助文档 polish；`apps/cli` TS 版下线。（`--json` 已覆盖全部 24 个子命令。）
 
 ## 10. 待定事项
