@@ -161,18 +161,20 @@ class SkillnavGroup(typer.core.TyperGroup):
                 supported.update(getattr(param, "secondary_opts", ()) or ())
         return supported
 
-    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
-        # `ctx.fail` raises the UsageError of whichever click dialect built this
-        # ctx: Typer 0.24+ vendors its own fork (``typer._click``), and raising
-        # the top-level ``click.UsageError`` there escapes as a raw traceback
-        # instead of click's friendly error box.
+    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:  # type: ignore[override]
+        # The annotations name the top-level click Context, but Typer 0.24+
+        # arrives with a vendored fork (``typer._click``) whose Context is a
+        # different class — hence the override ignore above and the arg-type
+        # ignore below. Runtime works with either: `ctx.fail` raises the
+        # UsageError of whichever click dialect built the context, so the error
+        # renders as click's friendly box instead of a raw traceback.
         hint = _misplaced_global_option(args, self._subcommand_options(ctx, args))
         if hint:
             ctx.fail(hint)
         missing_dir = _missing_required_install_dir(args)
         if missing_dir:
             ctx.fail(missing_dir)
-        return super().parse_args(ctx, args)
+        return super().parse_args(ctx, args)  # type: ignore[arg-type]
 
 
 app = typer.Typer(
