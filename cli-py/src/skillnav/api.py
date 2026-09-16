@@ -2,13 +2,64 @@
 
 from __future__ import annotations
 
+import http.client
 import json
+import ssl
 import urllib.error
 import urllib.request
 from typing import Any
 
 from skillnav.error_hints import enrich_api_error, network_unreachable, request_timed_out
 from skillnav.errors import AuthError, NetworkError, SkillnavError
+from skillnav.net import connect_with_fallback
+
+# 请求超时同时覆盖连接与读取；连接阶段另有独立的短超时（见 skillnav.net），
+# 否则一个"IPv6 黑洞"地址就能把整个预算耗光，而慢响应（publish --wait）需要它。
+DEFAULT_REQUEST_TIMEOUT = 120.0
+
+
+class _RacingHTTPConnection(http.client.HTTPConnection):
+    """HTTPConnection that races DNS candidates instead of walking them serially."""
+
+    def connect(self) -> None:
+        if getattr(self, "_tunnel_host", None):  # 走代理隧道：交回标准库，别破坏隧道逻辑
+            super().connect()
+            return
+        self.sock = connect_with_fallback(
+            self.host, self.port, timeout=self.timeout or DEFAULT_REQUEST_TIMEOUT
+        )
+
+
+class _RacingHTTPSConnection(http.client.HTTPSConnection):
+    """Same for TLS: race the candidates, then wrap whichever answered."""
+
+    def connect(self) -> None:
+        if getattr(self, "_tunnel_host", None):
+            super().connect()
+            return
+        sock = connect_with_fallback(
+            self.host, self.port, timeout=self.timeout or DEFAULT_REQUEST_TIMEOUT
+        )
+        context = getattr(self, "_context", None) or ssl.create_default_context()
+        self.sock = context.wrap_socket(sock, server_hostname=self.host)
+
+
+class _RacingHTTPHandler(urllib.request.HTTPHandler):
+    def http_open(self, req: urllib.request.Request) -> Any:
+        return self.do_open(_RacingHTTPConnection, req)
+
+
+class _RacingHTTPSHandler(urllib.request.HTTPSHandler):
+    def https_open(self, req: urllib.request.Request) -> Any:
+        return self.do_open(
+            _RacingHTTPSConnection, req, context=getattr(self, "_context", None)
+        )
+
+
+# urllib has no connection pool, so one opener is built once and reused.
+# build_opener still assembles the default handlers (ProxyHandler, redirects) —
+# only HTTP/HTTPS are replaced.
+_OPENER = urllib.request.build_opener(_RacingHTTPHandler, _RacingHTTPSHandler)
 
 
 def request_bytes(
@@ -30,7 +81,7 @@ def request_bytes(
 
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with _OPENER.open(req, timeout=timeout) as resp:
             return resp.status, resp.read(), dict(resp.headers.items())
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read(), dict(exc.headers.items())

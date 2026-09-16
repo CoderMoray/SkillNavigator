@@ -19,7 +19,7 @@ def test_request_bytes_timeout_is_not_reported_as_unreachable() -> None:
     inspection may still finish), so the hint has to say "check status /
     retry-publish" instead of "start the API".
     """
-    with patch("urllib.request.urlopen", side_effect=TimeoutError("timed out")):
+    with patch("skillnav.api._OPENER.open", side_effect=TimeoutError("timed out")):
         with pytest.raises(NetworkError) as exc_info:
             request_bytes("GET", "http://127.0.0.1:3000/skills/demo-skill")
 
@@ -33,7 +33,7 @@ def test_request_bytes_timeout_is_not_reported_as_unreachable() -> None:
 
 def test_request_bytes_wrapped_socket_timeout_reports_the_budget() -> None:
     with patch(
-        "urllib.request.urlopen",
+        "skillnav.api._OPENER.open",
         side_effect=urllib.error.URLError(socket.timeout("timed out")),
     ):
         with pytest.raises(NetworkError) as exc_info:
@@ -48,7 +48,7 @@ def test_request_bytes_wrapped_socket_timeout_reports_the_budget() -> None:
 
 def test_request_bytes_connection_refused_keeps_the_connectivity_hint() -> None:
     with patch(
-        "urllib.request.urlopen",
+        "skillnav.api._OPENER.open",
         side_effect=urllib.error.URLError("Connection refused"),
     ):
         with pytest.raises(NetworkError) as exc_info:
@@ -67,7 +67,7 @@ def test_request_bytes_connection_reset_raises_network_error() -> None:
     mock_context.__enter__.return_value = mock_resp
     mock_context.__exit__.return_value = False
 
-    with patch("urllib.request.urlopen", return_value=mock_context):
+    with patch("skillnav.api._OPENER.open", return_value=mock_context):
         with pytest.raises(NetworkError) as exc_info:
             request_bytes("GET", "http://127.0.0.1:3000/skills/demo-skill")
 
