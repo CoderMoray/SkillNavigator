@@ -59,7 +59,7 @@ location /SkillNavigator/api/ {
     proxy_pass http://127.0.0.1:3000/;   # 末尾 / 表示把 /SkillNavigator/api/xxx → /xxx
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    client_max_body_size 50m;             # 发布上传 zip 用，按需调整
+    client_max_body_size 50m;             # 发布上传 zip 用；与服务端 API_BODY_LIMIT_MB 默认值一致
 }
 ```
 
@@ -178,7 +178,7 @@ SkillNavigator 当前是**独立账号体系**（用户名/密码 + session toke
 - [ ] 确认反向代理：`/{brand}/api/*` 转发到 SkillNavigator API 并剥前缀
 - [ ] 确认 Web basePath：构建时设 `NEXT_PUBLIC_BASE_PATH=/{brand}`
 - [ ] 确认 CORS：`apps/api` 目前 `origin: true`（允许所有来源），生产建议收紧为 `aaa.bbb.com`
-- [ ] 发布上传体量：Nginx `client_max_body_size` 与服务端 body limit 匹配（发布 zip 可能较大）
+- [ ] 发布上传体量：Nginx `client_max_body_size` 与服务端 `API_BODY_LIMIT_MB`（默认 **50**，见 `packages/storage/src/env.ts`）匹配
 - [ ] 用 `curl {registry}/health` 验证连通性
 - [ ] 用 CLI 验证：`skillnav config add embed --registry https://aaa.bbb.com/{brand}/api && skillnav config test embed`
 
@@ -210,5 +210,5 @@ skillnav publish ./demo    # 发布到当前默认平台
 ## 7. 相关文档
 
 - [CLI 设计文档](./cli-design.md) — 命令集、退出码、输出约定
-- `brand.yaml` — 品牌名唯一事实来源
+- 品牌名来源：`BRAND_NAME` / `NEXT_PUBLIC_BRAND_NAME` 环境变量（默认 `SkillNavigator`，见 `apps/web/lib/brand-name.ts`）
 - [架构总览](./architecture.md) — 系统架构

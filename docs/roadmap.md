@@ -74,13 +74,13 @@
 
 - [x] 首页搜索、Skill 详情（审查 findings、SkillSpector/VirusTotal 摘要、HaluCatch 雷达图、复制 prompt）
 - [x] 发布页（ZIP 上传、metadata 自动补全）、创作者主页、榜单、审查列表
-- [x] 拥有者操作区（发布新版本 / 下架 / 删除）；rejected / 已下架仅 owner 可见
+- [x] 拥有者操作区（发布新版本 / 下架 / 删除）；rejected 对普通用户与匿名不可见，已下架仅 owner 可见
 - [x] 站内文档（8 篇）
 
 ### CLI 与分发（skillnav）
 
-- [x] Python `skillnav`（typer，纯 API 客户端）：config/login/whoami/publish/report/status/search/top/info/download/install/rate/issue/unpublish/republish 等 24 个子命令，`--json` 全覆盖
-- [x] PyPI 已发布至 **0.4.10**（Trusted Publishing，push `skillnav-*` tag 触发；版本号单一来源 `skillnav.__version__`，CI 校验 tag 与版本一致且 tag 在 main 上）
+- [x] Python `skillnav`（typer，纯 API 客户端）：config/login/whoami/publish/report/status/search/top/info/download/install/rate/issue/unpublish/republish 等 25 个子命令，`--json` 全覆盖
+- [x] PyPI 已发布至 **0.4.13**（Trusted Publishing，push `skillnav-*` tag 触发；版本号单一来源 `skillnav.__version__`，CI 校验 tag 与版本一致且 tag 在 main 上）
 - [x] 多 Profile 配置（`~/.config/skillnav/config.json`），支持独立部署与多平台嵌入
 
 ### 品牌与集成
@@ -99,7 +99,7 @@
 | 发现 | **默认下载仍指向 latest 版本**，尚未切换为「最新通过审查」版本 |
 | 测试 | smoke 未覆盖重复注册、token 过期、回收站边界等 |
 | CI / VT | 分步 timeout + retry 已落地；默认异步 defer（上传即返回，后台每 5 分钟按 sha256 补取，兜底 45 分钟）；同步模式用 `VIRUSTOTAL_ANALYSIS_TIMEOUT_MS`（默认 300000） |
-| CLI（skillnav） | 0.4.10：report 三维完整展示、status 聚合状态、`install` 必填 `--dir`、`config use` 复用提示、`update` 镜像回退、`publish --wait` 600s 预算已交付；1.0.0 稳定化待完成 |
+| CLI（skillnav） | 0.4.13：在 0.4.10 已交付的 report 三维展示、status 聚合状态、`install` 必填 `--dir`、`config use` 复用提示、`update` 镜像回退、`publish --wait` 600s 预算之上，新增 `unpublish`（0.4.11；`--purge` 于 0.4.12 更名 `--delete`）与 `republish`（0.4.13）——两者均**仅 owner** 可执行；1.0.0 稳定化待完成 |
 | 旧 CLI | `apps/cli`（TypeScript/Commander）为内部形态，逐步下线 |
 
 ---

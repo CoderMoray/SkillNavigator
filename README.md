@@ -14,7 +14,7 @@
 - 用户注册、登录、登出、当前用户查询、密码修改、忘记密码/重置密码；可选邮箱验证（本地默认关闭）。
 - 账户设置（`/account/settings/*`）：个人资料、API 密钥、修改密码、注销账户；旧路径自动重定向。
 - Web 站内文档（8 篇）：格式规范、发布流程、CLI 指南、平台 Agent 系统提示词、安全扫描与 HaluCatch 审查等。
-- **skillnav** Python CLI（PyPI 分发，当前 0.4.10）：搜索、发布（含 `--dry-run` 预览与 `--wait` 同步等待，请求预算 600s）、`retry-publish`、状态/报告、下载、`install --dir`（目录必填）等；Web 创建 API 密钥后 `skillnav login --api-key sk_...`。
+- **skillnav** Python CLI（PyPI 分发，当前 0.4.13）：搜索、发布（含 `--dry-run` 预览与 `--wait` 同步等待，请求预算 600s）、`retry-publish`、状态/报告、下载、`install --dir`（目录必填）、`unpublish` / `republish`（仅 owner）等；Web 创建 API 密钥后 `skillnav login --api-key sk_...`。
 - Worker 支持重跑注册表审查。
 - PostgreSQL 注册表存储与 MinIO Skill artifact 对象存储（可选）。
 
@@ -87,7 +87,7 @@ npm run typecheck      # 全包 TypeScript 编译检查
 npm run test           # Vitest：API 烟雾 + 单元测试（inspection-engine、auth、VT 等）
 npm run test:watch     # watch 模式，改代码自动重跑
 npm run skillnav:test  # skillnav CLI pytest（tests/skillnav/，集成测试需本地 API）
-npm run test:e2e       # Playwright 浏览器端到端测试（e2e/site.e2e.ts，3 个串行用例）
+npm run test:e2e       # Playwright 浏览器端到端测试（e2e/site.e2e.ts，5 个串行用例）
 ```
 
 **E2E 前置条件**（`test:e2e`）：
@@ -153,13 +153,13 @@ npm run test:e2e       # Playwright 浏览器端到端测试（e2e/site.e2e.ts�
 发布流程（顺序重要）：
 
 ```bash
-# 1. 修改 cli-py/src/skillnav/__init__.py 的 __version__（例如 0.4.10）
+# 1. 修改 cli-py/src/skillnav/__init__.py 的 __version__（示例：0.4.14，须为尚未发布的版本）
 # 2. 先提交并推送到 main
-git commit -am "chore(skillnav): bump version to 0.4.10"
+git commit -am "chore(skillnav): bump version to 0.4.14"
 git push origin main
 # 3. 再打 tag 并推送（这一步才真正触发发布）
-git tag skillnav-0.4.10
-git push origin skillnav-0.4.10
+git tag skillnav-0.4.14
+git push origin skillnav-0.4.14
 ```
 
 推送 `skillnav-*` tag 触发 `.github/workflows/pypi.yml`（Trusted Publishing / OIDC）构建发布；也可手动 `workflow_dispatch`。CI 在构建前会校验 **tag 版本 == `__version__`** 且 **tag 提交已包含在 main 中**，不满足直接拒绝发布——防止“tag 已发、main 未推”导致的 monorepo 与 PyPI 版本漂移。
