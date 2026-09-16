@@ -1,0 +1,65 @@
+name: CLI checks (skillnav)
+
+# 此前仓库只有发布 workflow：安装后跑不起来的问题（缺 click、`config add
+# --registry` 被误拦）没有任何自动关卡发现得了，只能等用户现场反馈。
+# 这里补上 lint + 测试，并跑 Typer 版本矩阵 —— 依赖声明挡不住"第三方内部行为
+# 变化"（Typer 0.24 换成 vendored click 时就让 config add 静默失效），
+# 只有多版本测试能发现。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "cli-py/**"
+      - "tests/skillnav/**"
+      - ".github/workflows/cli-tests.yml"
+  pull_request:
+    paths:
+      - "cli-py/**"
+      - "tests/skillnav/**"
+      - ".github/workflows/cli-tests.yml"
+  workflow_dispatch:
+
+jobs:
+  cli:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.9"    # 声明支持的下界
+            typer: "typer==0.12.*"   # 依赖声明下界附近，最低支持组合
+          - python-version: "3.12"
+            typer: "typer==0.12.*"
+          - python-version: "3.12"
+            typer: "typer"           # 最新版：vendored click 一类变化的拦网
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install CLI with dev deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e "cli-py[dev]" "${{ matrix.typer }}"
+
+      - name: Lint (ruff + mypy)
+        if: matrix.python-version == '3.12' && matrix.typer == 'typer'
+        run: |
+          python -m ruff check cli-py tests/skillnav
+          python -m mypy cli-py/src/skillnav
+
+      - name: Tests
+        run: python -m pytest tests/skillnav -q
+
+      # 直接回答"新用户装完能不能跑"：用非 editable 的干净安装 + 真实执行，
+      # 覆盖依赖声明缺失这类只在全新环境暴露的问题。
+      - name: Fresh-install smoke test
+        if: matrix.python-version == '3.12' && matrix.typer == 'typer'
+        run: |
+          python -m venv /tmp/fresh-install
+          /tmp/fresh-install/bin/pip install --quiet cli-py
+          /tmp/fresh-install/bin/skillnav --version
+          /tmp/fresh-install/bin/skillnav config list >/dev/null
