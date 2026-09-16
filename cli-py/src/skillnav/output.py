@@ -226,13 +226,7 @@ def _print_inspection_sections(
         review.get("findings") or []
     )
     _print_inspection_section_header("SkillSpector", "Security")
-    scores = review.get("scores") or {}
-    print(
-        "Scores: "
-        f"quality={scores.get('qualityScore', '?')}, "
-        f"security={scores.get('securityScore', '?')}, "
-        f"reliability={scores.get('reliabilityScore', '?')}"
-    )
+    print(f"Security score: {_format_skillspector_status_score(review)}")
     _print_findings_list(skillspector_findings)
 
     virustotal_summary = review.get("virusTotal")

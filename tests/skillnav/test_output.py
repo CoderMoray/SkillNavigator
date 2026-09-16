@@ -550,6 +550,8 @@ def test_print_inspection_result_includes_sections(capsys) -> None:
     assert "Inspection: Demo Skill@0.1.0" in out
     assert "=== SkillSpector ===" in out
     assert "Inspection Type: Security" in out
+    assert "Security score: ?/100" in out
+    assert "Scores:" not in out
     assert "=== VirusTotal ===" in out
     assert "Detections: 0 malicious, 0 suspicious" in out
     assert "=== HaluCatch ===" in out
@@ -593,7 +595,13 @@ def test_print_inspection_partitions_skillspector_findings(capsys) -> None:
             "skillName": "Demo Skill",
             "version": "0.1.0",
             "verdict": "needs_inspection",
-            "scores": {"qualityScore": 80, "securityScore": 90, "reliabilityScore": 85},
+            "skillSpector": {
+                "provider": "skillspector-static",
+                "riskScore": 15,
+                "riskSeverity": "LOW",
+                "recommendation": "SAFE",
+                "scanMode": "static-only",
+            },
             "findings": [
                 {
                     "id": "rule-1",
@@ -609,6 +617,7 @@ def test_print_inspection_partitions_skillspector_findings(capsys) -> None:
     assert "Inspection: Demo Skill@0.1.0" in out
     assert "=== SkillSpector ===" in out
     assert "Inspection Type: Security" in out
+    assert "Security score: 85/100" in out
     assert "SkillSpector note" in out
     assert "=== HaluCatch" not in out
 
