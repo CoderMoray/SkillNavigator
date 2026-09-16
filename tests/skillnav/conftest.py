@@ -51,10 +51,9 @@ def _no_release_check(monkeypatch: pytest.MonkeyPatch) -> None:
 def _captured_stream(result, name: str) -> str:
     """Read ``Result.stdout``/``Result.stderr`` defensively.
 
-    Older click (the newest release cannot run on Python 3.9, so CI installs
-    8.1.x there) raises ``ValueError: stderr not separately captured`` instead
-    of returning text — and that happens on attribute access, so ``getattr``
-    with a default does not help.
+    Older click raises ``ValueError: stderr not separately captured`` instead of
+    returning text when the runner captured both streams together, and that
+    happens on attribute access — so ``getattr`` with a default does not help.
     """
     try:
         return getattr(result, name, "") or ""

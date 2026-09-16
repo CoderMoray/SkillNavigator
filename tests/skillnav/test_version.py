@@ -24,7 +24,7 @@ _RELEASE_RE = re.compile(r"^\d+\.\d+\.\d+(?:[abc]\d+|rc\d+)?$")
 def _load_pyproject() -> dict:
     try:
         import tomllib  # Python 3.11+
-    except ModuleNotFoundError:  # pragma: no cover - Python 3.9/3.10 runners
+    except ModuleNotFoundError:  # pragma: no cover - runners without tomllib
         pytest.skip("tomllib requires Python 3.11+")
     return tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
 

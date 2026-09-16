@@ -30,7 +30,7 @@ npm run setup            # 安装 SkillSpector + 写入种子用户与 Demo Skil
 
 然后打开 `http://127.0.0.1:3001`，用 `alice / password123` 登录。
 
-**skillnav CLI**（需 Python 3.9+）：
+**skillnav CLI**（需 Python 3.10+）：
 
 ```bash
 pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/    # 或 pip install -e "cli-py[dev]"
