@@ -43,3 +43,52 @@ def test_global_option_before_the_subcommand_still_works(
     result = runner.invoke(app, ["--json", "config", "list"])
 
     assert result.exit_code == 0, result.output
+
+
+def test_valued_global_option_before_the_subcommand_is_not_confused_with_it(
+    runner: CliRunner, isolated_config
+) -> None:
+    """`--registry <url> --no-input config list`: the URL is a value, not the subcommand.
+
+    Locating the subcommand by "the first token without a dash" made the URL
+    look like the subcommand, so every global option after it was reported as
+    misplaced — which broke `publish`, `info` and the contributor commands.
+    """
+    result = runner.invoke(
+        app,
+        ["--registry", "http://127.0.0.1:3000", "--no-input", "config", "list"],
+    )
+
+    assert result.exit_code == 0, cli_output(result)
+    assert "global option" not in cli_output(result)
+
+
+def test_install_dir_check_still_fires_after_a_valued_global_option(
+    runner: CliRunner, isolated_config
+) -> None:
+    result = runner.invoke(
+        app, ["--registry", "http://127.0.0.1:3000", "install", "demo-skill"]
+    )
+
+    assert result.exit_code == 2
+    assert "--dir" in cli_output(result)
+
+
+def test_subcommand_owned_option_is_not_flagged_as_global(
+    runner: CliRunner, isolated_config
+) -> None:
+    """`config add` declares --registry itself, so it must stay accepted.
+
+    The subcommand walk has to work on Typer 0.24+, which builds commands from
+    a vendored click fork: a plain ``isinstance(command, click.Group)`` check
+    fails there, the walk stops at the first subcommand, and every
+    ``config add --registry`` was rejected as a misplaced global option.
+    """
+    result = runner.invoke(
+        app, ["config", "add", "probe", "--registry", "https://example.com/api"]
+    )
+
+    assert result.exit_code == 0, cli_output(result)
+    output = cli_output(result)
+    assert "Added profile" in output
+    assert "global option" not in output

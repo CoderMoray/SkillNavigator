@@ -68,6 +68,27 @@ from skillnav.version_check import maybe_notify_update
 # re-run a command that cannot work.
 GLOBAL_ONLY_OPTIONS = ("--registry", "--profile", "--json", "--no-input")
 
+# Global options that take a value. They must be skipped together with that
+# value when locating the subcommand: otherwise `--registry <url> ...` makes
+# the URL look like the subcommand and every global option after it is then
+# misreported as misplaced (the bug behind four integration tests).
+GLOBAL_VALUED_OPTIONS = ("--registry", "--profile")
+
+
+def _subcommand_index(args: list[str]) -> int | None:
+    """Index of the subcommand token, skipping global options and their values."""
+    index = 0
+    while index < len(args):
+        arg = args[index]
+        if not arg.startswith("-"):
+            return index
+        token = arg.split("=", 1)[0]
+        if token in GLOBAL_VALUED_OPTIONS and "=" not in arg:
+            index += 2  # the option's value is the next token
+        else:
+            index += 1
+    return None
+
 
 def _misplaced_global_option(args: list[str], supported: set[str]) -> str | None:
     """Return an actionable hint when a global option follows the subcommand.
@@ -75,10 +96,7 @@ def _misplaced_global_option(args: list[str], supported: set[str]) -> str | None
     Options the subcommand path declares itself (e.g. `config add --registry`)
     are legitimate and never flagged.
     """
-    subcommand_index = next(
-        (index for index, arg in enumerate(args) if not arg.startswith("-")),
-        None,
-    )
+    subcommand_index = _subcommand_index(args)
     if subcommand_index is None:
         return None
 
@@ -94,13 +112,13 @@ def _misplaced_global_option(args: list[str], supported: set[str]) -> str | None
 
 def _missing_required_install_dir(args: list[str]) -> str | None:
     """Explain why `install --dir` is mandatory instead of click's bare message."""
-    subcommand = next((arg for arg in args if not arg.startswith("-")), None)
-    if subcommand != "install":
+    subcommand_index = _subcommand_index(args)
+    if subcommand_index is None or args[subcommand_index] != "install":
         return None
     if "--help" in args or "-h" in args:
         return None
 
-    tail = args[args.index(subcommand) + 1 :]
+    tail = args[subcommand_index + 1 :]
     if any(arg == "--dir" or arg.startswith("--dir=") for arg in tail):
         return None
 
@@ -122,27 +140,38 @@ class SkillnavGroup(typer.core.TyperGroup):
     """
 
     def _subcommand_options(self, ctx: click.Context, args: list[str]) -> set[str]:
-        """Option names declared along the subcommand path (`config add ...`)."""
+        """Option names declared along the subcommand path (`config add ...`).
+
+        The tree is walked by duck typing: Typer 0.24+ builds its commands from
+        a vendored click fork, so `isinstance(command, click.Group)` is False
+        there and the walk stopped at the first subcommand — which made
+        `config add --registry` look like a misplaced global option.
+        """
         supported: set[str] = set()
-        command: click.Command = self
+        command: Any = self
         for arg in args:
             if arg.startswith("-"):
                 continue
-            if not isinstance(command, click.Group) or arg not in command.commands:
+            commands = getattr(command, "commands", None)
+            if not isinstance(commands, dict) or arg not in commands:
                 break
-            command = command.commands[arg]
-            for param in command.get_params(ctx):
-                supported.update(param.opts)
-                supported.update(param.secondary_opts)
+            command = commands[arg]
+            for param in getattr(command, "params", ()) or ():
+                supported.update(getattr(param, "opts", ()) or ())
+                supported.update(getattr(param, "secondary_opts", ()) or ())
         return supported
 
     def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
+        # `ctx.fail` raises the UsageError of whichever click dialect built this
+        # ctx: Typer 0.24+ vendors its own fork (``typer._click``), and raising
+        # the top-level ``click.UsageError`` there escapes as a raw traceback
+        # instead of click's friendly error box.
         hint = _misplaced_global_option(args, self._subcommand_options(ctx, args))
         if hint:
-            raise click.UsageError(hint)
+            ctx.fail(hint)
         missing_dir = _missing_required_install_dir(args)
         if missing_dir:
-            raise click.UsageError(missing_dir)
+            ctx.fail(missing_dir)
         return super().parse_args(ctx, args)
 
 

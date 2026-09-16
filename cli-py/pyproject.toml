@@ -20,6 +20,11 @@ classifiers = [
 ]
 dependencies = [
     "typer>=0.12",
+    # cli.py imports click directly (SkillnavGroup / UsageError). It used to be
+    # pulled in transitively via typer, but Typer 0.24+ vendors its own click
+    # fork and no longer depends on the top-level package: without this line a
+    # fresh install dies with "No module named 'click'".
+    "click>=8.0",
 ]
 
 [project.optional-dependencies]
