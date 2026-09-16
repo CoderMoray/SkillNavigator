@@ -300,9 +300,9 @@ skillnav unpublish my-first-skill --version 1.0.0   # 只下架某个版本（la
 skillnav unpublish my-first-skill --delete     # 移入回收站（3 天内可恢复；到期永久删除）
 ```
 
-仅 owner / contributor 可执行（否则返回 403）；下架后 `skillnav status <slug>` 显示 `Visibility: private`。
+仅 **owner** 可执行（contributor 与其他人均返回 403）；下架后 `skillnav status <slug>` 显示 `Visibility: private`。
 
-**想要重新上架（`skillnav republish`）**：`unpublish` 的逆操作，只恢复可见性——不产生新版本、不改版本历史。
+**想要重新上架（`skillnav republish`）**：`unpublish` 的逆操作，只恢复可见性——不产生新版本、不改版本历史（同样仅 **owner** 可执行）。
 
 ```bash
 skillnav republish my-first-skill                    # 恢复整个 Skill 到公开搜索

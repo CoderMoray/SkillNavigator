@@ -148,7 +148,7 @@ export function skillRepublishBlockedMessage(reason: SkillRepublishBlockReason):
     case "inspection_rejected":
       return "该 Skill 在审查后被拒绝发布，无法直接上架。请修改内容后通过「发布新版本」重新提交审查。";
     case "inspection_failed":
-      return "该 Skill 审查流程未完成或失败，无法直接上架。请使用「重新发布」或「重试失败环节」完成审查后再公开。";
+      return "该 Skill 审查已中断，无法直接上架。请使用「重新发布」或「重试失败环节」完成审查后再公开。";
     case "inspection_in_progress":
       return "该 Skill 仍在审查中，请等待审查完成后再尝试上架。";
   }
@@ -167,9 +167,9 @@ export function skillUnlistedNotice(
   }
   if (blockReason === "inspection_failed") {
     return {
-      title: "此 Skill 已下架（审查失败）",
+      title: "此 Skill 已下架（审查中断）",
       description:
-        "审查流程未完成或中断，当前不会公开。请使用「重新发布」或「重试失败环节」完成审查；若包已丢失，请重新上传。",
+        "审查流程已中断，当前不会公开。请使用「重新发布」或「重试失败环节」完成审查；若包已丢失，请重新上传。",
     };
   }
   if (blockReason === "inspection_in_progress") {

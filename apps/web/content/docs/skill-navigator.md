@@ -35,10 +35,10 @@ Skill 详情（`GET /skills/:slug`）及 CLI `--json` 输出中，与审查相�
 
 ## 你在 Web 上能做什么
 
-1. **浏览与搜索**：首页、Skill 列表、榜单（下载量、评分、最新等）；**不包含** 审查中、审查失败或 **已拒绝** 的 Skill。
+1. **浏览与搜索**：首页、Skill 列表、榜单（下载量、评分、最新等）；**不包含** 审查中、审查中断或 **已拒绝** 的 Skill。
 2. **查看详情**：Skill 说明、文件树、版本切换、审查与评估、评分与 Issue；可 **下载** 或 **复制 prompt** 供 AI 安装。
 3. **发布**：登录后上传 ZIP 或文件夹，填写分类与版本信息；提交后 **后台异步审查**（见 [发布流程](./publish-workflow.md)）。
-4. **个人中心**：登录后访问 `/creators/<用户名>`；Skill **拥有者 / contributor** 在此可看到 **审查中、审查失败、已拒绝** 与 **已下架** 的 Skill（他人不可见）。
+4. **个人中心**：登录后访问 `/creators/<用户名>`；Skill **拥有者 / contributor** 在此可看到 **审查中、审查中断、已拒绝** 与 **已下架** 的 Skill（他人不可见）。
 5. **审查中心**：聚合各 Skill 最新版本的 finding 与 HaluCatch 雷达对比。
 6. **下载与安装**：按 slug + 版本下载 ZIP；或使用 **复制 prompt** 将安装说明粘贴给 AI 助手代为安装。
 7. **协作**：Skill **所有者** 可在详情页添加 **contributor**（仅 contributor 角色，可协助发版；添加 contributor 仅 owner 可操作）。
@@ -50,7 +50,7 @@ Skill 详情（`GET /skills/:slug`）及 CLI `--json` 输出中，与审查相�
 - **安全**：以 SkillSpector 的 **包级风险分 / 风险等级 / 安装建议**、VirusTotal 检出摘要与 **按类别合并的 finding**（malicious / suspicious 各至多一条）为准（见 [安全检测](./security-scan.md)）。
 - **质量**：以 **HaluCatch 五维雷达** 与 Markdown 报告为准（见 [质量审查](./halucatch-inspection.md)）。
 - **发布状态（verdict）**：**已发布** 表示无 finding；**需复核** 表示有 finding 但未触发 SkillSpector/VirusTotal 自动拒绝；**已拒绝** 表示命中 high 级或 SkillSpector 高置信度 medium 规则，且 **不会出现在公开搜索**（拥有者仍可在个人中心看到，详见 [发布流程](./publish-workflow.md)）。
-- **审查状态（inspectionStatus）**：**审查中（inspecting）** 表示仍在等 VirusTotal 补取报告（正常等待，通常几分钟，仅拥有者可见）；**审查中断（interrupted）** 表示某环节未成功完成；**已拒绝（rejected）** 是 verdict 而非审查状态。中断时包 **通常已暂存**，在详情页 **重试失败环节** 或 CLI `retry-publish` 即可，无需重新上传。
+- **审查状态（inspectionStatus）**：**审查中（inspecting）** 表示仍在等 VirusTotal 补取报告（正常等待，通常几分钟）；**审查中断（interrupted）** 表示某环节未成功完成；**审查完成（completed）** 与 **审查拒绝（rejected）** 表示流水线已跑完（rejected 即未通过）。中断时包 **通常已暂存**，在详情页 **重试失败环节** 或 CLI `retry-publish` 即可，无需重新上传。
 
 ## 技术说明（简要）
 

@@ -313,7 +313,7 @@ test.describe.serial("MonoSkillNavigator browser flows", () => {
     await expect(page).toHaveURL(new RegExp(`/creators/${encodeURIComponent(E2E_USERNAME)}$`));
 
     await visit(page, `/skills/${encodeURIComponent(slug)}`);
-    await expect(page.getByText("此 Skill 已下架（审查失败）")).toBeVisible();
+    await expect(page.getByText("此 Skill 已下架（审查中断）")).toBeVisible();
     await expect(page.getByRole("status", { name: "审查进度" })).toBeVisible();
     await expect(page.getByText("VirusTotal").first()).toBeVisible();
     await expect(page.locator(".skill-inspection-failure")).toHaveCount(0);
