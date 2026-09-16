@@ -48,7 +48,7 @@ pip install skillnav
 
 安装完成后回到本节开头，依次执行版本检查与 `config test`。
 
-## 二、配置 Registry 与登录（仅在需要时）
+## 二、配置 Registry 与登录
 
 **先判断，能跳过就跳过**：`skillnav whoami` 成功 **且** `skillnav config test` 通过 → **整节跳过**，直接进入第三节。
 
@@ -122,15 +122,13 @@ skillnav --registry {{registry_api_url}} install <slug> --dir <skills 目录>/<s
 
 安装后按 harness 要求刷新 skills 列表或重启会话。
 
-## 五、可选：安装平台 CLI Skill
-
-若 Agent 需要代用户完成发布、审查查询等操作，可安装本平台官方 CLI Skill：
+## 五、安装平台 CLI Skill
 
 ```bash
 skillnav install skillnav-skill --dir <skills 目录>/skillnav-skill
 ```
 
-## 六、可选：创建一个平台 Agent（用户要求时）
+## 六、创建一个平台 Agent
 
 以本平台的系统提示词（`{{web_url}}/usage/platform-agent-prompt.md`）为准则，视当前环境创建一个"平台 Agent"，用于 Skill 的发布 / 审查 / 安装。
 
