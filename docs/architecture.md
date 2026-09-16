@@ -8,7 +8,7 @@
 
 - **静态审查优先**：不执行 Skill 内脚本；安全与可靠性依赖静态分析与第三方扫描。
 - **slug 为唯一标识**：`slug` 不可变，用于数据库主键、API/CLI 参数、URL 和 MinIO 对象路径；`name` 仅作展示。
-- **API 为唯一数据入口**：Web、CLI、Worker 均通过 HTTP API 访问数据，不直连 PostgreSQL 或 MinIO。
+- **API 为唯一数据入口（Web / CLI）**：Web 与 CLI 通过 HTTP API 访问数据，不直连 PostgreSQL 或 MinIO。Worker 是例外——它是进程内批处理，直接复用 `packages/storage` 与 `inspection-engine`（路线图计划替换为 Redis/BullMQ 队列消费者）。
 
 ## 2. Monorepo 结构
 
@@ -21,7 +21,7 @@ apps/
 packages/
   skill-spec/     SKILL.md 解析、校验、快照与 ZIP
   inspection-engine/  静态风险审查与评分
-  evaluator/      tests/*.json 功能性评估 + HaluCatch 适配
+  evaluator/      HaluCatch 五维评估适配（+ tests/*.json 任务集回退）
   storage/        PostgreSQL 注册表 + MinIO artifact
 cli-py/      对外 Python CLI skillnav（PyPI 分发）
 tests/       vitest 单元/集成测试 + skillnav pytest
@@ -66,7 +66,8 @@ flowchart TB
 
   Web --> Fastify
   CLI --> Fastify
-  Worker --> Fastify
+  Worker --> ReviewEngine
+  Worker --> Storage
 
   Fastify --> SkillSpec
   Fastify --> ReviewEngine
@@ -99,9 +100,10 @@ flowchart TB
   → 生成 SkillSnapshot（contentHash、文件树）
   → inspection-engine 审查 + 评估
   → 可选：完整 artifact ZIP 写入 MinIO
-  → storage 写入 PostgreSQL（Skill、Version、Review、Evaluation、artifact descriptor）
+  → storage 写入 PostgreSQL（Skill、Version、Inspection、Evaluation、artifact descriptor）
        MinIO 启用时 skill_version_files 只保存路径、大小和 SHA-256
-  → 返回 verdict 与评分
+  → 默认异步：立即返回 202（仅版本与 inspecting 状态，不含 verdict / 评分）
+     同步（publish --wait）：流水线结束返回 201 与 verdict；未完成返回 503
 ```
 
 Web 发布路径会在审查前补全缺失或不完整的 frontmatter，避免因 `description` 等字段缺失而直接拒绝发布。
@@ -117,11 +119,11 @@ Web 发布路径会在审查前补全缺失或不完整的 frontmatter，避免�
    └── VirusTotal 静态 AV 扫描（可选，见 §5.3）
         └─ 默认「上传即结束」：上传成功后本阶段返回 processing，
            报告由 5 分钟后台补取（VIRUSTOTAL_WAIT_FOR_ANALYSIS=true 才同步等待）
-3. HaluCatch 五维可靠性评估（Python，可选；否则回退 tests/*.json）
-4. 汇总 findings → verdict + 三维度评分
+3. HaluCatch 五维可靠性评估（Python，可选；**仅 HALUCATCH_ENABLED=false 显式禁用时**才回退 tests/*.json——已启用但运行期不可用会记为阶段失败）
+4. 汇总 findings → verdict（三项评分 `calculateScores` 当前为占位实现，恒返回 100，不由 findings 计算）
 ```
 
-**待补取 ≠ 失败**：VirusTotal 报告尚未就绪时该阶段为 `processing`，整体 `inspectionStatus: inspecting`，**仅拥有者可见**、不进公开搜索；补齐后自动 finalize 并公开。判定由响应驱动（404 / 统计未齐 → 继续等；401/403/429 或超过 `VIRUSTOTAL_DEFERRED_TIMEOUT_MS`（默认 45 分钟）→ 中断），补取完成后换入 VT findings 并 **重新判定 verdict**。
+**待补取 ≠ 失败**：VirusTotal 报告尚未就绪时该阶段为 `processing`，整体 `inspectionStatus: inspecting`，**仅拥有者 / contributor（及管理员）可见**、不进公开搜索；补齐后自动 finalize 并公开。判定由响应驱动（404 / 统计未齐 → 继续等；401/403/429 或超过 `VIRUSTOTAL_DEFERRED_TIMEOUT_MS`（默认 45 分钟）→ 中断），补取完成后换入 VT findings 并 **重新判定 verdict**。
 
 **审查中断**（任一已启用环节未成功完成）：`inspectionStatus: interrupted`（旧数据里的 `failed` 归一化为它），包通常 **已暂存**；通过 `POST /skills/:slug/retry-publish` 或 CLI `retry-publish` **增量重试**失败/未完成环节。`inspecting` 期间调用 retry 会返回 409 `skill_inspection_in_progress`。
 
@@ -133,14 +135,14 @@ Web 发布路径会在审查前补全缺失或不完整的 frontmatter，避免�
 
 **公开发现**：`search()` / 榜单要求最新版本 `inspectionStatus: completed`，因此 verdict 为 `rejected`、以及仍在 `inspecting`（含 VT 待补取）或 `interrupted` 的 Skill 都不在公开结果中；拥有者个人中心通过 `listRejectedSkillsForOwner` 合并展示。
 
-**评分维度**：`qualityScore`、`securityScore`、`reliabilityScore` 三个独立维度，不计算综合分。
+**评分维度**：`qualityScore`、`securityScore`、`reliabilityScore` 三个字段保留以兼容榜单/搜索 API，但 `calculateScores` 是**占位实现**（恒返回 100，不按 finding / SkillSpector / HaluCatch 计算）；用户可见的安全结论取自 SkillSpector 的 `riskScore` 与 finding，不是 `securityScore`。
 
 ### 4.3 读取与分发
 
 ```text
 GET /skills、/skills/:slug → PostgreSQL 元数据；有 MinIO artifact 时从 MinIO 读取文件内容
 GET /skills/:slug/download → MinIO artifact 或 PostgreSQL 文件内容重建 ZIP
-Worker POST /inspections/rerun → 对注册表 Skill 重跑审查
+Worker（`store.inspectAll`）→ 对注册表 Skill 重跑审查（进程内，不走 HTTP）
 ```
 
 
@@ -171,7 +173,7 @@ Worker POST /inspections/rerun → 对注册表 Skill 重跑审查
 | 平台规则         | 合规、泄露、隐私、混淆代码等静态模式                                                       |
 | SkillSpector | 调用 Python SkillSpector，解析 per-finding 结果与 summary                        |
 | VirusTotal   | SHA256 查 hash；可选 upload-on-miss；**按 category 合并** malicious / suspicious findings（每类一条）；报告默认由后台 5 分钟 sweep 补取 |
-| 评分/裁决        | `calculateScores`、`calculateInspectionVerdict`                                     |
+| 评分/裁决        | `calculateInspectionVerdict`（裁决）；`calculateScores` 为占位实现（恒 100）                                     |
 
 
 SkillSpector 与 VirusTotal **并行**执行（`Promise.all`），互不阻塞。
@@ -185,12 +187,12 @@ SkillSpector 与 VirusTotal **并行**执行（`Promise.all`），互不阻塞�
 | upload-on-miss + **默认 defer**（后台按 sha256 补取） | ✅（`VIRUSTOTAL_UPLOAD_ON_MISS`；`VIRUSTOTAL_WAIT_FOR_ANALYSIS=true` 才同步 poll） |
 | `last_analysis_stats` / `last_analysis_results` | ✅                              |
 | 按 category 合并 malicious / suspicious findings | ✅（每类一条；无逐引擎明细时 aggregate fallback） |
-| `engineResults` 逐引擎明细持久化于 review summary      | ✅（供 stats；UI finding 已合并展示）          |
+| `engineResults` 逐引擎明细（仅当次响应内，**不落库**）      | ✅（供 stats；UI finding 已合并展示）          |
 | `threat_verdict` 解析与展示                          | ✅                              |
 | sandbox_verdicts / behaviours / GTI             | ❌ 未接入                          |
 
 
-配置：`VIRUSTOTAL_API_KEY`（必需）、`VIRUSTOTAL_UPLOAD_ON_MISS`（默认 false）、`VIRUSTOTAL_WAIT_FOR_ANALYSIS`（默认异步）、`VIRUSTOTAL_DEFERRED_TIMEOUT_MS`（默认 45 分钟）、`VIRUSTOTAL_ANALYSIS_TIMEOUT_MS`（仅同步模式，默认 300000），其余超时与轮询间隔见 `.env.example`。
+配置：`VIRUSTOTAL_API_KEY`（启用 VT 时必需；未设置则整阶段禁用，属合法配置）、`VIRUSTOTAL_UPLOAD_ON_MISS`（默认 false）、`VIRUSTOTAL_WAIT_FOR_ANALYSIS`（默认异步）、`VIRUSTOTAL_DEFERRED_TIMEOUT_MS`（默认 45 分钟）、`VIRUSTOTAL_ANALYSIS_TIMEOUT_MS`（仅同步模式，默认 300000），其余超时与轮询间隔见 `.env.example`。
 
 扫描对象：发布包整体 ZIP 的 SHA256（非单文件扫描）。
 
@@ -199,13 +201,13 @@ SkillSpector 与 VirusTotal **并行**执行（`Promise.all`），互不阻塞�
 - **malicious** / **suspicious** 各至多一条 security finding
 - **message**：列出该类别下全部 AV 厂家名称（逗号分隔）
 - **evidence**：共享 SHA-256、Category、Report；汇总 Result / Method / Engine update（无单独 Engine 行）
-- 原始 `last_analysis_results` 仍解析为 `engineResults` 写入 `skill_inspections` 扩展字段
+- 原始 `last_analysis_results` 解析为内存 `engineResults`，仅用于生成合并 finding；**不写入数据库**
 
 ### 5.4 evaluator
 
 - **HaluCatch**：五维静态可靠性（地基、代码风险、规则、护栏、复杂度）；流水线中于安全审查之后执行。
-- **回退**：`tests/*.json` 任务集功能性检查。
-- 报告持久化至 `skill_review.halucatch_report` JSON 列。
+- **回退**：`tests/*.json` 任务集功能性检查——**仅在 `HALUCATCH_ENABLED=false`（显式禁用）时启用**；已启用但运行期不可用会抛错，记为可重试的阶段失败（`interrupted`）。
+- 报告持久化至 `skill_evaluations.halu_catch_report`（text/JSON 列）。
 
 
 
@@ -221,15 +223,15 @@ SkillSpector 与 VirusTotal **并行**执行（`Promise.all`），互不阻塞�
 - ORM：Drizzle（`packages/storage/src/schema/*.ts`）
 - 迁移：`packages/storage/drizzle/*.sql`，API 首次启动自动执行
 - 后台维护（API，每 5 分钟）：`recoverStaleInspectingSkills`（把超时未完成的 `inspecting` 标为 `interrupted`；**显式排除 `virustotal = processing` 的版本**——等补取的不算 stale，由 `VIRUSTOTAL_DEFERRED_TIMEOUT_MS` 单独兜底）+ `resumeDeferredVirusTotalInspections`（补取 VT 报告并 finalize）
-- 主要表：`skills`、`skill_versions`、`skill_inspections`、`users`、`skill_bookmarks`、`skill_recycle_bin` 等
+- 主要表：`skills`、`skill_versions`、`skill_inspections`、`skill_evaluations`、`platform_users`、`skill_bookmarks` 等；**回收站不是独立表**，由 `skills.deleted_at` + 定时 purge 实现
 - `MINIO_ENABLED=true` 时，新版本的 `skill_version_files.content` 为 `NULL`；该表保留
   path、size、sha256 元数据，读取内容时通过 `skill_versions` 中的 artifact descriptor 获取 ZIP。
 
-Review 扩展列（近期）：
+Inspection / Evaluation 扩展字段（近期）：
 
 - SkillSpector summary + findings
-- VirusTotal：status、stats、sha256、link、error、threat_verdict、**engineResults**（逐引擎明细）、**virustotal_analysis_id**（迁移 `0033`，供后台补取定位）
-- HaluCatch report JSON
+- VirusTotal：status、stats、sha256、link、error、threat_verdict、**virustotal_analysis_id**（迁移 `0033`，供后台补取定位）；逐引擎明细不落库
+- HaluCatch report（`skill_evaluations.halu_catch_report`）
 - finding confidence
 
 
@@ -256,7 +258,7 @@ Review 扩展列（近期）：
 | `/skills/:slug/contributors`、`/issues`、`/ratings` | 社区协作 |
 | `/leaderboard`、`/creators`                  | 榜单、创作者主页        |
 | `/users/me/recycle-bin`                     | 回收站列表           |
-| `/inspections/run`、`/inspections/rebuild`           | Worker 重审 / 重建审查 |
+| `/inspections/run`、`/inspections/rebuild`           | 提交 snapshot 的一次性审查 / 管理员整库重建（Worker 重审经 `store.inspectAll`，不走 HTTP）|
 
 
 
@@ -280,7 +282,7 @@ Review 扩展列（近期）：
 | 审查       | 平台规则 + SkillSpector + VirusTotal + HaluCatch，全为静态 |
 | 第三方      | VT/SkillSpector/HaluCatch 为外部依赖；API key 仅存服务端     |
 | 认证       | Bearer token（Web 存 localStorage）；API Key（`sk_`，供 CLI 等外部客户端）；发布、删除、书签等需登录 |
-| 回收站      | 软删除 + 定时 purge（默认 30 天）                           |
+| 回收站      | 软删除（`skills.deleted_at`）+ 定时 purge（**默认 3 天**）                           |
 | Artifact | MinIO 预签名或 API 代理下载                               |
 
 
