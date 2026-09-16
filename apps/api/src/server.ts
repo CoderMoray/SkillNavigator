@@ -395,8 +395,8 @@ export function buildServer() {
       );
 
       if (autoVerifyEmail) {
-        const session = await authStore.login(request.body.username, request.body.password);
-        return reply.code(201).send({ user, token: session.token, expiresAt: session.expiresAt });
+      const session = await authStore.login(request.body.username, request.body.password);
+      return reply.code(201).send({ user, token: session.token, expiresAt: session.expiresAt });
       }
 
       if (!isRegistrationEmailConfigured()) {
@@ -1019,8 +1019,8 @@ export function buildServer() {
       return reply.code(404).send({ error: "skill_not_found" });
     }
     if (!isSkillContributor(skill, user)) {
-      return reply.code(403).send({ error: "Only skill contributors can publish new versions" });
-    }
+        return reply.code(403).send({ error: "Only skill contributors can publish new versions" });
+      }
     const version = skill.latestVersion;
     const registryVersion = skill.versions[version];
     const versionInspectionStatus = resolveVersionInspectionStatus(
@@ -2286,7 +2286,7 @@ function printStartupError(phase: string, error: unknown): void {
   }
 
   if (err.code === "EADDRINUSE") {
-    const port = Number(process.env.PORT ?? 3000);
+  const port = Number(process.env.PORT ?? 3000);
     console.error(`  hint: Port ${port} is already in use. Stop other API dev processes or set PORT in .env.`);
     console.error(`  hint: Windows check — netstat -ano | findstr :${port}`);
   }
@@ -2304,7 +2304,7 @@ async function listenWithRetry(app: FastifyInstance, port: number, host: string)
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      await app.listen({ port, host });
+  await app.listen({ port, host });
       return;
     } catch (error) {
       const err = error as NodeJS.ErrnoException;

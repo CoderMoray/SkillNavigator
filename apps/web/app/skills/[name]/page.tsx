@@ -52,6 +52,7 @@ import { ErrorToast } from "../../../components/ErrorToast";
 import { SuccessToast } from "../../../components/SuccessToast";
 import { UsernameSuggestInput } from "../../../components/UsernameSuggestInput";
 import { HaluCatchRadar } from "../../../components/HaluCatchRadar";
+import { VersionInspectionScores } from "../../../components/VersionInspectionScores";
 import { FindingConfidenceBadge } from "../../../components/FindingConfidenceBadge";
 import { FindingSourceBadge } from "../../../components/FindingSourceBadge";
 import { SkillCategoryLabel } from "../../../components/SkillCategoryIcon";
@@ -1545,6 +1546,7 @@ export default function SkillDetailPage() {
               <div className="version-list">
                 <div aria-hidden="true" className="version-table-header">
                   <span>Version</span>
+                  <span>Scores</span>
                   <span>Release</span>
                   <span>Download</span>
                   <span className="version-table-header-spacer" />
@@ -1586,6 +1588,12 @@ export default function SkillDetailPage() {
                         <div className="version-row-main">
                           <strong>v{version.version}</strong>
                           <span>{formatDateTime(version.createdAt)}</span>
+                        </div>
+                        <div className="version-col-scores">
+                          <VersionInspectionScores
+                            evaluation={version.evaluation}
+                            inspection={version.inspection}
+                          />
                         </div>
                         <div className="version-col-release">
                           <span className="version-release-latest">

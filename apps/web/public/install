@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# SkillNavigator CLI (skillnav) 一键安装与配置脚本
-# 部署后访问：（部署方未配置对外 Web 地址——请向平台维护者索取）/install（勿直接改 apps/web/public/install）
+# MonoSkillNavigator CLI (skillnav) 一键安装与配置脚本
+# 部署后访问：https://localhost:3001/install（勿直接改 apps/web/public/install）
 # 规范与特性：
 # 1. 自动判定环境并安装 CLI（PyPI 优先，10s 超时后回退阿里云镜像；兼容 pipx、PEP 668）
 # 2. 安装后真实运行 CLI 自检；发现依赖缺失（No module named …）自动补装或强制重装
@@ -12,8 +12,8 @@
 
 set -e
 
-REGISTRY_URL="（部署方未配置 Registry API 地址——请向平台维护者索取）"
-WEB_URL="（部署方未配置对外 Web 地址——请向平台维护者索取）"
+REGISTRY_URL="http://127.0.0.1:3000"
+WEB_URL="https://localhost:3001"
 PIP_INDEX_PYPI="https://pypi.org/simple"
 PIP_INDEX_ALIYUN="https://mirrors.aliyun.com/pypi/simple/"
 PIP_INSTALL_TIMEOUT=10
@@ -352,7 +352,7 @@ ensure_skillnav_usable() {
 }
 
 echo "=================================================="
-echo "🚀 欢迎使用 SkillNavigator 一键安装引导"
+echo "🚀 欢迎使用 MonoSkillNavigator 一键安装引导"
 echo "=================================================="
 echo ""
 
@@ -427,7 +427,7 @@ if [ -n "$FOUND_BIN" ]; then
     # 检查是否已包含在配置文件中
     if ! grep -q "$FOUND_BIN" "$TARGET_RC" 2>/dev/null; then
         echo "" >> "$TARGET_RC"
-        echo "# Added by SkillNavigator installer" >> "$TARGET_RC"
+        echo "# Added by MonoSkillNavigator installer" >> "$TARGET_RC"
         echo "export PATH=\"$FOUND_BIN:\$PATH\"" >> "$TARGET_RC"
         echo "  ✅ 已将 $FOUND_BIN 自动追加写入到 $TARGET_RC"
     else
@@ -520,9 +520,9 @@ fi
 echo ""
 echo "=================================================="
 if [ "$REGISTRY_OK" -eq 1 ] && [ "$LOGIN_OK" -eq 1 ]; then
-    echo "🎉 SkillNavigator 安装与配置流程已全部就绪！"
+    echo "🎉 MonoSkillNavigator 安装与配置流程已全部就绪！"
 else
-    echo "⚠️  SkillNavigator 安装已完成，但部分步骤未通过："
+    echo "⚠️  MonoSkillNavigator 安装已完成，但部分步骤未通过："
     if [ "$REGISTRY_OK" -eq 0 ]; then
         echo "   • Registry 连通性测试（见上方提示，多为网络/代理问题）"
     fi
