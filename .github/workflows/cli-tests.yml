@@ -23,6 +23,12 @@ on:
 jobs:
   cli:
     runs-on: ubuntu-latest
+    env:
+      # rich 在 CI 环境里会挑一个极窄的宽度渲染 help/错误框，把测试要断言的
+      # 文案截断（同一提交本地过、CI 挂）。测试侧也在 conftest 里固定了宽度，
+      # 这里再显式给一份，保证渲染环境可预期。
+      COLUMNS: "120"
+      LINES: "40"
     strategy:
       fail-fast: false
       matrix:
