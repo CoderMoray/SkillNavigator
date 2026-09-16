@@ -38,7 +38,7 @@ Skill 详情（`GET /skills/:slug`）及 CLI `--json` 输出中，与审查相�
 1. **浏览与搜索**：首页、Skill 列表、榜单（下载量、评分、最新等）；**不包含** 审查中、审查中断或 **已拒绝** 的 Skill。
 2. **查看详情**：Skill 说明、文件树、版本切换、审查与评估、评分与 Issue；可 **下载** 或 **复制 prompt** 供 AI 安装。
 3. **发布**：登录后上传 ZIP 或文件夹，填写分类与版本信息；提交后 **后台异步审查**（见 [发布流程](./publish-workflow.md)）。
-4. **个人中心**：登录后访问 `/creators/<用户名>`；Skill **拥有者 / contributor** 在此可看到 **审查中、审查中断、已拒绝** 与 **已下架** 的 Skill（他人不可见）。
+4. **个人中心**：登录后访问 `/creators/<用户名>`；Skill **拥有者 / contributor** 在此可看到 **审查中、审查中断、已拒绝** 的 Skill，**已下架** 的仅拥有者可见（他人不可见）。
 5. **审查中心**：聚合各 Skill 最新版本的 finding 与 HaluCatch 雷达对比。
 6. **下载与安装**：按 slug + 版本下载 ZIP；或使用 **复制 prompt** 将安装说明粘贴给 AI 助手代为安装。
 7. **协作**：Skill **所有者** 可在详情页添加 **contributor**（仅 contributor 角色，可协助发版；添加 contributor 仅 owner 可操作）。
