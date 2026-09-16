@@ -2,7 +2,7 @@
 slug: skillnav-skill
 name: skillnav CLI
 description: "SkillNavigator 官方 CLI（skillnav）：多 profile 配置、API Key 登录、Skill 发布与远程审查、下架、状态/报告查询、搜索下载、评分与 Issue。当用户需要通过命令行发布/更新/下架 Skill、预审查包、查看 verdict 与 HaluCatch 报告、搜索或安装 Skill，或 Agent 需要代用户操作本平台 CLI 时使用本技能。"
-version: 1.0.3
+version: 1.0.4
 categories:
   - Developer Tools
 release-tags:
