@@ -28,9 +28,9 @@ jobs:
       matrix:
         include:
           - python-version: "3.9"    # 声明支持的下界
-            typer: "typer==0.12.*"   # 依赖声明下界附近，最低支持组合
+            typer: "typer==0.16.*"   # 依赖声明下界（实测最低可用版本）
           - python-version: "3.12"
-            typer: "typer==0.12.*"
+            typer: "typer==0.16.*"
           - python-version: "3.12"
             typer: "typer"           # 最新版：vendored click 一类变化的拦网
     steps:
