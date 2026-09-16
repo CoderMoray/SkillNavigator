@@ -1,0 +1,13 @@
+# 统一 ruff 规则集（仓库级）。
+#
+# cli-py/pyproject.toml 里的 [tool.ruff] 只覆盖 cli-py 目录，tests/skillnav 下的
+# Python 没有就近配置，于是落到 ruff 的默认值上 —— CI 曾因此在**未改动的**测试
+# 文件上报 I001（import 排序），本地却因为环境里的 ruff 版本/上层配置不同而不报。
+# 这里把规则显式写死，让本地与 CI 完全一致。
+
+line-length = 100
+target-version = "py39"
+
+[lint]
+# 与 cli-py/pyproject.toml 保持一致；需要时可一起扩容（I/UP/B 等）。
+select = ["E4", "E7", "E9", "F"]
