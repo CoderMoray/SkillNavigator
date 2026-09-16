@@ -50,7 +50,7 @@ pip install -e "cli-py[dev]"
 
 ```bash
 skillnav --version
-# skillnav 0.4.10
+# skillnav 0.4.13
 
 skillnav config test
 # 默认连接 http://127.0.0.1:3000，输出 registry 健康检查结果
@@ -371,7 +371,10 @@ skillnav --json --no-input publish ./my-first-skill ...
 | **需复核（needs-inspection）** | 有 finding，但未触发自动拒绝 | 版本已入库；评估 finding Severity，可接受则完成，或修复后发新版本 |
 | **已拒绝（rejected）** | 命中 SkillSpector / VirusTotal 等高置信度拒绝规则 | 版本已入库但 **不会出现在公开搜索**；必须修复后发 **新版本** |
 
-**流水线未完成或审查失败：** 包 **通常已暂存** 于服务端（`inspectionStatus: interrupted`）。使用 **`skillnav retry-publish <slug>`** 重试审查（默认只重跑失败或未完成的环节），**不要**对同版本重复 `publish`（可能得到 `pending_publish_use_retry`）。仅在使用 **`publish --wait`** 同步等待时，失败会以 `inspection_pipeline_incomplete`（503）返回，处理方式相同。
+**流水线尚未结束** 分两种情况，处理方式**完全不同**：
+
+- **仍在等 VirusTotal 报告**（`inspectionStatus: inspecting`，阶段 `virustotal: processing`）：**正常等待**，不需要任何操作——报告由后台每 5 分钟补取，补齐后自动重新判定 verdict 并公开。**不要** `retry-publish`（此时返回 409 `skill_inspection_in_progress`），也不要重复上传同版本。
+- **审查中断**（`inspectionStatus: interrupted`）：包 **通常已暂存** 于服务端。使用 **`skillnav retry-publish <slug>`** 重试审查（默认只重跑失败或未完成的环节），**不要**对同版本重复 `publish`（可能得到 `pending_publish_use_retry`）。仅在使用 **`publish --wait`** 同步等待时，失败会以 `inspection_pipeline_incomplete`（503）返回，处理方式相同。
 
 更多规则见 [发布流程](./publish-workflow.md)、[安全检测](./security-scan.md)、[质量审查](./halucatch-inspection.md)。
 
@@ -419,7 +422,7 @@ skillnav install my-first-skill --dir ./skills/my-first-skill
 skillnav search my-first
 ```
 
-在 Web 上，拥有者还可以添加 **contributor**、下架/上架、在 **Inspections**（页面标题「审查中心」）导出 CSV。这些操作目前以 Web 为主；CLI 支持评分、Issue 等社区命令（`skillnav rate`、`skillnav issue`）。
+在 Web 上，拥有者还可以管理 **contributor**、下架/上架、在 **Inspections**（页面标题「审查中心」）导出 CSV。其中 **contributor 管理**（`skillnav add-contributor` / `remove-contributor`）与**下架 / 上架**（`skillnav unpublish` / `republish`）CLI 同样支持；**Inspections 的 CSV 导出目前仅 Web 提供**。CLI 另支持评分与 Issue（`skillnav rate`、`skillnav issue`）。
 
 ---
 
@@ -444,7 +447,7 @@ skillnav search my-first
 
 **配置文件：** `~/.config/skillnav/config.json`（权限 `0600`，多 profile 存 `apiKey`）。
 
-**环境变量：** `SKILLNAV_REGISTRY`、`SKILLNAV_PROFILE`、`SKILLNAV_API_KEY`。
+**环境变量：** `SKILLNAV_REGISTRY`、`SKILLNAV_PROFILE`、`SKILLNAV_API_KEY`；`publish --wait` / `retry-publish --wait` 的等待预算可用 `SKILLNAV_PUBLISH_WAIT_TIMEOUT`（秒，默认 600）覆盖。
 
 ---
 

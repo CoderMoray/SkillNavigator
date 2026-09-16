@@ -6,7 +6,7 @@ SkillNavigator 是 Agent Skill 的发布、审查与分发平台。通过 **skil
 
 ## 适用场景（先判断，避免打扰用户）
 
-- **仅搜索/安装某个 Skill**（CLI 已安装且已登录）→ 直接跳到第三节执行命令，**不要重复询问 Registry 或 API 密钥**。
+- **仅搜索/安装某个 Skill**（CLI 已安装即可；纯搜索/查看无需登录，`install` / `download` 需要已登录）→ 直接跳到第三节执行命令，**不要重复询问 Registry 或 API 密钥**。
 - **首次安装 / 用户明确要求配置本平台** → 走第一、二节，**只在此场景询问，且只问这两件事**：① 是否现在登录（仅 `search` / `top` / `info` **匿名可用**；`install` / `download` / `publish` / `rate` / `issue` 等**都需要登录**）；② 安装 Skill 的目标目录（仅当你无法从 harness 判断，见第四节）。**不要**询问 Registry 地址、是否把本平台设为默认、是否创建 profile —— 这些由本指引直接决定。
 
 ## 一、检查并安装 CLI
@@ -105,7 +105,7 @@ skillnav install <slug> --version <版本> --dir <skills 目录>/<slug>
 skillnav download <slug> -o <输出.zip>              # 仅下载 ZIP
 ```
 
-**登录要求**：`search` / `top` / `info`（以及 `status` / `report`）**无需登录**即可调用；`install` / `download` / `publish` / `rate` / `issue` 等**需要登录**（未登录时 CLI 会直接提示）。只做搜索与查看时**不要**向用户索要密钥。
+**登录要求**：`search` / `top` / `info`（以及 `status` / `report`）**无需登录**即可调用（匿名只能看到公开版本；非公开版本仅 owner / contributor 可见）；`install` / `download` / `publish` / `rate` / `issue` 等**需要登录**（未登录时 CLI 会直接提示）。只做搜索与查看时**不要**向用户索要密钥。
 
 指定非默认 Registry（单次）：
 
