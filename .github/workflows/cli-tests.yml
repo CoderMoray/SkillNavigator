@@ -66,6 +66,6 @@ jobs:
         if: matrix.python-version == '3.12' && matrix.typer == 'typer'
         run: |
           python -m venv /tmp/fresh-install
-          /tmp/fresh-install/bin/pip install --quiet cli-py
+          /tmp/fresh-install/bin/pip install --quiet ./cli-py
           /tmp/fresh-install/bin/skillnav --version
           /tmp/fresh-install/bin/skillnav config list >/dev/null

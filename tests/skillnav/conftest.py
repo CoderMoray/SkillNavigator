@@ -48,19 +48,34 @@ def _no_release_check(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("skillnav.cli.maybe_notify_update", lambda *a, **k: None)
 
 
+def _captured_stream(result, name: str) -> str:
+    """Read ``Result.stdout``/``Result.stderr`` defensively.
+
+    Older click (the newest release cannot run on Python 3.9, so CI installs
+    8.1.x there) raises ``ValueError: stderr not separately captured`` instead
+    of returning text — and that happens on attribute access, so ``getattr``
+    with a default does not help.
+    """
+    try:
+        return getattr(result, name, "") or ""
+    except Exception:  # noqa: BLE001 - click raises ValueError, not AttributeError
+        return ""
+
+
 def cli_output(result) -> str:
     """Everything the CLI printed, as plain text.
 
-    Two environment traps this smooths over:
-    - click >= 8.3 dropped ``mix_stderr``, and the rich-rendered help/error box
-      may go to stderr while Usage/Try stay on stdout — merge both streams.
+    Three environment traps this smooths over:
+    - click < 8.2 mixes streams inside ``Result.output``; click >= 8.3 split
+      them and ``output`` is stdout only, while the rich-rendered help/error box
+      lands on stderr. Take whichever view contains more.
     - typer forces terminal mode when it sees ``GITHUB_ACTIONS`` (i.e. in CI),
       so styling escape codes split the tokens we assert on: ``--registry``
       renders as ``-<esc>[0m<esc>[1;36m-registry``. The same commit passed
       locally and failed in CI on seven assertions. Strip styling here —
       assertions are about the message, not the colour.
     """
-    stdout = getattr(result, "stdout", "") or ""
-    stderr = getattr(result, "stderr", "") or ""
-    text = stdout + stderr if (stdout or stderr) else (getattr(result, "output", None) or "")
+    merged = _captured_stream(result, "stdout") + _captured_stream(result, "stderr")
+    output = getattr(result, "output", None) or ""
+    text = merged if len(merged) >= len(output) else output
     return _ANSI_ESCAPE.sub("", text)
