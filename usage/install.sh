@@ -6,7 +6,7 @@
 # 1. 自动判定环境并安装 CLI（PyPI 优先，10s 超时后回退阿里云镜像；兼容 pipx、PEP 668）
 # 2. 安装后真实运行 CLI 自检；发现依赖缺失（No module named …）自动补装或强制重装
 # 3. 自动探测安装路径并修复 PATH（自动写入 ~/.zshrc 或 ~/.bash_profile）
-# 4. 自动配置与测试平台 Registry（支持多 profile / 强制覆盖）
+# 4. 自动配置与测试平台 Registry（幂等；指向本地默认地址时安全改指，--profile 可换名）
 # 5. 支持传参 --api-key 自动完成登录与 whoami 身份验证，或在终端交互输入
 # ==============================================================================
 
@@ -26,6 +26,11 @@ SKILLNAV_CHECK_ERROR=""
 # 流程状态：供结尾汇总，避免失败时仍打印"全部就绪"（1=通过）
 REGISTRY_OK=1
 LOGIN_OK=1
+# 目标 profile（--profile 可覆盖）。脚本只维护这一个 profile，不碰用户的其它配置
+PROFILE_NAME="default"
+# CLI 内置的默认 Registry（对应 cli-py/src/skillnav/config.py 的 DEFAULT_REGISTRY）：
+# profile 指向它且未登录，说明是 CLI 自动生成的占位配置，从未被真正配置过
+PLACEHOLDER_REGISTRY="http://127.0.0.1:3000"
 
 # ------------------------------------------------------------------------------
 # 0. 解析输入参数（支持 --api-key sk_...）
@@ -40,12 +45,17 @@ while [[ $# -gt 0 ]]; do
             REGISTRY_URL="$2"
             shift 2
             ;;
+        --profile)
+            PROFILE_NAME="$2"
+            shift 2
+            ;;
         -h|--help)
             echo "用法: curl -fsSL ${WEB_URL}/install | bash -s -- [选项]"
             echo ""
             echo "选项:"
             echo "  --api-key <KEY>     可选，自动完成登录验证（在 Web 端「设置 → API 密钥」获取）"
             echo "  --registry <URL>    可选，自定义 Registry API 地址（默认: $REGISTRY_URL）"
+            echo "  --profile <NAME>    可选，使用的 profile 名（默认: $PROFILE_NAME）"
             echo "  -h, --help          显示帮助信息"
             exit 0
             ;;
@@ -56,12 +66,38 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# 读取 profile 当前状态，输出 "<registry>|<logged-in|anonymous>"；读不到则无输出。
+# `skillnav config list` 行格式：- <name>[ (default)]: <registry> [logged-in|anonymous]
+skillnav_profile_state() {
+    local profile_name="$1"
+    command -v skillnav &>/dev/null || return 1
+    skillnav config list 2>/dev/null | awk -v name="$profile_name" '
+        index($0, "- " name) == 1 {
+            rest = substr($0, 3 + length(name))
+            if (rest ~ /^-/) next                       # 形如 "- default-2: ..."，并非同名 profile
+            if (rest !~ /^ *(:|\(default\))/) next
+            payload = rest
+            sub(/^[^:]*:[[:space:]]*/, "", payload)      # 去掉 ": " 或 " (default): "
+            state = "anonymous"
+            if (payload ~ /\[logged in\]/) state = "logged-in"
+            sub(/[[:space:]]*\[.*$/, "", payload)
+            print payload "|" state
+            exit
+        }'
+}
+
 # 写入 profile registry：优先 --registry（Python 3.12+ / 较新 Typer）；
 # 部分 macOS Python 3.9 环境子命令 --registry 与全局选项冲突，回退为位置参数。
+# 重跑脚本是常态，因此对已存在的 profile 必须幂等：指向一致就复用；
+# 只有"CLI 生成的占位配置（本地默认地址 + 从未登录）"才允许自动改指，
+# 其余情况一律不覆盖用户配置，改为提示 --profile 出口。
 skillnav_config_add_profile() {
     local profile_name="$1"
     local registry_url="$2"
+    local wanted="${registry_url%/}"
+    local state="" current="" login_state=""
 
+    # 1) profile 不存在：直接创建
     if skillnav config add "$profile_name" --registry "$registry_url" 2>/dev/null; then
         return 0
     fi
@@ -70,20 +106,47 @@ skillnav_config_add_profile() {
         return 0
     fi
 
-    # `config add` refuses a name that already exists (by design) and tells the
-    # caller to reuse it with `config use`. Re-running this installer is normal,
-    # so activate the existing profile instead of failing — otherwise `set -e`
-    # aborts the script right here on a machine that is already configured.
-    if skillnav config use "$profile_name" 2>/dev/null; then
-        echo "  ℹ️  profile '$profile_name' 已存在，已切换为当前 profile。"
-        echo "     如需改指向其它 Registry，请先执行 skillnav config remove $profile_name 再重跑本脚本。" >&2
+    # 2) 已存在：确认它是否已经指向本平台
+    state="$(skillnav_profile_state "$profile_name")" || true
+    current="${state%%|*}"
+    login_state="${state##*|}"
+    current="${current%/}"
+
+    if [ -n "$current" ] && [ "$current" = "$wanted" ]; then
+        skillnav config use "$profile_name" 2>/dev/null || true
+        echo "  ℹ️  profile '$profile_name' 已指向本平台，复用它。"
         return 0
     fi
 
-    echo "❌ 无法配置 Registry profile '$profile_name'。" >&2
-    echo "   请手动尝试：" >&2
-    echo "     skillnav config add $profile_name --registry \"$registry_url\"" >&2
-    echo "     或 skillnav config add $profile_name \"$registry_url\"" >&2
+    # 3) 指向 CLI 内置默认地址且从未登录 => 占位配置，安全改指到本平台
+    if [ "$current" = "$PLACEHOLDER_REGISTRY" ] && [ "$login_state" = "anonymous" ]; then
+        echo "  ℹ️  profile '$profile_name' 仍是本地默认地址（$current），正在改指到本平台..."
+        # 首选直接改写配置文件（CLI 没有改 registry 的命令，唯一 profile 也不允许 remove）
+        if skillnav_rewrite_profile_registry "$profile_name" "$registry_url"; then
+            echo "  ✅ profile '$profile_name' 已改指到本平台。"
+            return 0
+        fi
+        # 兜底：走 CLI 的 remove + add（仅当存在其它 profile 时可行）
+        if skillnav config remove "$profile_name" 2>/dev/null; then
+            if skillnav config add "$profile_name" --registry "$registry_url" 2>/dev/null \
+                || skillnav config add "$profile_name" "$registry_url" 2>/dev/null; then
+                echo "  ✅ profile '$profile_name' 已改指到本平台。"
+                return 0
+            fi
+        fi
+        echo "  ⚠️  自动改指失败。" >&2
+    fi
+
+    # 4) 其余情况：不动用户已有配置，给出可执行出口
+    if [ -n "$current" ]; then
+        echo "  ⚠️  profile '$profile_name' 当前指向 $current，与本平台（$wanted）不一致。" >&2
+    else
+        echo "  ⚠️  无法读取 profile '$profile_name' 的当前配置。" >&2
+    fi
+    echo "     为避免覆盖你已有的配置，本脚本没有改动它。二选一：" >&2
+    echo "       a) 该 profile 不再需要：先执行 skillnav config remove $profile_name，再重跑本脚本" >&2
+    echo "       b) 需要保留它：重跑本脚本并指定新 profile 名，例如：" >&2
+    echo "          curl -fsSL ${WEB_URL}/install | bash -s -- --profile <名字> --api-key <您的Key>" >&2
     return 1
 }
 
@@ -131,6 +194,59 @@ skillnav_python() {
     bin="$(command -v skillnav 2>/dev/null)" || return 1
     [ -n "$bin" ] || return 1
     sed -n '1s/^#![[:space:]]*//p' "$bin" | awk '{ if ($1 ~ /(^|\/)env$/) print $2; else print $1 }'
+}
+
+# 可用的 Python 解释器：优先 skillnav 所属环境的，其次系统 python3
+skillnav_python_bin() {
+    local py_bin=""
+    py_bin="$(skillnav_python)" || true
+    case "$py_bin" in
+        *python*)
+            if [ -x "$py_bin" ]; then
+                printf '%s' "$py_bin"
+                return 0
+            fi
+            ;;
+    esac
+    py_bin="$(command -v python3 2>/dev/null)" || true
+    [ -n "$py_bin" ] || return 1
+    printf '%s' "$py_bin"
+}
+
+# 直接改写 CLI 配置文件里该 profile 的 registry。
+# 之所以不走 CLI：它没有"修改 registry"的命令，且唯一 profile 不允许 remove。
+skillnav_rewrite_profile_registry() {
+    local profile_name="$1"
+    local registry_url="$2"
+    local py_bin=""
+
+    py_bin="$(skillnav_python_bin)" || return 1
+
+    "$py_bin" -c '
+import json, os, sys
+from pathlib import Path
+
+name, registry = sys.argv[1], sys.argv[2]
+configured = os.environ.get("SKILLNAV_CONFIG")
+path = Path(configured).expanduser() if configured else Path.home() / ".config" / "skillnav" / "config.json"
+try:
+    data = json.loads(path.read_text(encoding="utf-8"))
+except (OSError, ValueError):
+    sys.exit(1)
+
+profiles = data.setdefault("profiles", {})
+if name not in profiles:
+    sys.exit(1)
+
+profiles[name]["registry"] = registry
+tmp = path.with_name(path.name + ".tmp")
+tmp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+try:
+    os.chmod(tmp, 0o600)
+except OSError:
+    pass
+tmp.replace(path)
+' "$profile_name" "$registry_url"
 }
 
 # 从 Python 报错文本中提取缺失的顶层模块名（`No module named 'click'` -> click）
@@ -338,11 +454,12 @@ echo ""
 # ------------------------------------------------------------------------------
 echo "⚙️  [3/4] 配置 Registry 地址..."
 echo "  -> Registry API: $REGISTRY_URL"
+echo "  -> profile:      $PROFILE_NAME"
 
-# 添加或更新 default profile（profile 已存在时函数内部会退化为 config use）
+# 创建/复用目标 profile（已存在时保持幂等，详见函数内注释）
 # `|| true`：脚本带 set -e，配置失败不应中断安装——连通性由下面的 config test 判定
-skillnav_config_add_profile default "$REGISTRY_URL" || true
-skillnav config use default 2>/dev/null || true
+skillnav_config_add_profile "$PROFILE_NAME" "$REGISTRY_URL" || true
+skillnav config use "$PROFILE_NAME" 2>/dev/null || true
 
 # 测试连通性
 echo "  -> 正在测试与平台的连通性..."

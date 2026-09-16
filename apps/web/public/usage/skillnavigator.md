@@ -35,7 +35,7 @@ curl -fsSL （部署方未配置对外 Web 地址——请向平台维护者索�
 curl -fsSL （部署方未配置对外 Web 地址——请向平台维护者索取）/install | bash -s -- --api-key sk_…
 ```
 
-脚本会自动：安装 CLI（含安装后自检，依赖缺失时自动补装或重装）、修复 PATH、配置 Registry（`（部署方未配置 Registry API 地址——请向平台维护者索取）`）、可选登录。
+脚本会自动：安装 CLI（含安装后自检，依赖缺失时自动补装或重装）、修复 PATH、配置 Registry（`（部署方未配置 Registry API 地址——请向平台维护者索取）`）、可选登录。若 `default` profile 已被占用（指向其它地址），脚本会提示而不覆盖，可用 `--profile <名字>` 指定新 profile 重跑。
 
 **方式 B — 手动 pip 安装**
 
