@@ -195,6 +195,12 @@ trash_app = typer.Typer(
 )
 app.add_typer(trash_app, name="trash")
 
+bookmark_app = typer.Typer(
+    help="Save skills for later and list them back.",
+    no_args_is_help=True,
+)
+app.add_typer(bookmark_app, name="bookmark")
+
 _state: dict[str, Any] = {}
 
 
@@ -1022,7 +1028,7 @@ def rate_cmd(
         _handle_error(exc)
 
 
-@app.command("issue")
+@app.command("create-issue")
 def issue_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
     title: Annotated[str, typer.Option("--title", help="Issue title")],
@@ -1051,7 +1057,7 @@ def issue_cmd(
         _handle_error(exc)
 
 
-@app.command("issues")
+@app.command("list-issues")
 def issues_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
     status_filter: Annotated[
@@ -1472,6 +1478,87 @@ def trash_purge(
 
 # `restore` also exists as a top-level command; both spellings do the same thing.
 trash_app.command("restore")(restore_cmd)
+
+
+# --- bookmarks ---
+
+
+@bookmark_app.command("add")
+def bookmark_add(
+    slug: Annotated[str, typer.Argument(help="Skill slug")],
+) -> None:
+    """Save a skill to your bookmarks."""
+    try:
+        cli = _ctx()
+        status, payload = request_json(
+            "PUT",
+            join_registry_url(cli.registry, f"/skills/{slug_path(slug)}/bookmark"),
+            token=cli.require_token(),
+        )
+        raise_for_api_status(status, payload)
+        if cli.json_output:
+            emit_json({"slug": slug, "bookmarked": True})
+            return
+        typer.echo(f"Bookmarked: {slug}")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
+@bookmark_app.command("remove")
+def bookmark_remove(
+    slug: Annotated[str, typer.Argument(help="Skill slug")],
+) -> None:
+    """Remove a skill from your bookmarks."""
+    try:
+        cli = _ctx()
+        status, payload = request_json(
+            "DELETE",
+            join_registry_url(cli.registry, f"/skills/{slug_path(slug)}/bookmark"),
+            token=cli.require_token(),
+        )
+        raise_for_api_status(status, payload)
+        if cli.json_output:
+            emit_json({"slug": slug, "bookmarked": False})
+            return
+        typer.echo(f"Removed from bookmarks: {slug}")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
+@bookmark_app.command("list")
+def bookmark_list() -> None:
+    """List the skills you have bookmarked."""
+    try:
+        cli = _ctx()
+        status, payload = request_json(
+            "GET",
+            join_registry_url(cli.registry, "/users/me/bookmarks"),
+            token=cli.require_token(),
+        )
+        raise_for_api_status(status, payload)
+
+        raw_items = payload.get("items") if isinstance(payload, dict) else None
+        items = raw_items if isinstance(raw_items, list) else []
+        if cli.json_output:
+            emit_json({"items": items})
+            return
+        if not items:
+            typer.echo("No bookmarks yet.")
+            return
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            typer.echo(f"- {item.get('slug', '?')}  {item.get('name', '')}".rstrip())
+        typer.echo("")
+        typer.echo("Install one: skillnav install <slug> --dir <path>")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
+# `issue` / `issues` differ by one letter yet do opposite things (create vs list),
+# so the explicit names are primary now and the old spellings stay as aliases.
+app.command("issue", hidden=True)(issue_cmd)
+app.command("issues", hidden=True)(issues_cmd)
 
 
 @app.command("update")

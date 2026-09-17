@@ -100,7 +100,8 @@ skillnav
 ├── info <slug>
 ├── download <slug> [-o PATH]       # 分发 → [references/skillnav-distribute.md](references/skillnav-distribute.md)
 ├── install <slug> --dir DIR       # --dir 必填：指向 Agent 加载 Skill 的目录
-├── rate / issue / issues           # 社区 → [references/skillnav-community.md](references/skillnav-community.md)
+├── rate / create-issue / list-issues # 社区 → [references/skillnav-community.md](references/skillnav-community.md)
+├── bookmark                        # 收藏：add / remove / list
 ├── add-contributor / remove-contributor
 ```
 

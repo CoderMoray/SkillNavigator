@@ -157,6 +157,18 @@ skillnav
 - `republish <slug> [--version VER]`：`POST .../republish`，只恢复可见性、不产生新版本；**不能绕过审查**——审查中 / 中断 / 被拒绝时服务端拒绝（`skill_republish_blocked_*`，409），提示指向 `retry-inspection` 或发新版本。
 - 结果：`published=false` 时 `status` 显示 `Published: no (private)`；`--json` 返回 `{slug, version, action, visibility}`（action 为 `unpublished` / `deleted` / `republished`）。
 
+### 命令命名与别名约定
+
+破坏性改名一律保留旧名作为 **hidden 别名**，脚本与既有 Agent 提示不断供：
+
+| 推荐（可见） | 旧名（隐藏别名） | 原因 |
+| --- | --- | --- |
+| `create-issue` | `issue` | 与 `list-issues` 只差一个字母却语义相反（提交 vs 列出） |
+| `list-issues` | `issues` | 同上 |
+| `retry-inspection` | `retry-publish` | 该命令只重跑审查，不重新发布（端点名仍为 `retry-publish`） |
+| `config connect-test` | `config test` | 只做 `GET /health` 连通性检查，不是配置校验 |
+| `trash restore` | —（顶层 `restore` 保留） | 回收站域内的等价入口 |
+
 ### `--version` 与 `--skill-version`
 
 子命令的 `--version` 指的是 **Skill 版本**（`status` / `report` / `download` / `install` / `rate` / `publish` / `unpublish` / `republish`），与根命令的 `skillnav --version`（**CLI 自身版本**）不是一回事。为避免误用，所有子命令都接受等价的 `--skill-version` 别名。
@@ -219,6 +231,8 @@ skillnav
 | restore / trash restore | `POST /skills/:slug/restore` | Bearer（owner）|
 | trash list | `GET /users/me/recycle-bin` | Bearer |
 | trash purge | `DELETE /skills/:slug/purge` | Bearer（owner）|
+| bookmark add / remove | `PUT` / `DELETE /skills/:slug/bookmark` | Bearer |
+| bookmark list | `GET /users/me/bookmarks` | Bearer |
 
 ## 9. 版本与里程碑
 

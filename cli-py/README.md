@@ -16,7 +16,9 @@ pip install -e "cli-py[dev]"
 
 ```bash
 skillnav --version
-skillnav config test                  # tests the active profile
+skillnav config connect-test          # tests the active profile
+skillnav trash list                   # what is in your recycle bin
+skillnav bookmark list                # skills you saved for later
 # Create an API key in the Web UI (Account → API Keys), then:
 skillnav login --api-key sk_...
 skillnav search demo                  # anonymous
