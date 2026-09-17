@@ -21,6 +21,17 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const SEED_ARTIFACT_DIR = path.resolve(__dirname, "..", "examples", "seed-inspections");
 
+/**
+ * Official seed Skills and where their packages live. Shared by the
+ * pre-generation CLI (scripts/seed-inspection.mjs) and the staleness check
+ * (scripts/verify-seed-artifacts.mjs) so the two can never disagree about which
+ * slug maps to which package.
+ */
+export const SEED_SKILL_TARGETS = {
+  "skillnav-skill": path.resolve(__dirname, "..", "examples", "skillnav-skill"),
+  "demo-skill": path.resolve(__dirname, "..", "examples", "demo-skill"),
+};
+
 export function seedArtifactPath(slug, dir = SEED_ARTIFACT_DIR) {
   return path.join(dir, `${slug}.json`);
 }

@@ -1,0 +1,42 @@
+name: Seed artifacts
+
+# 种子审查工件（examples/seed-inspections/*.json）绑定了对应 Skill 的 contentHash，
+# 改了 Skill 内容而忘了重新生成时，只有别人跑 `npm run setup` 才会报错 ——
+# 那时改动的人早已不在场，也看不出这个报错和某次编辑的关系（本轮就发生过两次，
+# 两次都靠人提醒才发现）。
+#
+# 校验离线且廉价：只读包、比哈希，不消耗 VirusTotal 配额。真正重新生成工件仍需
+# 人工在有外网 + VIRUSTOTAL_API_KEY + SkillSpector 的机器上执行 seed-inspection.mjs。
+
+on:
+  push:
+    branches: [main]
+    paths: &seed-artifact-paths
+      - "examples/skillnav-skill/**"
+      - "examples/demo-skill/**"
+      - "examples/seed-inspections/**"
+      - "scripts/seed-artifact.mjs"
+      - "scripts/seed-inspection.mjs"
+      - "scripts/verify-seed-artifacts.mjs"
+      - "packages/skill-spec/**"
+      - ".github/workflows/seed-artifacts.yml"
+  pull_request:
+    paths: *seed-artifact-paths
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify seed artifacts match their Skill packages
+        run: npm run verify:seed-artifacts
