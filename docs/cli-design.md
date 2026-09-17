@@ -157,6 +157,10 @@ skillnav
 - `republish <slug> [--version VER]`：`POST .../republish`，只恢复可见性、不产生新版本；**不能绕过审查**——审查中 / 中断 / 被拒绝时服务端拒绝（`skill_republish_blocked_*`，409），提示指向 `retry-inspection` 或发新版本。
 - 结果：`published=false` 时 `status` 显示 `Published: no (private)`；`--json` 返回 `{slug, version, action, visibility}`（action 为 `unpublished` / `deleted` / `republished`）。
 
+### `--version` 与 `--skill-version`
+
+子命令的 `--version` 指的是 **Skill 版本**（`status` / `report` / `download` / `install` / `rate` / `publish` / `unpublish` / `republish`），与根命令的 `skillnav --version`（**CLI 自身版本**）不是一回事。为避免误用，所有子命令都接受等价的 `--skill-version` 别名。
+
 ### `update` 与每日版本检查
 
 版本来源：**PyPI JSON 优先**（`https://pypi.org/pypi/skillnav/json`），**超时/失败自动回退阿里云 simple index**（解析文件链接取最大版本，镜像无 JSON API）。两者使用同一超时（默认 10 秒）；都失败时报错列出两个源的失败原因。

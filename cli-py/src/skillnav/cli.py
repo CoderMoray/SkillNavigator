@@ -296,7 +296,11 @@ def _print_version() -> None:
 def cli_root(
     ctx: typer.Context,
     registry: Annotated[
-        Optional[str], typer.Option("--registry", help="API base URL (overrides profile)")
+        Optional[str],
+        typer.Option(
+            "--registry",
+            help="API base URL for this run only (does not change saved profiles)",
+        ),
     ] = None,
     profile: Annotated[
         Optional[str], typer.Option("--profile", help="Platform profile name")
@@ -337,7 +341,10 @@ def cli_root(
 @config_app.command("add")
 def config_add(
     name: Annotated[str, typer.Argument(help="Profile name")],
-    registry: Annotated[str, typer.Option("--registry", help="API base URL")],
+    registry: Annotated[
+        str,
+        typer.Option("--registry", help="API base URL stored in this profile (persistent)"),
+    ],
 ) -> None:
     """Add a platform profile."""
     try:
@@ -470,7 +477,11 @@ def login_cmd(
         ),
     ] = None,
     registry: Annotated[
-        Optional[str], typer.Option("--registry", help="Registry URL for this login")
+        Optional[str],
+        typer.Option(
+            "--registry",
+            help="Registry URL used for this login only (the profile keeps its own)",
+        ),
     ] = None,
 ) -> None:
     """Validate an API key and save it to the active profile."""
@@ -588,7 +599,11 @@ def top_cmd(
 
 @app.command("info")
 def info_cmd(slug: Annotated[str, typer.Argument(help="Skill slug")]) -> None:
-    """Show skill metadata."""
+    """Show skill metadata: name, description, versions, downloads, owner.
+
+    Use this for "what is this skill". For whether a version passed review use
+    `status`; for the findings themselves use `report`.
+    """
     try:
         cli = _ctx()
         status, body = request_json(
@@ -610,10 +625,14 @@ def status_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
     version: Annotated[
         Optional[str],
-        typer.Option("--version", help="Version to show (default: latest)"),
+        typer.Option("--version", "--skill-version", help="Skill version to show (default: latest)"),
     ] = None,
 ) -> None:
-    """Show publish and inspection status for one skill version."""
+    """Show publish and inspection status for one skill version.
+
+    Answers "is it live yet, and did the review pass". For what the review found
+    use `report`; for general metadata use `info`.
+    """
     try:
         cli = _ctx()
         status, body = request_json(
@@ -641,9 +660,16 @@ def status_cmd(
 @app.command("report")
 def report_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
-    version: Annotated[str, typer.Option("--version", help="Version (default: latest)")] = "latest",
+    version: Annotated[
+        str,
+        typer.Option("--version", "--skill-version", help="Skill version (default: latest)"),
+    ] = "latest",
 ) -> None:
-    """Show security and quality report for a version."""
+    """Show security and quality report for a version.
+
+    Use this when you need the actual findings. For a compact state summary use
+    `status`; for general metadata use `info`.
+    """
     try:
         cli = _ctx()
         status, body = request_json(
@@ -721,7 +747,10 @@ def _print_publish_response(status: int, payload: dict[str, Any], *, waited: boo
 @app.command("publish")
 def publish_cmd(
     package: Annotated[str, typer.Argument(help="Skill directory or .zip")],
-    version: Annotated[Optional[str], typer.Option("--version", help="SemVer version to publish")] = None,
+    version: Annotated[
+        Optional[str],
+        typer.Option("--version", "--skill-version", help="SemVer version to publish"),
+    ] = None,
     display_name: Annotated[
         Optional[str], typer.Option("--display-name", help="Display name (overrides SKILL.md name)")
     ] = None,
@@ -850,7 +879,10 @@ def download_cmd(
     output: Annotated[
         Optional[Path], typer.Option("-o", "--output", help="Output zip path")
     ] = None,
-    version: Annotated[str, typer.Option("--version", help="Version to download")] = "latest",
+    version: Annotated[
+        str,
+        typer.Option("--version", "--skill-version", help="Skill version to download"),
+    ] = "latest",
 ) -> None:
     """Download a skill version as a zip file."""
     try:
@@ -907,7 +939,10 @@ def install_cmd(
             ),
         ),
     ],
-    version: Annotated[str, typer.Option("--version", help="Version to install")] = "latest",
+    version: Annotated[
+        str,
+        typer.Option("--version", "--skill-version", help="Skill version to install"),
+    ] = "latest",
 ) -> None:
     """Download and extract a skill into a directory you control."""
     try:
@@ -959,7 +994,10 @@ def rate_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
     score: Annotated[int, typer.Option("--score", help="Score from 1 to 5")],
     comment: Annotated[Optional[str], typer.Option("--comment", help="Optional comment")] = None,
-    version: Annotated[Optional[str], typer.Option("--version", help="Rated version")] = None,
+    version: Annotated[
+        Optional[str],
+        typer.Option("--version", "--skill-version", help="Skill version being rated"),
+    ] = None,
 ) -> None:
     """Rate a skill."""
     try:
@@ -1125,7 +1163,11 @@ def unpublish_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
     version: Annotated[
         Optional[str],
-        typer.Option("--version", help="Unpublish one version instead of the whole skill"),
+        typer.Option(
+            "--version",
+            "--skill-version",
+            help="Unpublish one version instead of the whole skill",
+        ),
     ] = None,
     delete: Annotated[
         bool,
@@ -1233,7 +1275,11 @@ def republish_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
     version: Annotated[
         Optional[str],
-        typer.Option("--version", help="Republish one version instead of the whole skill"),
+        typer.Option(
+            "--version",
+            "--skill-version",
+            help="Republish one version instead of the whole skill",
+        ),
     ] = None,
 ) -> None:
     """Re-list an unpublished skill (or version) in public search.
@@ -1435,7 +1481,12 @@ def update_cmd(
         typer.Option("--check", help="Only check for updates; do not install"),
     ] = False,
 ) -> None:
-    """Check PyPI and upgrade skillnav when a newer release is available."""
+    """Upgrade skillnav itself (not the skills you have installed).
+
+    Checks PyPI, falling back to a mirror, and reinstalls the CLI when a newer
+    release exists. For skills: use `republish` to re-list one, or `publish` to
+    ship a new version.
+    """
     try:
         from skillnav.self_update import format_update_message, perform_update
 
