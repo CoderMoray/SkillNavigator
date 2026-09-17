@@ -32,7 +32,8 @@ export function normalizeRegistryData(data: RegistryData): RegistryData {
     skill.issues ??= [];
     skill.ratings ??= [];
     skill.ratingCount ??= skill.ratings.length;
-    skill.published ??= true;
+    skill.uploaded ??= Object.values(skill.versions ?? {}).some((v) => isVersionUploaded(v));
+    skill.published ??= false;
     skill.deletedAt ??= undefined;
     skill.averageRating ??= calculateAverageRating(skill.ratings);
     updateRatingAggregate(skill);
@@ -137,6 +138,33 @@ export function sortSkillSearchResultsByRecent(skills: SkillSearchResult[]): Ski
   return [...skills].sort((a, b) =>
     compareIsoTimestampsDesc(getRecentSortTimestamp(a), getRecentSortTimestamp(b))
   );
+}
+
+export function isPubliclyListable(
+  inspectionStatus: SkillInspectionStatus,
+  verdict: InspectionVerdict
+): boolean {
+  return inspectionStatus === "completed" && verdict !== "rejected";
+}
+
+/** Whether a version package has been stored (explicit flag or legacy contentHash/uploadedAt). */
+export function isVersionUploaded(
+  version: Pick<RegistryVersion, "uploaded" | "contentHash" | "uploadedAt">
+): boolean {
+  if (version.uploaded === true) {
+    return true;
+  }
+  if (version.uploaded === false) {
+    return false;
+  }
+  return Boolean(version.contentHash || version.uploadedAt);
+}
+
+/** Uploaded but not yet listed in public search (staged or awaiting inspection finalize). */
+export function isPendingPublishVersion(
+  version: Pick<RegistryVersion, "uploaded" | "published" | "contentHash" | "uploadedAt">
+): boolean {
+  return isVersionUploaded(version) && version.published === false;
 }
 
 export function resolveSkillDisplayVerdict(
@@ -326,7 +354,7 @@ export function resolveVersionReference(skill: RegistrySkill, version: string): 
 /** Failed review may be retried with the same version when no published version exists yet. */
 export function hasStoredPendingPackage(skill: RegistrySkill, version: string = skill.latestVersion): boolean {
   const entry = skill.versions[version];
-  if (!entry || entry.published !== false) {
+  if (!entry || !isPendingPublishVersion(entry)) {
     return false;
   }
   if ("artifact" in entry && entry.artifact) {
@@ -345,11 +373,11 @@ export function canRepublishFailedVersion(skill: RegistrySkill, version: string)
     return false;
   }
 
-  if (entry.published === false) {
+  if (isPendingPublishVersion(entry)) {
     return true;
   }
 
-  return !Object.values(skill.versions).some((item) => item.published);
+  return !Object.values(skill.versions).some((item) => item.published !== false);
 }
 
 export function isSkillOwner(

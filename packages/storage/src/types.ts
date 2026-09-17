@@ -106,6 +106,9 @@ export interface RegistryVersion {
   releaseTags: string[];
   changelog?: string;
   downloads: number;
+  /** Package successfully stored (artifact or snapshot committed). */
+  uploaded?: boolean;
+  /** Public search listing; requires completed inspection and owner has not unpublish'd. */
   published?: boolean;
   uploadedAt?: string;
   inspectionStartedAt?: string;
@@ -135,6 +138,9 @@ export interface RegistrySkill {
   ratings: RegistryRating[];
   averageRating: number;
   ratingCount: number;
+  /** True when the latest version package is stored. */
+  uploaded?: boolean;
+  /** Public search listing for the skill. */
   published?: boolean;
   deletedAt?: string;
   createdAt: string;
@@ -194,6 +200,8 @@ export interface PublishSnapshotOptions {
   changelog?: string;
   /** Review/evaluation rows were already persisted via commitInspectionResultsBeforePublish. */
   inspectionAlreadyCommitted?: boolean;
+  /** When false, package is stored (`uploaded`) but not listed in public search yet. */
+  listPublicly?: boolean;
 }
 
 export interface CommitInspectionResultsOptions {

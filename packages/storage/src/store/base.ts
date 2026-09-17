@@ -59,6 +59,8 @@ import {
   getRecentSortTimestamp,
   toSearchResult,
   updateRatingAggregate,
+  isVersionUploaded,
+  isPendingPublishVersion,
 } from "../utils";
 
 function resolveMarkReviewTargetVersion(
@@ -89,7 +91,8 @@ function syncSkillInspectionDenormFromLatest(skill: RegistrySkill): void {
   skill.inspectionStartedAt = latest.inspectionStartedAt;
   skill.inspectionEndedAt = latest.inspectionEndedAt;
   skill.uploadedAt = latest.uploadedAt ?? skill.uploadedAt;
-  if (isInspectionFailureStatus(inspectionStatus)) {
+  skill.uploaded = isVersionUploaded(latest);
+  if (isInspectionFailureStatus(inspectionStatus) || inspectionStatus === "inspecting") {
     skill.published = false;
   }
 }
@@ -261,7 +264,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
     if (!skill?.versions[version]) {
       return;
     }
-    if (skill.versions[version]!.published !== false) {
+    if (!isPendingPublishVersion(skill.versions[version]!)) {
       return;
     }
     delete skill.versions[version];
@@ -289,6 +292,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
       ratings: [],
       averageRating: 0,
       ratingCount: 0,
+      uploaded: false,
       published: false,
       createdAt: now,
       updatedAt: now,
@@ -302,6 +306,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
       releaseTags: options.releaseTags ?? ["latest"],
       changelog: options.changelog,
       downloads: 0,
+      uploaded: true,
       published: false,
       inspection: {} as RegistryVersion["inspection"],
       inspectionStatus: "inspecting",
@@ -313,6 +318,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
       updatedAt: now,
     };
     skill.uploadedAt = now;
+    skill.uploaded = true;
     for (const [existingVersion, entry] of Object.entries(skill.versions)) {
       if (
         existingVersion !== version &&
@@ -377,7 +383,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
     });
 
     const artifact = await this.artifactStore?.putSnapshot(slug, version, snapshot);
-    const publiclyListed = inspection.verdict !== "rejected";
+    const listPublicly = options.listPublicly ?? inspection.verdict !== "rejected";
     const registryVersion: RegistryVersion = {
       version,
       manifest: snapshot.manifest,
@@ -390,7 +396,8 @@ export abstract class JsonRegistryStore implements RegistryStore {
       releaseTags,
       changelog: options.changelog,
       downloads: 0,
-      published: publiclyListed,
+      uploaded: true,
+      published: listPublicly,
       inspectionStatus: "completed",
       inspectionFailure: undefined,
       createdAt: now,
@@ -424,7 +431,8 @@ export abstract class JsonRegistryStore implements RegistryStore {
       ratings: existingSkill?.ratings ?? [],
       averageRating: existingSkill?.averageRating ?? 0,
       ratingCount: existingSkill?.ratingCount ?? 0,
-      published: publiclyListed,
+      uploaded: true,
+      published: listPublicly,
       createdAt: existingSkill?.createdAt ?? now,
       updatedAt: now,
     };

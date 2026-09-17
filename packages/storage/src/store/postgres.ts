@@ -60,6 +60,8 @@ import {
   normalizeCategoryFilters,
   toIsoTimestampString,
   resolveVersionReference,
+  isPubliclyListable,
+  isPendingPublishVersion,
 } from "../utils";
 import { JsonRegistryStore } from "./base";
 
@@ -954,6 +956,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         evaluation: hydratedEvaluation,
         status: v.status as RegistryVersion["status"],
         releaseTags: v.releaseTags, changelog: v.changelog ?? undefined, downloads: Number(v.downloads),
+        uploaded: v.uploaded,
         published: v.published,
         uploadedAt: mapOptionalTimestamp(v.uploadedAt),
         inspectionStartedAt: mapOptionalTimestamp(v.inspectionStartedAt),
@@ -1010,6 +1013,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         score: r.score, comment: r.comment ?? undefined, createdAt: String(r.createdAt),
       })),
       averageRating: Number(row.averageRating), ratingCount: Number(row.ratingCount),
+      uploaded: row.uploaded,
       published: row.published,
       deletedAt: row.deletedAt ? String(row.deletedAt) : undefined,
       createdAt: String(row.createdAt), updatedAt: String(row.updatedAt),
@@ -1295,15 +1299,23 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     }
 
     if (finalize) {
+      const listPublicly = isPubliclyListable("completed", inspection.verdict);
       await this.db.update(schema.skillVersions)
         .set({
           status: inspection.verdict,
           inspectionStatus: "completed",
           inspectionFailedMessage: null,
+          published: listPublicly,
+          uploaded: true,
           updatedAt: new Date(),
         })
         .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
       await this.syncSkillInspectionDenormFromLatest(slug);
+      if (listPublicly) {
+        await this.db.update(schema.skills)
+          .set({ published: true, updatedAt: new Date() })
+          .where(eq(schema.skills.slug, slug));
+      }
     }
 
     return (await this.getSkill(slug))?.versions[version] as RegistryVersion;
@@ -1334,17 +1346,30 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       await this.upsertEvaluation(slug, version, evaluation);
     }
 
+    const listPublicly = finalize && isPubliclyListable("completed", inspection.verdict);
     await this.db.update(schema.skillVersions)
       .set({
         ...stageStatusColumns,
         inspectionStatus,
         inspectionFailedMessage:
           inspectionStatus === "interrupted" ? (failure?.message ?? "审查流程未完成") : null,
+        ...(finalize
+          ? {
+              status: inspection.verdict,
+              published: listPublicly,
+            }
+          : {}),
         updatedAt: new Date(),
       })
       .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
 
     await this.syncSkillInspectionDenormFromLatest(slug);
+
+    if (listPublicly) {
+      await this.db.update(schema.skills)
+        .set({ published: true, updatedAt: new Date() })
+        .where(eq(schema.skills.slug, slug));
+    }
   }
 
   /**
@@ -1464,6 +1489,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
 
     const [versionRow] = await this.db
       .select({
+        status: schema.skillVersions.status,
         inspectionStatus: schema.skillVersions.inspectionStatus,
         inspectionFailedMessage: schema.skillVersions.inspectionFailedMessage,
         inspectionSkillspectorStatus: schema.skillVersions.inspectionSkillspectorStatus,
@@ -1494,7 +1520,10 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         inspectionHalucatchStatus: versionRow.inspectionHalucatchStatus,
         inspectionStartedAt: versionRow.inspectionStartedAt,
         inspectionEndedAt: versionRow.inspectionEndedAt,
-        ...(isInspectionFailureStatus(inspectionStatus) ? { published: false } : {}),
+        ...(isInspectionFailureStatus(inspectionStatus) || inspectionStatus === "inspecting"
+          ? { published: false }
+          : {}),
+        uploaded: true,
         updatedAt: new Date(),
       })
       .where(eq(schema.skills.slug, slug));
@@ -1712,10 +1741,8 @@ export class PostgresRegistryStore extends JsonRegistryStore {
 
     const existingSkill = await this.getSkill(slug);
     const existingVersion = existingSkill?.versions[version];
-    if (existingVersion?.published !== false) {
-      if (existingVersion) {
-        throw new Error(`Version already exists: ${slug}@${version}`);
-      }
+    if (existingVersion && !isPendingPublishVersion(existingVersion)) {
+      throw new Error(`Version already exists: ${slug}@${version}`);
     }
 
     const artifact = await this.artifactStore?.putSnapshot(slug, version, snapshot);
@@ -1742,6 +1769,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       changelog: options.changelog?.trim() || null,
       contentHash: snapshot.contentHash,
       readme: snapshot.readme ?? "",
+      uploaded: true,
       published: false,
       artifactProvider: artifact?.provider ?? null,
       artifactBucket: artifact?.bucket ?? null,
@@ -1792,6 +1820,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
           description,
           ownerUserId: options.ownerUserId ?? null,
           latestVersion: version,
+          uploaded: true,
           published: false,
           uploadedAt: now,
           createdAt: now,
@@ -1803,6 +1832,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
             name,
             description,
             latestVersion: version,
+            uploaded: true,
             uploadedAt: now,
             updatedAt: now,
           })
@@ -1857,7 +1887,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     await this.ensureSchema();
     const skill = await this.getSkill(slug);
     const pendingVersion = skill?.versions[version];
-    if (!pendingVersion || pendingVersion.published !== false) {
+    if (!pendingVersion || !isPendingPublishVersion(pendingVersion)) {
       return;
     }
 
@@ -1918,6 +1948,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       changelog: null,
       contentHash: snapshot.contentHash,
       readme: snapshot.readme ?? "",
+      uploaded: false,
       published: false,
       artifactProvider: null,
       artifactBucket: null,
@@ -1959,8 +1990,10 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     });
 
     const pendingVersion = existingSkill?.versions[version];
-    const finalizePendingVersion = Boolean(options.inspectionAlreadyCommitted && pendingVersion?.published === false);
-    const publiclyListed = inspection.verdict !== "rejected";
+    const finalizePendingVersion = Boolean(
+      options.inspectionAlreadyCommitted && pendingVersion && isPendingPublishVersion(pendingVersion)
+    );
+    const listPublicly = options.listPublicly ?? inspection.verdict !== "rejected";
 
     // Store the complete snapshot in MinIO first. Its descriptor is committed Its descriptor is committed
     // with the version, while skill_version_files retains only file metadata.
@@ -1973,7 +2006,8 @@ export class PostgresRegistryStore extends JsonRegistryStore {
             name,
             description,
             latestVersion: releaseTags.includes("latest") ? version : existingSkill.latestVersion,
-            published: publiclyListed,
+            uploaded: true,
+            published: listPublicly,
             inspectionStatus: "completed",
             inspectionFailedMessage: null,
             inspectionEndedAt: now,
@@ -1983,7 +2017,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       } else {
         await tx.insert(schema.skills).values({
           slug, name, description, ownerUserId: options.owner?.userId ?? null,
-          latestVersion: version, published: publiclyListed, inspectionStatus: "completed",
+          latestVersion: version, uploaded: true, published: listPublicly, inspectionStatus: "completed",
           inspectionFailedMessage: null,
           inspectionEndedAt: now,
           createdAt: now, updatedAt: now,
@@ -2025,7 +2059,8 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         changelog: options.changelog?.trim() || null,
         contentHash: snapshot.contentHash,
         readme: snapshot.readme ?? "",
-        published: publiclyListed,
+        uploaded: true,
+        published: listPublicly,
         artifactProvider: artifact?.provider ?? null,
         artifactBucket: artifact?.bucket ?? null,
         artifactObjectKey: artifact?.objectKey ?? null,

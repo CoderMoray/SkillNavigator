@@ -202,6 +202,7 @@ export interface RegistryVersion {
   releaseTags: string[];
   changelog?: string;
   downloads: number;
+  uploaded?: boolean;
   published?: boolean;
   uploadedAt?: string;
   inspectionStartedAt?: string;
@@ -232,6 +233,7 @@ export interface RegistrySkill {
   ratings: RegistryRating[];
   averageRating: number;
   ratingCount: number;
+  uploaded?: boolean;
   published?: boolean;
   createdAt: string;
   updatedAt: string;

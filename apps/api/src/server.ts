@@ -2095,6 +2095,7 @@ async function publishInspectedSnapshot(
       releaseTags: prepared.releaseTags,
       changelog,
       inspectionAlreadyCommitted: true,
+      listPublicly: !deferred && inspection.verdict !== "rejected",
     });
   } catch (error) {
     await markPublishInspectionFailed(store, prepared.slug, prepared.version, error);

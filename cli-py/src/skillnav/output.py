@@ -394,7 +394,13 @@ def _format_visibility(published: bool | None) -> str:
     return "public"
 
 
-def _format_published_uploaded(entry: dict[str, Any]) -> str:
+def _format_uploaded(entry: dict[str, Any], skill: dict[str, Any] | None = None) -> str:
+    if entry.get("uploaded") is True:
+        return "yes"
+    if entry.get("uploaded") is False:
+        return "no"
+    if skill is not None and skill.get("uploaded") is True:
+        return "yes"
     if entry.get("contentHash") or entry.get("uploadedAt"):
         return "yes"
     return "no"
@@ -715,7 +721,7 @@ def _print_version_status_row(
     latest_marker = " (latest)" if version_id == skill.get("latestVersion") else ""
     print(
         f"  {version_id}{latest_marker}  status={context['aggregate_status']}  "
-        f"published={_format_published_uploaded(entry)}  "
+        f"uploaded={_format_uploaded(entry, skill)}  "
         f"visibility={_format_visibility(skill.get('published'))}"
     )
     print(f"    progress: {context['progress']}")
@@ -738,7 +744,7 @@ def _print_single_version_status(body: dict[str, Any], version: str) -> None:
     print(
         f"Inspection scores: {_format_inspection_scores_summary(inspection, entry.get('evaluation'))}"
     )
-    print(f"Published: {_format_published_uploaded(entry)}")
+    print(f"Uploaded: {_format_uploaded(entry, body)}")
     print(f"Visibility: {_format_visibility(body.get('published'))}")
     if context["inspection_started_at"]:
         print(f"Inspection started: {context['inspection_started_at']}")

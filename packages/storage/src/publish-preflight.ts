@@ -1,7 +1,12 @@
 import { compareSemver } from "@skill-platform/skill-spec/skill-format";
 import type { RegistrySkill } from "./types.js";
 import { isInspectionFailureStatus } from "./inspection-status.js";
-import { canRepublishFailedVersion, isSkillContributor, resolveVersionInspectionStatus } from "./utils.js";
+import {
+  canRepublishFailedVersion,
+  isPendingPublishVersion,
+  isSkillContributor,
+  resolveVersionInspectionStatus,
+} from "./utils.js";
 
 export class PublishPreflightError extends Error {
   readonly statusCode: number;
@@ -65,7 +70,8 @@ export function assertPublishPreflight(input: PublishPreflightInput): void {
   const republishingFailedVersion =
     existingSkill !== undefined && canRepublishFailedVersion(existingSkill, version);
   const allowPendingVersion =
-    pendingVersion?.published === false &&
+    pendingVersion !== undefined &&
+    isPendingPublishVersion(pendingVersion) &&
     (allowInspectionInProgress ||
       republishingFailedVersion ||
       (allowFailedInspectionRetry && isInspectionFailureStatus(targetInspectionStatus)));
@@ -76,11 +82,15 @@ export function assertPublishPreflight(input: PublishPreflightInput): void {
 
   if (existingSkill?.versions[existingSkill.latestVersion]) {
     const finalizingPendingVersion =
-      allowInspectionInProgress && pendingVersion?.published === false && version === existingSkill.latestVersion;
+      allowInspectionInProgress &&
+      pendingVersion !== undefined &&
+      isPendingPublishVersion(pendingVersion) &&
+      version === existingSkill.latestVersion;
     const retryingFailedVersion =
       allowFailedInspectionRetry &&
       isInspectionFailureStatus(targetInspectionStatus) &&
-      pendingVersion?.published === false &&
+      pendingVersion !== undefined &&
+      isPendingPublishVersion(pendingVersion) &&
       version === existingSkill.latestVersion;
     const compared = compareSemver(version, existingSkill.latestVersion);
     if (

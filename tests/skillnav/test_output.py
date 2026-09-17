@@ -143,7 +143,7 @@ def test_print_skill_status(capsys) -> None:
     assert "VirusTotal: passed" in out
     assert "HaluCatch: done" in out
     assert "Inspection status: completed" in out
-    assert "Published: yes" in out
+    assert "Uploaded: yes" in out
     assert "Visibility: public" in out
     # The verdict is the decision field agents read first (agent feedback B3).
     assert "Verdict: published" in out
@@ -178,7 +178,7 @@ def test_print_skill_status_inspecting(capsys) -> None:
     assert "Inspection progress:" in out
     assert "HaluCatch: done" in out
     assert "SkillSpector: processing" in out
-    assert "Published: yes" in out
+    assert "Uploaded: yes" in out
     assert "Visibility: private" in out
     assert "Versions:" not in out
 
@@ -369,7 +369,7 @@ def test_print_skill_status_interrupted(capsys) -> None:
     assert "SkillSpector: interrupted" in out
     assert "VirusTotal: interrupted" in out
     assert "HaluCatch: interrupted" in out
-    assert "Published: yes" in out
+    assert "Uploaded: yes" in out
     assert "Visibility: private" in out
     assert "Inspection started: 2026-09-08T06:39:56.795Z" in out
     assert "Inspection ended: 2026-09-08T06:40:03.421Z" in out
@@ -416,7 +416,7 @@ def test_print_skill_status_single_version(capsys) -> None:
     assert "Inspection status: completed" in out
     assert "SkillSpector: passed" in out
     assert "VirusTotal: passed" in out
-    assert "Published: yes" in out
+    assert "Uploaded: yes" in out
     assert "Verdict: published" in out
     assert "Content hash:" not in out
     assert "Versions:" not in out
