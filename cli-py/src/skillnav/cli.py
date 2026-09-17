@@ -515,6 +515,79 @@ def check_slug_cmd(
         _handle_error(exc)
 
 
+@app.command("search-users")
+def search_users_cmd(
+    query: Annotated[str, typer.Argument(help="Username or display name fragment")],
+    limit: Annotated[int, typer.Option("--limit", help="Max results (1-20)")] = 8,
+) -> None:
+    """Find users by name.
+
+    Handy before `add-contributor`, which needs an exact username — guessing it
+    wastes a round trip.
+    """
+    try:
+        cli = _ctx()
+        status, payload = request_json(
+            "GET",
+            join_registry_url(
+                cli.registry, "/users/search", {"query": query, "limit": str(limit)}
+            ),
+            token=cli.require_token(),
+        )
+        raise_for_api_status(status, payload)
+
+        raw_items = payload.get("items") if isinstance(payload, dict) else None
+        items = raw_items if isinstance(raw_items, list) else []
+        if cli.json_output:
+            emit_json({"items": items})
+            return
+        if not items:
+            typer.echo(f"No users matching '{query}'.")
+            return
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            username = item.get("username", "?")
+            display = item.get("displayName")
+            typer.echo(f"- {username}  {display}".rstrip() if display else f"- {username}")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
+@app.command("creators")
+def creators_cmd(
+    query: Annotated[Optional[str], typer.Argument(help="Filter by name or handle")] = None,
+) -> None:
+    """List skill creators, optionally filtered by name or handle."""
+    try:
+        cli = _ctx()
+        status, payload = request_json(
+            "GET",
+            join_registry_url(cli.registry, "/creators", {"query": query} if query else None),
+        )
+        raise_for_api_status(status, payload)
+
+        raw_items = payload.get("items") if isinstance(payload, dict) else None
+        items = raw_items if isinstance(raw_items, list) else []
+        if cli.json_output:
+            emit_json({"items": items})
+            return
+        if not items:
+            typer.echo("No creators found." if not query else f"No creators matching '{query}'.")
+            return
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name", "?")
+            handle = item.get("handle")
+            count = item.get("skillCount")
+            suffix = f" (@{handle})" if handle else ""
+            tally = f"  · {count} skill(s)" if isinstance(count, int) else ""
+            typer.echo(f"- {name}{suffix}{tally}")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
 # --- auth ---
 
 
