@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { AlertCircle, CheckCircle2, X, XCircle } from "lucide-react";
 import type { PublishNotice } from "../lib/publish-notice";
 import { publishNoticeDescription, publishNoticeTitle } from "../lib/publish-notice";
-import { useToastSlot } from "../lib/toast-slot";
+import { useToastDismissOnLeave, useToastSlot } from "../lib/toast-slot";
 
 const AUTO_DISMISS_MS = 5000;
 
@@ -36,6 +36,7 @@ export function PublishNoticeToast({ notice, onClose }: PublishNoticeToastProps)
 
   const slotKey = `${notice.slug}@${notice.version}:${notice.verdict}`;
   const superseded = useToastSlot(slotKey);
+  useToastDismissOnLeave(dismiss);
 
   useEffect(() => {
     if (superseded) {

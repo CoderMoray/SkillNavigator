@@ -2,7 +2,7 @@
 
 import { X, XCircle } from "lucide-react";
 import { useEffect } from "react";
-import { useToastSlot } from "../lib/toast-slot";
+import { useToastDismissOnLeave, useToastSlot } from "../lib/toast-slot";
 
 const AUTO_DISMISS_MS = 5000;
 
@@ -13,6 +13,7 @@ interface ErrorToastProps {
 
 export function ErrorToast({ message, onClose }: ErrorToastProps) {
   const superseded = useToastSlot(message);
+  useToastDismissOnLeave(onClose);
 
   useEffect(() => {
     if (superseded) {
