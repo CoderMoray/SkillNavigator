@@ -187,6 +187,7 @@ def enrich_api_error(raw: str, *, status: int, body: Any = None) -> ErrorHint:
             summary="Skill is in the recycle bin",
             detail="Publishing is blocked while the skill slug is soft-deleted.",
             next_steps=_steps(
+                "See what is in the bin: skillnav trash list",
                 "Restore it from the recycle bin: skillnav restore <slug>",
                 "Then retry: skillnav publish <package>",
             ),
@@ -195,6 +196,7 @@ def enrich_api_error(raw: str, *, status: int, body: Any = None) -> ErrorHint:
             summary="Skill is not in the recycle bin",
             detail="There is nothing to restore for this slug — it may already be restored.",
             next_steps=_steps(
+                "See what is in the bin: skillnav trash list",
                 "Check the current state: skillnav status <slug>",
                 "If it is only unpublished, re-list it: skillnav republish <slug>",
             ),

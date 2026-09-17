@@ -198,6 +198,8 @@ skillnav republish <slug> --version <版本>    # 只恢复某个版本
 
 `restore` 是 `unpublish --delete` 的逆操作：把回收站里的 Skill 取回来（`skillnav restore <slug>`，仅 **owner** 可执行）。回收站有保留期，到期会自动永久删除，因此要在保留期内恢复。恢复只清除删除状态、**不改变原有可见性**——若恢复后仍不在公开列表中，再用 `republish` 重新上架。**写操作，须用户明确要求后再执行。**
 
+`trash list` 查看回收站里有哪些 Skill、各自的删除时间与到期时间（输出含剩余天数），`--json` 可脚本化；`trash purge <slug>` 立即永久删除（**不可恢复**，需交互确认）——回收站到期会自行清除，因此除非要马上腾出 slug，否则不必使用。不确定 slug 时先跑 `trash list` 确认。
+
 ## 文档
 
 - CLI 全流程：{{web_url}}/docs/cli-guide

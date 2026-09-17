@@ -212,7 +212,9 @@ skillnav
 | remove-contributor | `DELETE /skills/:slug/contributors/:id` | Bearer（owner） |
 | unpublish | `POST /skills/:slug/unpublish`（或 `.../versions/:version/unpublish`；`--delete` / `--trash` → `DELETE /skills/:slug`）| Bearer（owner）|
 | republish | `POST /skills/:slug/republish`（或 `.../versions/:version/republish`）| Bearer（owner）|
-| restore | `POST /skills/:slug/restore` | Bearer（owner）|
+| restore / trash restore | `POST /skills/:slug/restore` | Bearer（owner）|
+| trash list | `GET /users/me/recycle-bin` | Bearer |
+| trash purge | `DELETE /skills/:slug/purge` | Bearer（owner）|
 
 ## 9. 版本与里程碑
 

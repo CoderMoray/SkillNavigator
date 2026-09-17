@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import math
 import os
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Any, Optional
 
@@ -186,6 +188,12 @@ app = typer.Typer(
 )
 config_app = typer.Typer(help="Manage platform profiles.", no_args_is_help=True)
 app.add_typer(config_app, name="config")
+
+trash_app = typer.Typer(
+    help="Inspect and manage the recycle bin (soft-deleted skills).",
+    no_args_is_help=True,
+)
+app.add_typer(trash_app, name="trash")
 
 _state: dict[str, Any] = {}
 
@@ -1180,6 +1188,7 @@ def unpublish_cmd(
                 purge_at = payload.get("purgeAt")
                 suffix = f" (restorable until {purge_at})." if purge_at else "."
                 typer.echo(f"Moved '{slug}' to the recycle bin{suffix}")
+                typer.echo("See what is in the bin: skillnav trash list")
             return
 
         path = (
@@ -1305,6 +1314,118 @@ def restore_cmd(
         typer.echo(f"Restored: {slug} — out of the recycle bin and back in public search.")
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
+
+
+# --- recycle bin (trash) ---
+
+
+def _days_remaining(purge_at: Any) -> int | None:
+    """Whole days left before the server purges an entry, or None if unknown.
+
+    Rounds up, because "1 day left" is the useful reading when hours remain.
+    """
+    if not isinstance(purge_at, str) or not purge_at:
+        return None
+    try:
+        deadline = datetime.fromisoformat(purge_at.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    remaining = (deadline - datetime.now(timezone.utc)).total_seconds()
+    return max(0, math.ceil(remaining / 86400))
+
+
+@trash_app.command("list")
+def trash_list() -> None:
+    """List the skills in your recycle bin.
+
+    Entries stay restorable until their purge time; after that the server deletes
+    them permanently, so the remaining days decide how urgent each one is.
+    """
+    try:
+        cli = _ctx()
+        status, payload = request_json(
+            "GET",
+            join_registry_url(cli.registry, "/users/me/recycle-bin"),
+            token=cli.require_token(),
+        )
+        raise_for_api_status(status, payload)
+
+        raw_items = payload.get("items") if isinstance(payload, dict) else None
+        items = raw_items if isinstance(raw_items, list) else []
+        if cli.json_output:
+            emit_json(
+                {
+                    "items": [
+                        {
+                            "slug": item.get("slug"),
+                            "name": item.get("name"),
+                            "deletedAt": item.get("deletedAt"),
+                            "purgeAt": item.get("purgeAt"),
+                            "daysRemaining": _days_remaining(item.get("purgeAt")),
+                        }
+                        for item in items
+                        if isinstance(item, dict)
+                    ]
+                }
+            )
+            return
+
+        if not items:
+            typer.echo("Recycle bin is empty.")
+            return
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            days = _days_remaining(item.get("purgeAt"))
+            urgency = f"{days} day(s) left" if days is not None else "purge time unknown"
+            typer.echo(
+                f"- {item.get('slug', '?')}  ({item.get('name', '?')})  "
+                f"deleted {item.get('deletedAt', '?')}  ·  {urgency}"
+            )
+        typer.echo("")
+        typer.echo("Restore one: skillnav restore <slug>")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
+@trash_app.command("purge")
+def trash_purge(
+    slug: Annotated[str, typer.Argument(help="Skill slug")],
+) -> None:
+    """Delete one skill from the recycle bin permanently (not recoverable).
+
+    The bin purges by itself once the retention window ends; this is only for
+    reclaiming a slug immediately.
+    """
+    try:
+        cli = _ctx()
+        token = cli.require_token()
+        if not cli.no_input and not typer.confirm(
+            f"Permanently delete '{slug}'? It cannot be restored or republished afterwards.",
+            default=False,
+        ):
+            # SystemExit is a BaseException, so it passes the `except Exception`
+            # below untouched: a declined prompt is a normal outcome, not an error.
+            raise SystemExit(1)
+
+        status, payload = request_json(
+            "DELETE",
+            join_registry_url(cli.registry, f"/skills/{slug_path(slug)}/purge"),
+            token=token,
+        )
+        raise_for_api_status(status, payload)
+        if cli.json_output:
+            emit_json({"slug": slug, "action": "purged"})
+            return
+        typer.echo(f"Purged: {slug} — permanently deleted, it cannot be restored.")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
+# `restore` also exists as a top-level command; both spellings do the same thing.
+trash_app.command("restore")(restore_cmd)
 
 
 @app.command("update")

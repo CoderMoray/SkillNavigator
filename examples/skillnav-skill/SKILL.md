@@ -88,6 +88,10 @@ skillnav
 │   ├── --version VER               # 仅下架该版本（latest 不可）
 │   └── --delete / --trash          # 移入回收站（保留期内可 restore；到期永久删除）
 ├── restore <slug>                  # 从回收站还原（unpublish --delete 的逆操作）
+├── trash                           # 回收站：查看与管理
+│   ├── list                        # 列出回收站内容、删除时间与剩余天数
+│   ├── restore <slug>              # 同顶层 restore
+│   └── purge <slug>                # 立即永久删除（不可恢复，需确认）
 ├── republish <slug> [--version VER] # 重新上架：恢复公开（只改可见性；受审查状态约束）
 ├── status <slug> [--version VER]   # 审查状态与各版本摘要
 ├── report <slug> [--version VER]   # 完整安全/质量报告
