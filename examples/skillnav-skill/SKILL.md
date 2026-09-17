@@ -26,7 +26,7 @@ SkillNavigator 官方命令行客户端，纯 API 客户端——审查（SkillS
 
 ```bash
 skillnav --version
-skillnav config test
+skillnav config connect-test
 ```
 
 若命令不存在，引导用户安装：
@@ -67,7 +67,7 @@ skillnav whoami
 skillnav logout    # 仅清除本地 Key，不在服务端吊销
 ```
 
-多环境 profile：`skillnav config add prod --registry <url>` → `config use prod` → `config test`。
+多环境 profile：`skillnav config add prod --registry <url>` → `config use prod` → `config connect-test`。
 
 详情 → [`references/skillnav-auth.md`](references/skillnav-auth.md)
 
@@ -80,13 +80,14 @@ skillnav
 │   ├── use <name>
 │   ├── list
 │   ├── remove <name>
-│   └── test [name]
+│   └── connect-test [name]
 ├── login / logout / whoami / update
 ├── publish <dir|zip>               # 发布 → [references/skillnav-publish.md](references/skillnav-publish.md)
-├── retry-publish <slug>            # 对已暂存包重新跑审查
+├── retry-inspection <slug>            # 对已暂存包重新跑审查
 ├── unpublish <slug>                # 下架：从公开搜索移除（非删除）→ [references/skillnav-publish.md](references/skillnav-publish.md)
 │   ├── --version VER               # 仅下架该版本（latest 不可）
-│   └── --delete                    # 移入回收站（3 天内可恢复；到期永久删除）
+│   └── --delete / --trash          # 移入回收站（保留期内可 restore；到期永久删除）
+├── restore <slug>                  # 从回收站还原（unpublish --delete 的逆操作）
 ├── republish <slug> [--version VER] # 重新上架：恢复公开（只改可见性；受审查状态约束）
 ├── status <slug> [--version VER]   # 审查状态与各版本摘要
 ├── report <slug> [--version VER]   # 完整安全/质量报告
@@ -143,10 +144,10 @@ skillnav status <slug> / report <slug>
 | `not logged in` | `skillnav login --api-key sk_…` 或 `SKILLNAV_API_KEY` |
 | `Only skill contributors can publish` | 换 slug 或让 owner 在 Web 添加 contributor |
 | `skill_in_recycle_bin` | Web 个人中心回收站先恢复 |
-| `inspection_pipeline_incomplete` | 仅 `--wait` 同步发布时；用 `skillnav retry-publish <slug>` 重试 |
-| `pending_publish_use_retry` | 包已上传，用 `skillnav retry-publish <slug>`，勿重复 publish |
+| `inspection_pipeline_incomplete` | 仅 `--wait` 同步发布时；用 `skillnav retry-inspection <slug>` 重试 |
+| `pending_publish_use_retry` | 包已上传，用 `skillnav retry-inspection <slug>`，勿重复 publish |
 | 分类报错 | 9 类之一：Automation、Developer Tools、Documentation、Productivity、Data & Analytics、Security、Design & Creative、Communication、Other |
-| 连接失败 | `skillnav config test`；registry 须为完整 API 根路径 |
+| 连接失败 | `skillnav config connect-test`；registry 须为完整 API 根路径 |
 
 ## 平台文档
 

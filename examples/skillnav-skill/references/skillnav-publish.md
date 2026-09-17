@@ -39,16 +39,16 @@ skillnav --no-input publish ./my-skill \
 | `--dry-run` | 调用 preview 接口，不写入数据库 |
 | `--wait` | 阻塞至审查结束再返回（默认仅上传并后台审查）。请求预算 **600s**，`SKILLNAV_PUBLISH_WAIT_TIMEOUT` 可覆盖 |
 
-## retry-publish — 重新审查已上传的包
+## retry-inspection — 重新审查已上传的包
 
 ```bash
-skillnav retry-publish my-skill
-skillnav retry-publish my-skill --wait
+skillnav retry-inspection my-skill
+skillnav retry-inspection my-skill --wait
 ```
 
 对已暂存但审查**中断**（`interrupted`）的 Skill 重新跑审查，**无需重新上传**。默认 **只重试失败或未完成的审查环节**（SkillSpector / VirusTotal / HaluCatch）。
 
-⚠️ 仅在 `interrupted` 时使用：若 `status` 显示 `inspecting`（VirusTotal 报告待后台补取，通常几分钟），那是**正常等待**，此时 retry-publish 会返回 409 `skill_inspection_in_progress`。
+⚠️ 仅在 `interrupted` 时使用：若 `status` 显示 `inspecting`（VirusTotal 报告待后台补取，通常几分钟），那是**正常等待**，此时 retry-inspection 会返回 409 `skill_inspection_in_progress`。
 
 ---
 
@@ -136,7 +136,7 @@ skillnav republish my-skill --version 1.0.0    # 只恢复该版本
 | 缺 metadata | 补 frontmatter 或传 CLI flag；`--no-input` 下不能交互补全 |
 | slug 无权限 | 仅 owner/contributor 可发新版 |
 | 回收站 | Web 先恢复 Skill |
-| 重复上传同版本 | `pending_publish_use_retry` → `skillnav retry-publish <slug>` |
+| 重复上传同版本 | `pending_publish_use_retry` → `skillnav retry-inspection <slug>` |
 | 限流 | `publish_rate_limited`，等待后重试 |
 | 下架 latest 版本被拒 | `cannot_unpublish_latest_version` → 改用整包下架，或先发新版本 |
 | 下架别人的 Skill | 403 → 仅 **owner** 可下架（contributor 亦不可）|

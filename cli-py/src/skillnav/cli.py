@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 from typing import Annotated, Any, Optional
 
@@ -414,27 +415,38 @@ def config_list() -> None:
         _handle_error(exc)
 
 
-@config_app.command("test")
-def config_test(
+@config_app.command("connect-test")
+def config_connect_test(
     name: Annotated[Optional[str], typer.Argument(help="Profile name (default: active)")] = None,
 ) -> None:
-    """Verify connectivity (GET /health)."""
+    """Check Registry connectivity for a profile (GET /health).
+
+    Prints which profile and Registry were actually used, so a passing check can
+    never be mistaken for "this profile points at the platform I meant".
+    """
     try:
         cli = _ctx()
         config = cli.config
         profile_name = name or cli.profile_name
         profile = get_profile(config, profile_name)
         registry = profile.get("registry") or cli.registry
+        started = time.perf_counter()
         status, body = request_json("GET", join_registry_url(registry, "/health"))
+        elapsed_ms = (time.perf_counter() - started) * 1000.0
         if status >= 400:
             hint = enrich_api_error(api_error_message(body), status=status, body=body)
             raise SkillnavError(hint.summary, hint=hint)
         if cli.json_output:
             emit_json(body)
         else:
-            typer.echo(f"OK: {registry} (profile={profile_name})")
+            typer.echo(f"OK  {profile_name} → {registry}  (HTTP {status}, {elapsed_ms:.0f} ms)")
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
+
+
+# The command only ever checked connectivity, so the original `test` name read
+# like a config-file validator it never was. Keep it working as a hidden alias.
+config_app.command("test", hidden=True)(config_connect_test)
 
 
 # --- auth ---
@@ -657,7 +669,7 @@ PUBLISH_WAIT_TIMEOUT_SECONDS = 600.0
 
 
 def _publish_timeout(*, wait: bool) -> float:
-    """Request timeout for publish / retry-publish.
+    """Request timeout for publish / retry-inspection.
 
     A synchronous publish must outlive the server-side pipeline, otherwise the
     client gives up before the server can report the real outcome. Override the
@@ -782,8 +794,8 @@ def publish_cmd(
         _handle_error(exc)
 
 
-@app.command("retry-publish")
-def retry_publish_cmd(
+@app.command("retry-inspection")
+def retry_inspection_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
     wait: Annotated[
         bool,
@@ -813,6 +825,12 @@ def retry_publish_cmd(
         _print_publish_response(status, payload, waited=wait)
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
+
+
+# The command only re-runs inspection on an already-stored package. The original
+# "retry-publish" name read like it re-uploaded or re-listed it, so it stays as a
+# hidden alias for scripts and agent prompts that already use it.
+app.command("retry-publish", hidden=True)(retry_inspection_cmd)
 
 
 # --- download / install ---
@@ -1105,9 +1123,11 @@ def unpublish_cmd(
         bool,
         typer.Option(
             "--delete",
+            "--trash",
             help=(
-                "Move the skill to the recycle bin (restorable for 3 days, then"
-                " permanently deleted) instead of only unpublishing it"
+                "Move the skill to the recycle bin (bring it back with"
+                " 'skillnav restore <slug>' before the retention window ends)"
+                " instead of only unpublishing it"
             ),
         ),
     ] = False,
@@ -1209,9 +1229,9 @@ def republish_cmd(
 ) -> None:
     """Re-list an unpublished skill (or version) in public search.
 
-    The counterpart of `unpublish`: it only flips visibility back. It cannot be
-    used to bypass review — the server refuses while an inspection is running,
-    interrupted or rejected.
+    The counterpart of `unpublish`: it only flips visibility back, and only for
+    a skill whose review already passed. Use `retry-inspection` when a review was
+    interrupted or failed, and `restore` for a skill in the recycle bin.
     """
     try:
         cli = _ctx()
@@ -1247,6 +1267,42 @@ def republish_cmd(
             return
         target = f"{slug}@{version}" if version else slug
         typer.echo(f"Republished: {target} — it is listed in public search again.")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
+@app.command("restore")
+def restore_cmd(
+    slug: Annotated[str, typer.Argument(help="Skill slug")],
+) -> None:
+    """Bring a skill back out of the recycle bin.
+
+    The counterpart of `unpublish --delete`. A slug in the bin is still on the
+    server but off the registry, and it is purged automatically once the
+    retention window ends — so restoring is only possible before that.
+    """
+    try:
+        cli = _ctx()
+        token = cli.require_token()
+        status, payload = request_json(
+            "POST",
+            join_registry_url(cli.registry, f"/skills/{slug_path(slug)}/restore"),
+            token=token,
+        )
+        raise_for_api_status(status, payload)
+
+        skill = payload.get("skill") if isinstance(payload, dict) else None
+        published = skill.get("published") if isinstance(skill, dict) else None
+        if cli.json_output:
+            emit_json({"slug": slug, "action": "restored", "published": published})
+            return
+        if published is False:
+            typer.echo(
+                f"Restored: {slug} — out of the recycle bin, but not in public search. "
+                f"Re-list it: skillnav republish {slug}"
+            )
+            return
+        typer.echo(f"Restored: {slug} — out of the recycle bin and back in public search.")
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
 

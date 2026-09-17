@@ -457,13 +457,13 @@ echo "  -> Registry API: $REGISTRY_URL"
 echo "  -> profile:      $PROFILE_NAME"
 
 # 创建/复用目标 profile（已存在时保持幂等，详见函数内注释）
-# `|| true`：脚本带 set -e，配置失败不应中断安装——连通性由下面的 config test 判定
+# `|| true`：脚本带 set -e，配置失败不应中断安装——连通性由下面的 config connect-test 判定
 skillnav_config_add_profile "$PROFILE_NAME" "$REGISTRY_URL" || true
 skillnav config use "$PROFILE_NAME" 2>/dev/null || true
 
 # 测试连通性
 echo "  -> 正在测试与平台的连通性..."
-if skillnav config test; then
+if skillnav config connect-test; then
     echo "  ✅ Registry 连通正常。"
 else
     REGISTRY_OK=0

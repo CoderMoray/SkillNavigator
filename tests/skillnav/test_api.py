@@ -17,7 +17,7 @@ def test_request_bytes_timeout_is_not_reported_as_unreachable() -> None:
 
     The API answered nothing in time, but the server keeps working (a long
     inspection may still finish), so the hint has to say "check status /
-    retry-publish" instead of "start the API".
+    retry-inspection" instead of "start the API".
     """
     with patch("skillnav.api._OPENER.open", side_effect=TimeoutError("timed out")):
         with pytest.raises(NetworkError) as exc_info:
@@ -28,7 +28,7 @@ def test_request_bytes_timeout_is_not_reported_as_unreachable() -> None:
     assert "timed out" in err.message.casefold()
     assert "Cannot reach" not in err.message
     assert any("status" in step for step in err.next_steps)
-    assert any("retry-publish" in step for step in err.next_steps)
+    assert any("retry-inspection" in step for step in err.next_steps)
 
 
 def test_request_bytes_wrapped_socket_timeout_reports_the_budget() -> None:

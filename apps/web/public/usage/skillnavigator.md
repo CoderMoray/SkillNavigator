@@ -1,8 +1,8 @@
-# MonoSkillNavigator 安装与 Registry 配置
+# SkillNavigator 安装与 Registry 配置
 
 ## 概述
 
-MonoSkillNavigator 是 Agent Skill 的发布、审查与分发平台。通过 **skillnav** CLI 连接平台，完成搜索、安装与发布。Registry 连接方式与 Agent 工作流准则已内联，Agent 读取本文档即感知。
+SkillNavigator 是 Agent Skill 的发布、审查与分发平台。通过 **skillnav** CLI 连接平台，完成搜索、安装与发布。Registry 连接方式与 Agent 工作流准则已内联，Agent 读取本文档即感知。
 
 ## 适用场景（先判断，避免打扰用户）
 
@@ -14,28 +14,28 @@ MonoSkillNavigator 是 Agent Skill 的发布、审查与分发平台。通过 **
 ```bash
 command -v skillnav && skillnav --version   # 是否已安装 + 当前版本
 skillnav update --check                     # 是否有新版本
-skillnav config test                        # Registry 连通性（测的是「当前默认 profile」）
+skillnav config connect-test                        # Registry 连通性（测的是「当前默认 profile」）
 ```
 
-⚠️ **`config test` 返回 OK 只代表"当前默认 profile 可达"，不代表"已连接本平台"** —— 全新环境里 default 往往指向别的地址，同样会 OK。请继续走第二节，核对该 profile 是否指向本平台。
+⚠️ **`config connect-test` 返回 OK 只代表"当前默认 profile 可达"，不代表"已连接本平台"** —— 全新环境里 default 往往指向别的地址，同样会 OK。请继续走第二节，核对该 profile 是否指向本平台。
 
-- **已安装** → 依次执行上面三行：先确认版本，有新版本则 `skillnav update`，再 `config test`。
+- **已安装** → 依次执行上面三行：先确认版本，有新版本则 `skillnav update`，再 `config connect-test`。
   - `update --check` / `update` **失败不阻断流程**（内网、镜像不可达很常见）：把提示转述给用户，继续下一步。
 - **未安装** → 任选一种方式：
 
 **方式 A — macOS / Linux 一键脚本（推荐）**
 
 ```bash
-curl -fsSL https://localhost:3001/install | bash
+curl -fsSL （部署方未配置对外 Web 地址——请向平台维护者索取）/install | bash
 ```
 
 已有 API 密钥时可一并登录（密钥会写入 shell history，演示环境可用）：
 
 ```bash
-curl -fsSL https://localhost:3001/install | bash -s -- --api-key sk_…
+curl -fsSL （部署方未配置对外 Web 地址——请向平台维护者索取）/install | bash -s -- --api-key sk_…
 ```
 
-脚本会自动：安装 CLI（含安装后自检，依赖缺失时自动补装或重装）、修复 PATH、配置 Registry（`http://127.0.0.1:3000`）、可选登录。若 `default` profile 已被占用（指向其它地址），脚本会提示而不覆盖，可用 `--profile <名字>` 指定新 profile 重跑。
+脚本会自动：安装 CLI（含安装后自检，依赖缺失时自动补装或重装）、修复 PATH、配置 Registry（`（部署方未配置 Registry API 地址——请向平台维护者索取）`）、可选登录。若 `default` profile 已被占用（指向其它地址），脚本会提示而不覆盖，可用 `--profile <名字>` 指定新 profile 重跑。
 
 **方式 B — 手动 pip 安装**
 
@@ -46,22 +46,22 @@ pip install skillnav
 
 > 沙箱限网时需以允许联网的权限执行 `pip` 或 `curl`。
 
-安装完成后回到本节开头，依次执行版本检查与 `config test`。
+安装完成后回到本节开头，依次执行版本检查与 `config connect-test`。
 
 ## 二、配置 Registry 与登录
 
-**先判断，能跳过就跳过**：`skillnav whoami` 成功 **且** `skillnav config test` 通过 → **整节跳过**，直接进入第三节。
+**先判断，能跳过就跳过**：`skillnav whoami` 成功 **且** `skillnav config connect-test` 通过 → **整节跳过**，直接进入第三节。
 
-> `config test` 不带参数时测试**当前默认 profile**（`defaultProfile` 指向的那个）；如需测试其他 profile，先 `skillnav config use <name>` 切换（或用 `skillnav config test <name>` 指定）。多 profile 环境下请先 `skillnav config list` 确认它指向 `http://127.0.0.1:3000`，否则可能把"另一个 registry 通"误判成"本平台已就绪"。
+> `config connect-test` 不带参数时测试**当前默认 profile**（`defaultProfile` 指向的那个）；如需测试其他 profile，先 `skillnav config use <name>` 切换（或用 `skillnav config connect-test <name>` 指定）。多 profile 环境下请先 `skillnav config list` 确认它指向 `（部署方未配置 Registry API 地址——请向平台维护者索取）`，否则可能把"另一个 registry 通"误判成"本平台已就绪"。
 
-否则按下面顺序处理。**不要询问「是否将 MonoSkillNavigator 设为默认平台」**——本指引来自平台首页的一键复制，意图已经明确，直接执行：
+否则按下面顺序处理。**不要询问「是否将 SkillNavigator 设为默认平台」**——本指引来自平台首页的一键复制，意图已经明确，直接执行：
 
 1. **先看已有配置**：`skillnav config list`
-   - 若其中**已有 profile 的 registry 指向 `http://127.0.0.1:3000`**（不论 profile 叫什么名字）→ **复用它**，不要新建；尚非默认时执行 `skillnav config use <name>`。
-   - 若没有 → **新建**：profile 名取 `MonoSkillNavigator` 的 slug 形式。命名规则：**转小写，驼峰词边界与其它非字母数字字符都转 `-`**（例：`MonoSkillNavigator` → `monoskill-navigator`）；与现有 profile 重名时追加 `-2`、`-3`（例：`monoskill-navigator-2`）：
+   - 若其中**已有 profile 的 registry 指向 `（部署方未配置 Registry API 地址——请向平台维护者索取）`**（不论 profile 叫什么名字）→ **复用它**，不要新建；尚非默认时执行 `skillnav config use <name>`。
+   - 若没有 → **新建**：profile 名取 `SkillNavigator` 的 slug 形式。命名规则：**转小写，驼峰词边界与其它非字母数字字符都转 `-`**（例：`MonoSkillNavigator` → `monoskill-navigator`）；与现有 profile 重名时追加 `-2`、`-3`（例：`monoskill-navigator-2`）：
    
    ```bash
-   skillnav config add <profile 名> --registry http://127.0.0.1:3000
+   skillnav config add <profile 名> --registry （部署方未配置 Registry API 地址——请向平台维护者索取）
    skillnav config use <profile 名>
    ```
 2. **两条禁令 + 一条澄清**：
@@ -80,13 +80,13 @@ pip install skillnav
 
 ### Registry 与 API 密钥
 
-1. Registry API 地址：**http://127.0.0.1:3000**（本实例的 Registry API，下方命令已填入，无需向用户询问）。
-2. 引导用户在 Web **设置 → API 密钥**（https://localhost:3001）创建 `sk_…`，然后执行：
+1. Registry API 地址：**（部署方未配置 Registry API 地址——请向平台维护者索取）**（本实例的 Registry API，下方命令已填入，无需向用户询问）。
+2. 引导用户在 Web **设置 → API 密钥**（（部署方未配置对外 Web 地址——请向平台维护者索取））创建 `sk_…`，然后执行：
 
 ```bash
 skillnav login --api-key sk_…     # 在已选定的 profile 上登录（换 profile 用 --profile 或先 config use）
 skillnav whoami
-skillnav config test
+skillnav config connect-test
 ```
 
 **安全**：勿向用户回显完整密钥；勿将 `sk_…` 写入 Git、日志或 Skill 包。
@@ -110,8 +110,8 @@ skillnav download <slug> -o <输出.zip>              # 仅下载 ZIP
 指定非默认 Registry（单次）：
 
 ```bash
-skillnav --registry http://127.0.0.1:3000 search <关键词>
-skillnav --registry http://127.0.0.1:3000 install <slug> --dir <skills 目录>/<slug>
+skillnav --registry （部署方未配置 Registry API 地址——请向平台维护者索取） search <关键词>
+skillnav --registry （部署方未配置 Registry API 地址——请向平台维护者索取） install <slug> --dir <skills 目录>/<slug>
 ```
 
 ## 四、安装目录
@@ -130,7 +130,7 @@ skillnav install skillnav-skill --dir <skills 目录>/skillnav-skill
 
 ## 六、创建一个平台 Agent
 
-以本平台的系统提示词（`https://localhost:3001/usage/platform-agent-prompt.md`）为准则，视当前环境创建一个"平台 Agent"，用于 Skill 的发布 / 审查 / 安装。
+以本平台的系统提示词（`（部署方未配置对外 Web 地址——请向平台维护者索取）/usage/platform-agent-prompt.md`）为准则，视当前环境创建一个"平台 Agent"，用于 Skill 的发布 / 审查 / 安装。
 
 **它需要具备的能力**（描述能力，不限实现形态）：
 
@@ -152,7 +152,7 @@ skillnav install skillnav-skill --dir <skills 目录>/skillnav-skill
 > 当前环境不支持创建独立 Agent。你可以任选一种：
 >
 > 1. 让**本次会话**按该 Agent 的行为准则工作 —— 我这就照它执行；
-> 2. 若你的客户端支持自定义系统提示词，把 `https://localhost:3001/usage/platform-agent-prompt.md` 的内容粘贴进去（**该地址不可达时**，打开网页 `https://localhost:3001/docs/platform-agent-prompt` 手动复制）；
+> 2. 若你的客户端支持自定义系统提示词，把 `（部署方未配置对外 Web 地址——请向平台维护者索取）/usage/platform-agent-prompt.md` 的内容粘贴进去（**该地址不可达时**，打开网页 `（部署方未配置对外 Web 地址——请向平台维护者索取）/docs/platform-agent-prompt` 手动复制）；
 > 3. 直接继续：`skillnav` CLI 已可用，我可以直接帮你搜索 / 安装 / 发布。
 
 **工具 / MCP 配置要求**：
@@ -174,7 +174,7 @@ skillnav status <slug>          # 版本摘要：Verdict / Inspection status / S
 skillnav report <slug>          # 完整安全/质量报告
 ```
 
-发布后若 `status` 显示 `inspectionStatus: inspecting`（阶段 `virustotal: processing`），表示 VirusTotal 报告正在后台补取（通常几分钟）——这是**正常等待**：不要 `retry-publish`（会返回 409 `skill_inspection_in_progress`），也不要重复上传同版本；补齐后会自动判定并公开。只有 `interrupted` 才用 `retry-publish`。
+发布后若 `status` 显示 `inspectionStatus: inspecting`（阶段 `virustotal: processing`），表示 VirusTotal 报告正在后台补取（通常几分钟）——这是**正常等待**：不要 `retry-inspection`（会返回 409 `skill_inspection_in_progress`），也不要重复上传同版本；补齐后会自动判定并公开。只有 `interrupted` 才用 `retry-inspection`。
 
 **下架（用户要求时）**：
 
@@ -194,11 +194,13 @@ skillnav republish <slug>                    # 恢复整个 Skill 到公开搜�
 skillnav republish <slug> --version <版本>    # 只恢复某个版本
 ```
 
-`unpublish` 的逆操作：只改可见性，不产生新版本、不改版本历史（同样仅 **owner** 可执行）。⚠️ **不能用来绕过审查**——审查中 / 审查中断 / 被拒绝时服务端会拒绝（`skill_republish_blocked_*`），需先 `retry-publish` 或发新版本。**写操作，须用户明确要求后再执行。**
+`unpublish` 的逆操作：只改可见性，不产生新版本、不改版本历史（同样仅 **owner** 可执行）。⚠️ **不能用来绕过审查**——审查中 / 审查中断 / 被拒绝时服务端会拒绝（`skill_republish_blocked_*`），需先 `retry-inspection` 或发新版本。**写操作，须用户明确要求后再执行。**
+
+`restore` 是 `unpublish --delete` 的逆操作：把回收站里的 Skill 取回来（`skillnav restore <slug>`，仅 **owner** 可执行）。回收站有保留期，到期会自动永久删除，因此要在保留期内恢复。恢复只清除删除状态、**不改变原有可见性**——若恢复后仍不在公开列表中，再用 `republish` 重新上架。**写操作，须用户明确要求后再执行。**
 
 ## 文档
 
-- CLI 全流程：https://localhost:3001/docs/cli-guide
-- 平台 Agent 系统提示词（可 `curl` 的原文）：https://localhost:3001/usage/platform-agent-prompt.md
-- 平台 Agent 系统提示词（网页）：https://localhost:3001/docs/platform-agent-prompt
-- Skill 格式规范：https://localhost:3001/docs/skill-format
+- CLI 全流程：（部署方未配置对外 Web 地址——请向平台维护者索取）/docs/cli-guide
+- 平台 Agent 系统提示词（可 `curl` 的原文）：（部署方未配置对外 Web 地址——请向平台维护者索取）/usage/platform-agent-prompt.md
+- 平台 Agent 系统提示词（网页）：（部署方未配置对外 Web 地址——请向平台维护者索取）/docs/platform-agent-prompt
+- Skill 格式规范：（部署方未配置对外 Web 地址——请向平台维护者索取）/docs/skill-format

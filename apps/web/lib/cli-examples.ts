@@ -56,7 +56,7 @@ export function skillnavAgentInstallPrompt(): string {
     "",
     "【登录】先确认已登录：skillnav whoami；未登录时引导用户在 Web「设置 → API 密钥」创建 Key，然后执行：",
     `  1. ${login}`,
-    "  2. skillnav config test",
+    "  2. skillnav config connect-test",
     "  勿向用户索要或回显完整密钥（sk_…）。",
     "",
     "【常用操作】",

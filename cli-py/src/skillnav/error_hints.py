@@ -88,7 +88,7 @@ def request_timed_out(timeout: float, *, registry: str | None = None) -> ErrorHi
         ),
         next_steps=_steps(
             "Check the server side before retrying: skillnav status <slug>",
-            "If the inspection is incomplete or interrupted: skillnav retry-publish <slug>",
+            "If the inspection is incomplete or interrupted: skillnav retry-inspection <slug>",
             "Do not re-upload the same version to work around a timeout.",
             "For `publish --wait`, raise the wait budget in seconds: SKILLNAV_PUBLISH_WAIT_TIMEOUT=900",
         ),
@@ -132,15 +132,15 @@ def enrich_api_error(raw: str, *, status: int, body: Any = None) -> ErrorHint:
             detail="The version is still being reviewed, so there is no verdict to publish yet.",
             next_steps=_steps(
                 "Wait for the review to finish: skillnav status <slug>",
-                "Then retry: skillnav republish <slug>",
+                "If it is still hidden after it passes, re-list it: skillnav republish <slug>",
             ),
         ),
         "skill_republish_blocked_inspection_failed": ErrorHint(
             summary="Cannot republish an interrupted inspection",
             detail="Republishing would skip review, which the platform does not allow.",
             next_steps=_steps(
-                "Rerun the review first: skillnav retry-publish <slug>",
-                "Then republish: skillnav republish <slug>",
+                "Rerun the review first: skillnav retry-inspection <slug>",
+                "Once it passes, re-list the skill: skillnav republish <slug>",
             ),
         ),
         "skill_republish_blocked_inspection_rejected": ErrorHint(
@@ -187,8 +187,16 @@ def enrich_api_error(raw: str, *, status: int, body: Any = None) -> ErrorHint:
             summary="Skill is in the recycle bin",
             detail="Publishing is blocked while the skill slug is soft-deleted.",
             next_steps=_steps(
-                "Open the Web UI recycle bin and restore the skill.",
-                "Retry: skillnav publish <package>",
+                "Restore it from the recycle bin: skillnav restore <slug>",
+                "Then retry: skillnav publish <package>",
+            ),
+        ),
+        "skill_not_in_recycle_bin": ErrorHint(
+            summary="Skill is not in the recycle bin",
+            detail="There is nothing to restore for this slug — it may already be restored.",
+            next_steps=_steps(
+                "Check the current state: skillnav status <slug>",
+                "If it is only unpublished, re-list it: skillnav republish <slug>",
             ),
         ),
         "Only skill contributors can publish new versions": ErrorHint(
@@ -203,19 +211,19 @@ def enrich_api_error(raw: str, *, status: int, body: Any = None) -> ErrorHint:
             summary="Inspection pipeline incomplete (503)",
             detail="SkillSpector, VirusTotal, or HaluCatch did not finish. The server marks this as retryable.",
             next_steps=_steps(
-                "The package may already be saved — retry inspection: skillnav retry-publish <slug>",
+                "The package may already be saved — retry inspection: skillnav retry-inspection <slug>",
                 "Wait a few seconds and retry, or check progress: skillnav status <slug>",
                 "If it persists, check API logs and inspection-engine dependencies (Python, SkillSpector, HaluCatch).",
             ),
         ),
         "pending_publish_use_retry": ErrorHint(
-            summary="Package already uploaded — use retry-publish",
+            summary="Package already uploaded — use retry-inspection",
             detail=(
                 "This slug@version has a stored package from a previous upload. "
                 "Re-uploading is blocked; run inspection again on the saved package."
             ),
             next_steps=_steps(
-                "Retry inspection: skillnav retry-publish <slug>",
+                "Retry inspection: skillnav retry-inspection <slug>",
                 "Inspect state: skillnav status <slug>",
                 "To upload changed files, bump the version in SKILL.md or pass --version.",
             ),
