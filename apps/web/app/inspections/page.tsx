@@ -237,7 +237,7 @@ export default function InspectionsPage() {
               Audits
             </span>
             <h1>审查中心</h1>
-            <p>按 Skill 汇总最新版本的发布时间与 SkillSpector 安全分（100 − 风险分）、HaluCatch 质量分。</p>
+            <p>各 Skill 最新版本的发布时间与安全、质量评分一览。</p>
           </div>
         </section>
 
