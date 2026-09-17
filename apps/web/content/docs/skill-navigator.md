@@ -31,7 +31,7 @@ Skill 详情（`GET /skills/:slug`）及 CLI `--json` 输出中，与审查相�
 | `versions[ver].inspection` | 该版本的完整审查报告（verdict、findings、SkillSpector / VirusTotal 摘要等） |
 | `versions[ver].status` | 版本 verdict：`published` / `needs-inspection` / `rejected` |
 
-**同步**发布（CLI `publish --wait`）未完成时，API 返回错误码 `inspection_pipeline_incomplete`（503，是错误码不是状态值）；审查被新版本取代时为 `inspection_superseded`（409）；对仍在 `inspecting` 的版本调用 `retry-publish` 会返回 `skill_inspection_in_progress`（409）。
+**同步**发布（CLI `publish --wait`）未完成时，API 返回错误码 `inspection_pipeline_incomplete`（503，是错误码不是状态值）；审查被新版本取代时为 `inspection_superseded`（409）；对仍在 `inspecting` 的版本调用 `retry-inspection` 会返回 `skill_inspection_in_progress`（409）。
 
 ## 你在 Web 上能做什么
 
@@ -50,7 +50,7 @@ Skill 详情（`GET /skills/:slug`）及 CLI `--json` 输出中，与审查相�
 - **安全**：以 SkillSpector 的 **包级风险分 / 风险等级 / 安装建议**、VirusTotal 检出摘要与 **按类别合并的 finding**（malicious / suspicious 各至多一条）为准（见 [安全检测](./security-scan.md)）。
 - **质量**：以 **HaluCatch 五维雷达** 与 Markdown 报告为准（见 [质量审查](./halucatch-inspection.md)）。
 - **发布状态（verdict）**：**已发布** 表示无 finding；**需复核** 表示有 finding 但未触发 SkillSpector/VirusTotal 自动拒绝；**已拒绝** 表示命中 high 级或 SkillSpector 高置信度 medium 规则，且 **不会出现在公开搜索**（拥有者仍可在个人中心看到，详见 [发布流程](./publish-workflow.md)）。
-- **审查状态（inspectionStatus）**：**审查中（inspecting）** 表示仍在等 VirusTotal 补取报告（正常等待，通常几分钟）；**审查中断（interrupted）** 表示某环节未成功完成；**审查完成（completed）** 与 **审查拒绝（rejected）** 表示流水线已跑完（rejected 即未通过）。中断时包 **通常已暂存**，在详情页 **重试失败环节** 或 CLI `retry-publish` 即可，无需重新上传。
+- **审查状态（inspectionStatus）**：**审查中（inspecting）** 表示仍在等 VirusTotal 补取报告（正常等待，通常几分钟）；**审查中断（interrupted）** 表示某环节未成功完成；**审查完成（completed）** 与 **审查拒绝（rejected）** 表示流水线已跑完（rejected 即未通过）。中断时包 **通常已暂存**，在详情页 **重试失败环节** 或 CLI `retry-inspection` 即可，无需重新上传。
 
 ## 技术说明（简要）
 

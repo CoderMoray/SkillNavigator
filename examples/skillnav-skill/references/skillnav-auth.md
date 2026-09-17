@@ -27,11 +27,11 @@ skillnav config add embed --registry https://host/SkillNavigator/api
 ```bash
 skillnav config use prod
 skillnav config list
-skillnav config test          # 默认 profile
-skillnav config test prod     # 指定 profile
+skillnav config connect-test          # 默认 profile
+skillnav config connect-test prod     # 指定 profile
 ```
 
-`config test` 调用 `GET {registry}/health` 验证连通性。
+`config connect-test` 调用 `GET {registry}/health` 验证连通性。
 
 配置文件：`~/.config/skillnav/config.json`（权限 `0600`）。
 

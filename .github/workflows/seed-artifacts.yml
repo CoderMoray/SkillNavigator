@@ -1,0 +1,56 @@
+name: Seed artifacts
+
+# 种子审查工件（examples/seed-inspections/*.json）绑定了对应 Skill 的 contentHash，
+# 改了 Skill 内容而忘了重新生成时，只有别人跑 `npm run setup` 才会报错 ——
+# 那时改动的人早已不在场，也看不出这个报错和某次编辑的关系（本轮就发生过两次，
+# 两次都靠人提醒才发现）。
+#
+# 校验离线且廉价：只读包、比哈希，不消耗 VirusTotal 配额。真正重新生成工件仍需
+# 人工在有外网 + VIRUSTOTAL_API_KEY + SkillSpector 的机器上执行 seed-inspection.mjs。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "examples/skillnav-skill/**"
+      - "examples/demo-skill/**"
+      - "examples/seed-inspections/**"
+      - "scripts/seed-artifact.mjs"
+      - "scripts/seed-inspection.mjs"
+      - "scripts/verify-seed-artifacts.mjs"
+      - "packages/skill-spec/**"
+      - ".github/workflows/seed-artifacts.yml"
+  pull_request:
+    paths:
+      - "examples/skillnav-skill/**"
+      - "examples/demo-skill/**"
+      - "examples/seed-inspections/**"
+      - "scripts/seed-artifact.mjs"
+      - "scripts/seed-inspection.mjs"
+      - "scripts/verify-seed-artifacts.mjs"
+      - "packages/skill-spec/**"
+      - ".github/workflows/seed-artifacts.yml"
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 依赖里有包声明 node >=22.19（@earendil-works/pi-*），用 20 会刷一堆
+          # EBADENGINE；22 也顺带避开 20 的 deprecated 提示。
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        # 这里不能用 `npm ci`：仓库当前的 package-lock.json 与 package.json 存在
+        # 既有不一致（缺 @emnapi/runtime@1.11.3），`npm ci` 会直接以 EUSAGE 退出，
+        # 与本次校验无关。本任务只需要 workspace 链接可用，`npm install` 足够，
+        # 且它写回的 lock 只存在于 runner 上，不影响仓库。
+        run: npm install --no-audit --no-fund
+
+      - name: Verify seed artifacts match their Skill packages
+        run: npm run verify:seed-artifacts

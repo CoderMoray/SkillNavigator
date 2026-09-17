@@ -157,7 +157,7 @@ def test_dry_run_never_needs_the_pipeline_budget(
     assert captured["timeout"] == cli.PUBLISH_UPLOAD_TIMEOUT_SECONDS
 
 
-def test_retry_publish_wait_uses_the_long_budget(
+def test_retry_inspection_wait_uses_the_long_budget(
     runner: CliRunner,
     isolated_config: Path,
     tmp_path: Path,
@@ -166,7 +166,7 @@ def test_retry_publish_wait_uses_the_long_budget(
     _login(isolated_config)
     captured = _stub_network_and_package(monkeypatch, tmp_path)
 
-    result = runner.invoke(app, ["--json", "retry-publish", "demo-skill", "--wait"])
+    result = runner.invoke(app, ["--json", "retry-inspection", "demo-skill", "--wait"])
 
     assert result.exit_code == 0
     assert captured["url"].endswith("/skills/demo-skill/retry-publish")

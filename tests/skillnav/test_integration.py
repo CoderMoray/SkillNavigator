@@ -31,8 +31,8 @@ def api_available() -> bool:
 pytestmark = pytest.mark.skipif(not api_available(), reason="API not running at SKILLNAV_TEST_REGISTRY")
 
 
-def test_config_test(runner: CliRunner, isolated_config: Path) -> None:
-    result = runner.invoke(app, ["--registry", API, "config", "test"])
+def test_config_connect_test(runner: CliRunner, isolated_config: Path) -> None:
+    result = runner.invoke(app, ["--registry", API, "config", "connect-test"])
     assert result.exit_code == 0, cli_output(result)
     assert "OK" in result.stdout
 

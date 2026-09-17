@@ -52,7 +52,7 @@ pip install -e "cli-py[dev]"
 skillnav --version
 # skillnav 0.4.13
 
-skillnav config test
+skillnav config connect-test
 # 默认连接 http://127.0.0.1:3000，输出 registry 健康检查结果
 ```
 
@@ -114,7 +114,7 @@ CLI 发布需要 API 密钥，密钥与 Web 登录账户绑定。若你还没有
 ```bash
 skillnav config add prod --registry https://your-api.example.com
 skillnav config use prod
-skillnav config test
+skillnav config connect-test
 ```
 
 也可临时用全局参数，不写入配置：
@@ -253,6 +253,18 @@ skillnav publish ./my-first-skill \
 
 ---
 
+### 5.2 检查 slug 是否可用（可选）
+
+如果 slug 已被占用，发布要等到上传结束才会失败。提前确认可以少走一趟：
+
+```bash
+skillnav check-slug my-skill
+```
+
+- `Available` → 可以发布；
+- `Taken ... belongs to an existing skill` → 已被在架 Skill 占用，换个 slug，或确认自己有权限为它发新版；
+- `Taken ... is in the recycle bin` → 只是被回收站里的 Skill 持有，可 `skillnav restore <slug>` 取回改名，或用 `skillnav trash purge <slug>` 永久删除来释放。
+
 ## 6. 正式发布
 
 确认预检通过后：
@@ -285,9 +297,9 @@ skillnav status my-first-skill             # 查看审查进度
 3. VirusTotal 扫描（若平台已配置）  
 4. HaluCatch 五维质量评估（若平台已配置）  
 
-**默认（无 `--wait`）**：上传成功即返回 **202**，包已暂存；审查在后台进行。用 `skillnav status <slug>` 查看进度。**VirusTotal 报告默认也由后台补取**：上传后该阶段为 `processing`、整体 `inspecting`（仅拥有者可见，通常几分钟），补齐后自动判定——这是**等待而非失败**，不要 `retry-publish`（此时会返回 409 `skill_inspection_in_progress`）。若某环节确实失败，Skill 标记为 `interrupted`（旧数据里的 `failed` 会被归一化为它），可用 `skillnav retry-publish <slug>` 重试，无需重新上传。
+**默认（无 `--wait`）**：上传成功即返回 **202**，包已暂存；审查在后台进行。用 `skillnav status <slug>` 查看进度。**VirusTotal 报告默认也由后台补取**：上传后该阶段为 `processing`、整体 `inspecting`（仅拥有者可见，通常几分钟），补齐后自动判定——这是**等待而非失败**，不要 `retry-inspection`（此时会返回 409 `skill_inspection_in_progress`）。若某环节确实失败，Skill 标记为 `interrupted`（旧数据里的 `failed` 会被归一化为它），可用 `skillnav retry-inspection <slug>` 重试，无需重新上传。
 
-**使用 `--wait` 时**：仅当所有已启用环节均成功完成，CLI 才以 **201** 返回完整 verdict；任一环节失败会返回 `inspection_pipeline_incomplete`（503），此时可 `skillnav retry-publish <slug>`。`--wait`（含 `retry-publish --wait`）的请求预算为 **600 秒**（默认 120s），可用 `SKILLNAV_PUBLISH_WAIT_TIMEOUT` 覆盖——流水线里含 VT 排队时耗时会接近这个量级。若客户端先超时，报错会明确写作 `Request timed out after <N>s`（与「无法连接 API」是两条不同的提示），请改用 `status` / `retry-publish` 查服务端结果，**不要**重复上传同版本。
+**使用 `--wait` 时**：仅当所有已启用环节均成功完成，CLI 才以 **201** 返回完整 verdict；任一环节失败会返回 `inspection_pipeline_incomplete`（503），此时可 `skillnav retry-inspection <slug>`。`--wait`（含 `retry-inspection --wait`）的请求预算为 **600 秒**（默认 120s），可用 `SKILLNAV_PUBLISH_WAIT_TIMEOUT` 覆盖——流水线里含 VT 排队时耗时会接近这个量级。若客户端先超时，报错会明确写作 `Request timed out after <N>s`（与「无法连接 API」是两条不同的提示），请改用 `status` / `retry-inspection` 查服务端结果，**不要**重复上传同版本。
 
 上传成功后，CLI 会提示 slug 与版本；`author` 字段会自动写入当前登录用户名。
 
@@ -297,7 +309,7 @@ skillnav status my-first-skill             # 查看审查进度
 skillnav unpublish my-first-skill              # 交互确认（显示影响，y/N）
 skillnav --no-input unpublish my-first-skill   # 自动化 / CI：跳过确认
 skillnav unpublish my-first-skill --version 1.0.0   # 只下架某个版本（latest 不可）
-skillnav unpublish my-first-skill --delete     # 移入回收站（3 天内可恢复；到期永久删除）
+skillnav unpublish my-first-skill --delete     # 移入回收站（--trash 等价；保留期内可恢复，到期永久删除）
 ```
 
 仅 **owner** 可执行（contributor 与其他人均返回 403）；下架后 `skillnav status <slug>` 显示 `Published: no (private)`。
@@ -309,7 +321,7 @@ skillnav republish my-first-skill                    # 恢复整个 Skill 到公
 skillnav republish my-first-skill --version 1.0.0    # 只恢复某个版本
 ```
 
-⚠️ **不能用来绕过审查**：审查中 / 审查中断 / 已被拒绝时服务端会拒绝（`skill_republish_blocked_*`），需先 `retry-publish` 或发新版本。被拒后想重新公开的正确路径是**修 finding → 发新版本**。
+⚠️ **不能用来绕过审查**：审查中 / 审查中断 / 已被拒绝时服务端会拒绝（`skill_republish_blocked_*`），需先 `retry-inspection` 或发新版本。被拒后想重新公开的正确路径是**修 finding → 发新版本**。
 
 ---
 
@@ -373,8 +385,8 @@ skillnav --json --no-input publish ./my-first-skill ...
 
 **流水线尚未结束** 分两种情况，处理方式**完全不同**：
 
-- **仍在等 VirusTotal 报告**（`inspectionStatus: inspecting`，阶段 `virustotal: processing`）：**正常等待**，不需要任何操作——报告由后台每 5 分钟补取，补齐后自动重新判定 verdict 并公开。**不要** `retry-publish`（此时返回 409 `skill_inspection_in_progress`），也不要重复上传同版本。
-- **审查中断**（`inspectionStatus: interrupted`）：包 **通常已暂存** 于服务端。使用 **`skillnav retry-publish <slug>`** 重试审查（默认只重跑失败或未完成的环节），**不要**对同版本重复 `publish`（可能得到 `pending_publish_use_retry`）。仅在使用 **`publish --wait`** 同步等待时，失败会以 `inspection_pipeline_incomplete`（503）返回，处理方式相同。
+- **仍在等 VirusTotal 报告**（`inspectionStatus: inspecting`，阶段 `virustotal: processing`）：**正常等待**，不需要任何操作——报告由后台每 5 分钟补取，补齐后自动重新判定 verdict 并公开。**不要** `retry-inspection`（此时返回 409 `skill_inspection_in_progress`），也不要重复上传同版本。
+- **审查中断**（`inspectionStatus: interrupted`）：包 **通常已暂存** 于服务端。使用 **`skillnav retry-inspection <slug>`** 重试审查（默认只重跑失败或未完成的环节），**不要**对同版本重复 `publish`（可能得到 `pending_publish_use_retry`）。仅在使用 **`publish --wait`** 同步等待时，失败会以 `inspection_pipeline_incomplete`（503）返回，处理方式相同。
 
 更多规则见 [发布流程](./publish-workflow.md)、[安全检测](./security-scan.md)、[质量审查](./halucatch-inspection.md)。
 
@@ -422,7 +434,7 @@ skillnav install my-first-skill --dir ./skills/my-first-skill
 skillnav search my-first
 ```
 
-在 Web 上，拥有者还可以管理 **contributor**、下架/上架、在 **Inspections**（页面标题「审查中心」）导出 CSV。其中 **contributor 管理**（`skillnav add-contributor` / `remove-contributor`）与**下架 / 上架**（`skillnav unpublish` / `republish`）CLI 同样支持；**Inspections 的 CSV 导出目前仅 Web 提供**。CLI 另支持评分与 Issue（`skillnav rate`、`skillnav issue`）。
+在 Web 上，拥有者还可以管理 **contributor**、下架/上架、在 **Inspections**（页面标题「审查中心」）导出 CSV。其中 **contributor 管理**（`skillnav add-contributor` / `remove-contributor`）与**下架 / 上架**（`skillnav unpublish` / `republish`）CLI 同样支持；**Inspections 的 CSV 导出目前仅 Web 提供**。CLI 另支持评分与 Issue（`skillnav rate`、`skillnav create-issue` / `skillnav list-issues`）。
 
 ---
 
@@ -431,7 +443,7 @@ skillnav search my-first
 | 场景 | 命令 |
 | --- | --- |
 | 查看帮助 | `skillnav --help` / `skillnav <命令> --help` |
-| 连接检查 | `skillnav config test` |
+| 连接检查 | `skillnav config connect-test` |
 | 登录 | `skillnav login --api-key sk_…` |
 | 当前用户 | `skillnav whoami` |
 | 预览发布 | `skillnav publish ./my-skill --dry-run` |
@@ -439,15 +451,25 @@ skillnav search my-first
 | 状态 | `skillnav status <slug>` |
 | 报告 | `skillnav report <slug> [--version VER]` |
 | 搜索 | `skillnav search <关键词>` |
-| 下架（从公开搜索移除） | `skillnav unpublish <slug>`（`--version VER` 单版本；`--delete` 入回收站）|
+| 下架（从公开搜索移除） | `skillnav unpublish <slug>`（`--version VER` 单版本；`--delete` / `--trash` 入回收站）|
 | 重新上架（恢复公开） | `skillnav republish <slug>`（`--version VER` 单版本）|
+| 发布前查 slug 是否可用 | `skillnav check-slug <slug>` |
+| 重试审查（中断/失败） | `skillnav retry-inspection <slug> [--wait]` |
+| 回收站列表 | `skillnav trash list` |
+| 从回收站取回 | `skillnav restore <slug>`（或 `skillnav trash restore <slug>`）|
+| 永久删除（不可恢复） | `skillnav trash purge <slug>` |
+| 收藏 | `skillnav bookmark add\|remove\|list` |
+| 查用户（取准确用户名） | `skillnav search-users <关键词>` |
+| 创作者列表 | `skillnav creators [关键词]` |
 | 退出登录（本地） | `skillnav logout` |
 
 **全局参数：** `--registry`、`--profile`、`--json`、`--no-input`（CI 必加，缺少输入时直接失败）。**必须写在子命令之前**，例如 `skillnav --json status <slug>`；写在子命令之后会被拒绝并提示正确位置（`--no-input` 属于全局参数，不是子命令选项）。
 
+**子命令的 `--version` 指 Skill 版本**（如 `status --version 1.2.0`），与根命令 `skillnav --version`（CLI 自身版本）不是一回事。为避免混淆，`status` / `report` / `download` / `install` / `rate` / `publish` / `unpublish` / `republish` 都接受等价的 `--skill-version`。
+
 **配置文件：** `~/.config/skillnav/config.json`（权限 `0600`，多 profile 存 `apiKey`）。
 
-**环境变量：** `SKILLNAV_REGISTRY`、`SKILLNAV_PROFILE`、`SKILLNAV_API_KEY`；`publish --wait` / `retry-publish --wait` 的等待预算可用 `SKILLNAV_PUBLISH_WAIT_TIMEOUT`（秒，默认 600）覆盖。
+**环境变量：** `SKILLNAV_REGISTRY`、`SKILLNAV_PROFILE`、`SKILLNAV_API_KEY`；`publish --wait` / `retry-inspection --wait` 的等待预算可用 `SKILLNAV_PUBLISH_WAIT_TIMEOUT`（秒，默认 600）覆盖。
 
 ---
 
@@ -463,7 +485,16 @@ skillnav search my-first
 
 ### Skill 在回收站
 
-Web 个人中心回收站中的 Skill 需先恢复，再 CLI 发布。
+被 `unpublish --delete` 移入回收站后，可以查看并取回：
+
+```bash
+skillnav trash list                   # 有哪些、各自何时过期（含剩余天数）
+skillnav restore my-skill             # 取回来（仅 owner 可执行）
+```
+
+保留期到期后服务端会自动永久删除，所以要在期限内恢复。恢复**不改变可见性**，必要时再 `republish`。若只想马上腾出该 slug，可用 `skillnav trash purge <slug>`（不可恢复）。
+
+Skill 在回收站时不能发布：用 `skillnav trash list` 查看、`skillnav restore <slug>` 取回（仅 owner），再 `publish`。
 
 ### 分类报错
 

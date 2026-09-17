@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "node ../../scripts/sync-usage-public.mjs",
+    "predev": "node ../../scripts/sync-usage-public.mjs --allow-unconfigured",
     "dev": "next dev --port 3001",
-    "prebuild": "node ../../scripts/sync-usage-public.mjs",
+    "prebuild": "node ../../scripts/sync-usage-public.mjs --strict",
     "build": "next build",
     "start": "next start --port 3001",
     "typecheck": "tsc --noEmit"

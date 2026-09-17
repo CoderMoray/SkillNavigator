@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import math
 import os
 import sys
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Any, Optional
 
@@ -186,6 +189,18 @@ app = typer.Typer(
 config_app = typer.Typer(help="Manage platform profiles.", no_args_is_help=True)
 app.add_typer(config_app, name="config")
 
+trash_app = typer.Typer(
+    help="Inspect and manage the recycle bin (soft-deleted skills).",
+    no_args_is_help=True,
+)
+app.add_typer(trash_app, name="trash")
+
+bookmark_app = typer.Typer(
+    help="Save skills for later and list them back.",
+    no_args_is_help=True,
+)
+app.add_typer(bookmark_app, name="bookmark")
+
 _state: dict[str, Any] = {}
 
 
@@ -287,7 +302,11 @@ def _print_version() -> None:
 def cli_root(
     ctx: typer.Context,
     registry: Annotated[
-        Optional[str], typer.Option("--registry", help="API base URL (overrides profile)")
+        Optional[str],
+        typer.Option(
+            "--registry",
+            help="API base URL for this run only (does not change saved profiles)",
+        ),
     ] = None,
     profile: Annotated[
         Optional[str], typer.Option("--profile", help="Platform profile name")
@@ -328,7 +347,10 @@ def cli_root(
 @config_app.command("add")
 def config_add(
     name: Annotated[str, typer.Argument(help="Profile name")],
-    registry: Annotated[str, typer.Option("--registry", help="API base URL")],
+    registry: Annotated[
+        str,
+        typer.Option("--registry", help="API base URL stored in this profile (persistent)"),
+    ],
 ) -> None:
     """Add a platform profile."""
     try:
@@ -414,25 +436,154 @@ def config_list() -> None:
         _handle_error(exc)
 
 
-@config_app.command("test")
-def config_test(
+@config_app.command("connect-test")
+def config_connect_test(
     name: Annotated[Optional[str], typer.Argument(help="Profile name (default: active)")] = None,
 ) -> None:
-    """Verify connectivity (GET /health)."""
+    """Check Registry connectivity for a profile (GET /health).
+
+    Prints which profile and Registry were actually used, so a passing check can
+    never be mistaken for "this profile points at the platform I meant".
+    """
     try:
         cli = _ctx()
         config = cli.config
         profile_name = name or cli.profile_name
         profile = get_profile(config, profile_name)
         registry = profile.get("registry") or cli.registry
+        started = time.perf_counter()
         status, body = request_json("GET", join_registry_url(registry, "/health"))
+        elapsed_ms = (time.perf_counter() - started) * 1000.0
         if status >= 400:
             hint = enrich_api_error(api_error_message(body), status=status, body=body)
             raise SkillnavError(hint.summary, hint=hint)
         if cli.json_output:
             emit_json(body)
         else:
-            typer.echo(f"OK: {registry} (profile={profile_name})")
+            typer.echo(f"OK  {profile_name} → {registry}  (HTTP {status}, {elapsed_ms:.0f} ms)")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
+# The command only ever checked connectivity, so the original `test` name read
+# like a config-file validator it never was. Keep it working as a hidden alias.
+config_app.command("test", hidden=True)(config_connect_test)
+
+
+@app.command("check-slug")
+def check_slug_cmd(
+    slug: Annotated[str, typer.Argument(help="Skill slug to check")],
+) -> None:
+    """Check whether a slug is free before publishing.
+
+    Publishing to a taken slug only fails at the end, after uploading. This
+    answers it up front and distinguishes "taken by a live skill" from "held by a
+    skill in the recycle bin", which can be restored or purged to free it.
+    """
+    try:
+        cli = _ctx()
+        status, payload = request_json(
+            "GET",
+            join_registry_url(cli.registry, f"/skills/{slug_path(slug)}/availability"),
+            token=cli.token,
+        )
+        raise_for_api_status(status, payload)
+
+        if cli.json_output:
+            emit_json(payload)
+            return
+
+        state = payload.get("status") if isinstance(payload, dict) else None
+        if state == "available":
+            typer.echo(f"Available: '{slug}' is free — publish it: skillnav publish <package>")
+            return
+        if state == "recycle_bin":
+            purge_at = payload.get("purgeAt")
+            suffix = f" (purges at {purge_at})" if purge_at else ""
+            typer.echo(f"Taken: '{slug}' is in the recycle bin{suffix}.")
+            typer.echo(
+                f"Release it by restoring and renaming, or delete it for good: "
+                f"skillnav trash purge {slug}"
+            )
+            return
+        latest = payload.get("latestVersion")
+        listed = "listed publicly" if payload.get("published") else "not listed publicly"
+        version_text = f" (latest {latest})" if latest else ""
+        typer.echo(f"Taken: '{slug}' belongs to an existing skill{version_text}, {listed}.")
+        typer.echo(f"Inspect it: skillnav info {slug}")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
+@app.command("search-users")
+def search_users_cmd(
+    query: Annotated[str, typer.Argument(help="Username or display name fragment")],
+    limit: Annotated[int, typer.Option("--limit", help="Max results (1-20)")] = 8,
+) -> None:
+    """Find users by name.
+
+    Handy before `add-contributor`, which needs an exact username — guessing it
+    wastes a round trip.
+    """
+    try:
+        cli = _ctx()
+        status, payload = request_json(
+            "GET",
+            join_registry_url(
+                cli.registry, "/users/search", {"query": query, "limit": str(limit)}
+            ),
+            token=cli.require_token(),
+        )
+        raise_for_api_status(status, payload)
+
+        raw_items = payload.get("items") if isinstance(payload, dict) else None
+        items = raw_items if isinstance(raw_items, list) else []
+        if cli.json_output:
+            emit_json({"items": items})
+            return
+        if not items:
+            typer.echo(f"No users matching '{query}'.")
+            return
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            username = item.get("username", "?")
+            display = item.get("displayName")
+            typer.echo(f"- {username}  {display}".rstrip() if display else f"- {username}")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
+@app.command("creators")
+def creators_cmd(
+    query: Annotated[Optional[str], typer.Argument(help="Filter by name or handle")] = None,
+) -> None:
+    """List skill creators, optionally filtered by name or handle."""
+    try:
+        cli = _ctx()
+        status, payload = request_json(
+            "GET",
+            join_registry_url(cli.registry, "/creators", {"query": query} if query else None),
+        )
+        raise_for_api_status(status, payload)
+
+        raw_items = payload.get("items") if isinstance(payload, dict) else None
+        items = raw_items if isinstance(raw_items, list) else []
+        if cli.json_output:
+            emit_json({"items": items})
+            return
+        if not items:
+            typer.echo("No creators found." if not query else f"No creators matching '{query}'.")
+            return
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name", "?")
+            handle = item.get("handle")
+            count = item.get("skillCount")
+            suffix = f" (@{handle})" if handle else ""
+            tally = f"  · {count} skill(s)" if isinstance(count, int) else ""
+            typer.echo(f"- {name}{suffix}{tally}")
     except Exception as exc:  # noqa: BLE001
         _handle_error(exc)
 
@@ -450,7 +601,11 @@ def login_cmd(
         ),
     ] = None,
     registry: Annotated[
-        Optional[str], typer.Option("--registry", help="Registry URL for this login")
+        Optional[str],
+        typer.Option(
+            "--registry",
+            help="Registry URL used for this login only (the profile keeps its own)",
+        ),
     ] = None,
 ) -> None:
     """Validate an API key and save it to the active profile."""
@@ -568,7 +723,11 @@ def top_cmd(
 
 @app.command("info")
 def info_cmd(slug: Annotated[str, typer.Argument(help="Skill slug")]) -> None:
-    """Show skill metadata."""
+    """Show skill metadata: name, description, versions, downloads, owner.
+
+    Use this for "what is this skill". For whether a version passed review use
+    `status`; for the findings themselves use `report`.
+    """
     try:
         cli = _ctx()
         status, body = request_json(
@@ -590,10 +749,14 @@ def status_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
     version: Annotated[
         Optional[str],
-        typer.Option("--version", help="Version to show (default: latest)"),
+        typer.Option("--version", "--skill-version", help="Skill version to show (default: latest)"),
     ] = None,
 ) -> None:
-    """Show publish and inspection status for one skill version."""
+    """Show publish and inspection status for one skill version.
+
+    Answers "is it live yet, and did the review pass". For what the review found
+    use `report`; for general metadata use `info`.
+    """
     try:
         cli = _ctx()
         status, body = request_json(
@@ -621,9 +784,16 @@ def status_cmd(
 @app.command("report")
 def report_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
-    version: Annotated[str, typer.Option("--version", help="Version (default: latest)")] = "latest",
+    version: Annotated[
+        str,
+        typer.Option("--version", "--skill-version", help="Skill version (default: latest)"),
+    ] = "latest",
 ) -> None:
-    """Show security and quality report for a version."""
+    """Show security and quality report for a version.
+
+    Use this when you need the actual findings. For a compact state summary use
+    `status`; for general metadata use `info`.
+    """
     try:
         cli = _ctx()
         status, body = request_json(
@@ -657,7 +827,7 @@ PUBLISH_WAIT_TIMEOUT_SECONDS = 600.0
 
 
 def _publish_timeout(*, wait: bool) -> float:
-    """Request timeout for publish / retry-publish.
+    """Request timeout for publish / retry-inspection.
 
     A synchronous publish must outlive the server-side pipeline, otherwise the
     client gives up before the server can report the real outcome. Override the
@@ -701,7 +871,10 @@ def _print_publish_response(status: int, payload: dict[str, Any], *, waited: boo
 @app.command("publish")
 def publish_cmd(
     package: Annotated[str, typer.Argument(help="Skill directory or .zip")],
-    version: Annotated[Optional[str], typer.Option("--version", help="SemVer version to publish")] = None,
+    version: Annotated[
+        Optional[str],
+        typer.Option("--version", "--skill-version", help="SemVer version to publish"),
+    ] = None,
     display_name: Annotated[
         Optional[str], typer.Option("--display-name", help="Display name (overrides SKILL.md name)")
     ] = None,
@@ -782,8 +955,8 @@ def publish_cmd(
         _handle_error(exc)
 
 
-@app.command("retry-publish")
-def retry_publish_cmd(
+@app.command("retry-inspection")
+def retry_inspection_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
     wait: Annotated[
         bool,
@@ -815,6 +988,12 @@ def retry_publish_cmd(
         _handle_error(exc)
 
 
+# The command only re-runs inspection on an already-stored package. The original
+# "retry-publish" name read like it re-uploaded or re-listed it, so it stays as a
+# hidden alias for scripts and agent prompts that already use it.
+app.command("retry-publish", hidden=True)(retry_inspection_cmd)
+
+
 # --- download / install ---
 
 
@@ -824,7 +1003,10 @@ def download_cmd(
     output: Annotated[
         Optional[Path], typer.Option("-o", "--output", help="Output zip path")
     ] = None,
-    version: Annotated[str, typer.Option("--version", help="Version to download")] = "latest",
+    version: Annotated[
+        str,
+        typer.Option("--version", "--skill-version", help="Skill version to download"),
+    ] = "latest",
 ) -> None:
     """Download a skill version as a zip file."""
     try:
@@ -881,7 +1063,10 @@ def install_cmd(
             ),
         ),
     ],
-    version: Annotated[str, typer.Option("--version", help="Version to install")] = "latest",
+    version: Annotated[
+        str,
+        typer.Option("--version", "--skill-version", help="Skill version to install"),
+    ] = "latest",
 ) -> None:
     """Download and extract a skill into a directory you control."""
     try:
@@ -933,7 +1118,10 @@ def rate_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
     score: Annotated[int, typer.Option("--score", help="Score from 1 to 5")],
     comment: Annotated[Optional[str], typer.Option("--comment", help="Optional comment")] = None,
-    version: Annotated[Optional[str], typer.Option("--version", help="Rated version")] = None,
+    version: Annotated[
+        Optional[str],
+        typer.Option("--version", "--skill-version", help="Skill version being rated"),
+    ] = None,
 ) -> None:
     """Rate a skill."""
     try:
@@ -958,7 +1146,7 @@ def rate_cmd(
         _handle_error(exc)
 
 
-@app.command("issue")
+@app.command("create-issue")
 def issue_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
     title: Annotated[str, typer.Option("--title", help="Issue title")],
@@ -987,7 +1175,7 @@ def issue_cmd(
         _handle_error(exc)
 
 
-@app.command("issues")
+@app.command("list-issues")
 def issues_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
     status_filter: Annotated[
@@ -1099,15 +1287,21 @@ def unpublish_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
     version: Annotated[
         Optional[str],
-        typer.Option("--version", help="Unpublish one version instead of the whole skill"),
+        typer.Option(
+            "--version",
+            "--skill-version",
+            help="Unpublish one version instead of the whole skill",
+        ),
     ] = None,
     delete: Annotated[
         bool,
         typer.Option(
             "--delete",
+            "--trash",
             help=(
-                "Move the skill to the recycle bin (restorable for 3 days, then"
-                " permanently deleted) instead of only unpublishing it"
+                "Move the skill to the recycle bin (bring it back with"
+                " 'skillnav restore <slug>' before the retention window ends)"
+                " instead of only unpublishing it"
             ),
         ),
     ] = False,
@@ -1160,6 +1354,7 @@ def unpublish_cmd(
                 purge_at = payload.get("purgeAt")
                 suffix = f" (restorable until {purge_at})." if purge_at else "."
                 typer.echo(f"Moved '{slug}' to the recycle bin{suffix}")
+                typer.echo("See what is in the bin: skillnav trash list")
             return
 
         path = (
@@ -1204,14 +1399,18 @@ def republish_cmd(
     slug: Annotated[str, typer.Argument(help="Skill slug")],
     version: Annotated[
         Optional[str],
-        typer.Option("--version", help="Republish one version instead of the whole skill"),
+        typer.Option(
+            "--version",
+            "--skill-version",
+            help="Republish one version instead of the whole skill",
+        ),
     ] = None,
 ) -> None:
     """Re-list an unpublished skill (or version) in public search.
 
-    The counterpart of `unpublish`: it only flips visibility back. It cannot be
-    used to bypass review — the server refuses while an inspection is running,
-    interrupted or rejected.
+    The counterpart of `unpublish`: it only flips visibility back, and only for
+    a skill whose review already passed. Use `retry-inspection` when a review was
+    interrupted or failed, and `restore` for a skill in the recycle bin.
     """
     try:
         cli = _ctx()
@@ -1251,6 +1450,235 @@ def republish_cmd(
         _handle_error(exc)
 
 
+@app.command("restore")
+def restore_cmd(
+    slug: Annotated[str, typer.Argument(help="Skill slug")],
+) -> None:
+    """Bring a skill back out of the recycle bin.
+
+    The counterpart of `unpublish --delete`. A slug in the bin is still on the
+    server but off the registry, and it is purged automatically once the
+    retention window ends — so restoring is only possible before that.
+    """
+    try:
+        cli = _ctx()
+        token = cli.require_token()
+        status, payload = request_json(
+            "POST",
+            join_registry_url(cli.registry, f"/skills/{slug_path(slug)}/restore"),
+            token=token,
+        )
+        raise_for_api_status(status, payload)
+
+        skill = payload.get("skill") if isinstance(payload, dict) else None
+        published = skill.get("published") if isinstance(skill, dict) else None
+        if cli.json_output:
+            emit_json({"slug": slug, "action": "restored", "published": published})
+            return
+        if published is False:
+            typer.echo(
+                f"Restored: {slug} — out of the recycle bin, but not in public search. "
+                f"Re-list it: skillnav republish {slug}"
+            )
+            return
+        typer.echo(f"Restored: {slug} — out of the recycle bin and back in public search.")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
+# --- recycle bin (trash) ---
+
+
+def _days_remaining(purge_at: Any) -> int | None:
+    """Whole days left before the server purges an entry, or None if unknown.
+
+    Rounds up, because "1 day left" is the useful reading when hours remain.
+    """
+    if not isinstance(purge_at, str) or not purge_at:
+        return None
+    try:
+        deadline = datetime.fromisoformat(purge_at.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    remaining = (deadline - datetime.now(timezone.utc)).total_seconds()
+    return max(0, math.ceil(remaining / 86400))
+
+
+@trash_app.command("list")
+def trash_list() -> None:
+    """List the skills in your recycle bin.
+
+    Entries stay restorable until their purge time; after that the server deletes
+    them permanently, so the remaining days decide how urgent each one is.
+    """
+    try:
+        cli = _ctx()
+        status, payload = request_json(
+            "GET",
+            join_registry_url(cli.registry, "/users/me/recycle-bin"),
+            token=cli.require_token(),
+        )
+        raise_for_api_status(status, payload)
+
+        raw_items = payload.get("items") if isinstance(payload, dict) else None
+        items = raw_items if isinstance(raw_items, list) else []
+        if cli.json_output:
+            emit_json(
+                {
+                    "items": [
+                        {
+                            "slug": item.get("slug"),
+                            "name": item.get("name"),
+                            "deletedAt": item.get("deletedAt"),
+                            "purgeAt": item.get("purgeAt"),
+                            "daysRemaining": _days_remaining(item.get("purgeAt")),
+                        }
+                        for item in items
+                        if isinstance(item, dict)
+                    ]
+                }
+            )
+            return
+
+        if not items:
+            typer.echo("Recycle bin is empty.")
+            return
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            days = _days_remaining(item.get("purgeAt"))
+            urgency = f"{days} day(s) left" if days is not None else "purge time unknown"
+            typer.echo(
+                f"- {item.get('slug', '?')}  ({item.get('name', '?')})  "
+                f"deleted {item.get('deletedAt', '?')}  ·  {urgency}"
+            )
+        typer.echo("")
+        typer.echo("Restore one: skillnav restore <slug>")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
+@trash_app.command("purge")
+def trash_purge(
+    slug: Annotated[str, typer.Argument(help="Skill slug")],
+) -> None:
+    """Delete one skill from the recycle bin permanently (not recoverable).
+
+    The bin purges by itself once the retention window ends; this is only for
+    reclaiming a slug immediately.
+    """
+    try:
+        cli = _ctx()
+        token = cli.require_token()
+        if not cli.no_input and not typer.confirm(
+            f"Permanently delete '{slug}'? It cannot be restored or republished afterwards.",
+            default=False,
+        ):
+            # SystemExit is a BaseException, so it passes the `except Exception`
+            # below untouched: a declined prompt is a normal outcome, not an error.
+            raise SystemExit(1)
+
+        status, payload = request_json(
+            "DELETE",
+            join_registry_url(cli.registry, f"/skills/{slug_path(slug)}/purge"),
+            token=token,
+        )
+        raise_for_api_status(status, payload)
+        if cli.json_output:
+            emit_json({"slug": slug, "action": "purged"})
+            return
+        typer.echo(f"Purged: {slug} — permanently deleted, it cannot be restored.")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
+# `restore` also exists as a top-level command; both spellings do the same thing.
+trash_app.command("restore")(restore_cmd)
+
+
+# --- bookmarks ---
+
+
+@bookmark_app.command("add")
+def bookmark_add(
+    slug: Annotated[str, typer.Argument(help="Skill slug")],
+) -> None:
+    """Save a skill to your bookmarks."""
+    try:
+        cli = _ctx()
+        status, payload = request_json(
+            "PUT",
+            join_registry_url(cli.registry, f"/skills/{slug_path(slug)}/bookmark"),
+            token=cli.require_token(),
+        )
+        raise_for_api_status(status, payload)
+        if cli.json_output:
+            emit_json({"slug": slug, "bookmarked": True})
+            return
+        typer.echo(f"Bookmarked: {slug}")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
+@bookmark_app.command("remove")
+def bookmark_remove(
+    slug: Annotated[str, typer.Argument(help="Skill slug")],
+) -> None:
+    """Remove a skill from your bookmarks."""
+    try:
+        cli = _ctx()
+        status, payload = request_json(
+            "DELETE",
+            join_registry_url(cli.registry, f"/skills/{slug_path(slug)}/bookmark"),
+            token=cli.require_token(),
+        )
+        raise_for_api_status(status, payload)
+        if cli.json_output:
+            emit_json({"slug": slug, "bookmarked": False})
+            return
+        typer.echo(f"Removed from bookmarks: {slug}")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
+@bookmark_app.command("list")
+def bookmark_list() -> None:
+    """List the skills you have bookmarked."""
+    try:
+        cli = _ctx()
+        status, payload = request_json(
+            "GET",
+            join_registry_url(cli.registry, "/users/me/bookmarks"),
+            token=cli.require_token(),
+        )
+        raise_for_api_status(status, payload)
+
+        raw_items = payload.get("items") if isinstance(payload, dict) else None
+        items = raw_items if isinstance(raw_items, list) else []
+        if cli.json_output:
+            emit_json({"items": items})
+            return
+        if not items:
+            typer.echo("No bookmarks yet.")
+            return
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            typer.echo(f"- {item.get('slug', '?')}  {item.get('name', '')}".rstrip())
+        typer.echo("")
+        typer.echo("Install one: skillnav install <slug> --dir <path>")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
+# `issue` / `issues` differ by one letter yet do opposite things (create vs list),
+# so the explicit names are primary now and the old spellings stay as aliases.
+app.command("issue", hidden=True)(issue_cmd)
+app.command("issues", hidden=True)(issues_cmd)
+
+
 @app.command("update")
 def update_cmd(
     check_only: Annotated[
@@ -1258,7 +1686,12 @@ def update_cmd(
         typer.Option("--check", help="Only check for updates; do not install"),
     ] = False,
 ) -> None:
-    """Check PyPI and upgrade skillnav when a newer release is available."""
+    """Upgrade skillnav itself (not the skills you have installed).
+
+    Checks PyPI, falling back to a mirror, and reinstalls the CLI when a newer
+    release exists. For skills: use `republish` to re-list one, or `publish` to
+    ship a new version.
+    """
     try:
         from skillnav.self_update import format_update_message, perform_update
 

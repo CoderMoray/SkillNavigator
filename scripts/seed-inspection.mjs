@@ -28,15 +28,14 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { readSkillPackage } from "@skill-platform/skill-spec";
 import { inspectAndEvaluateSkillSnapshot } from "@skill-platform/inspection-engine";
 import { loadDotEnvIfPresent } from "@skill-platform/storage";
-import { SEED_ARTIFACT_DIR } from "./seed-artifact.mjs";
+import { SEED_ARTIFACT_DIR, SEED_SKILL_TARGETS } from "./seed-artifact.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 
-const TARGETS = {
-  "skillnav-skill": path.join(repoRoot, "examples", "skillnav-skill"),
-  "demo-skill": path.join(repoRoot, "examples", "demo-skill"),
-};
+// The slug -> package mapping lives in the shared helper, so this script and
+// verify-seed-artifacts.mjs can never disagree about it.
+const TARGETS = SEED_SKILL_TARGETS;
 
 function parseArgs() {
   const idx = process.argv.indexOf("--skill");

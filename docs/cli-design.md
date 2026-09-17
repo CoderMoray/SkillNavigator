@@ -39,7 +39,7 @@ Skill 管理平台（SkillNavigator）对外提供 Web UI 与 HTTP API。`skilln
 - `SKILLNAV_REGISTRY`：API base URL（覆盖 profile 的 registry）
 - `SKILLNAV_PROFILE`：指定平台 profile
 - `SKILLNAV_API_KEY`：直接提供 API Key（CI 场景，不落盘；兼容旧名 `SKILLNAV_TOKEN`）
-- `SKILLNAV_PUBLISH_WAIT_TIMEOUT`：`publish --wait` / `retry-publish --wait` 的请求预算（秒）。默认 600（不传 `--wait` 的上传为 120）；流水线含 VT 排队时耗时会接近该量级，可按部署调整
+- `SKILLNAV_PUBLISH_WAIT_TIMEOUT`：`publish --wait` / `retry-inspection --wait` 的请求预算（秒）。默认 600（不传 `--wait` 的上传为 120）；流水线含 VT 排队时耗时会接近该量级，可按部署调整
 
 ## 4. 配置与鉴权（多 Profile 模型）
 
@@ -78,7 +78,7 @@ Skill 管理平台（SkillNavigator）对外提供 Web UI 与 HTTP API。`skilln
 
 - `skillnav login --api-key KEY` 写入当前 profile 的 `apiKey` + identity（identity 来自 `GET /auth/me`）。
 - `skillnav logout` 清除当前 profile 的 apiKey 与 identity。
-- `skillnav config add <name> --registry <url>`：添加平台实例；`config use <name>`：切换默认；`config list`：列出；`config test [name]`：调 `GET {registry}/health` 验证连通性。
+- `skillnav config add <name> --registry <url>`：添加平台实例；`config use <name>`：切换默认；`config list`：列出；`config connect-test [name]`：调 `GET {registry}/health` 验证连通性。
 - 需要鉴权的命令未登录时：报错 `not logged in (run: skillnav login --api-key KEY)`，退出码 2；若带 `--no-input` 直接失败，不提示。
 
 ## 5. 命令树
@@ -89,7 +89,7 @@ skillnav
 │  ├─ config add <name> --registry <url>       # 添加平台实例（--json → `{profile, registry}`）
 │  ├─ config use <name>                        # 切换默认平台（--json → `{defaultProfile}`）
 │  ├─ config list                              # 列出平台实例
-│  └─ config test [name]                       # 验证连通性（GET /health）
+│  └─ config connect-test [name]                       # 验证连通性（GET /health）
 ├─ 登录与身份
 │  ├─ login [--api-key KEY] [--registry URL]   # API Key 直传
 │  ├─ logout                                   # 清除本地 apiKey（不吊销服务端 key）
@@ -99,7 +99,7 @@ skillnav
 │  ├─ publish <dir|zip> [--version] [--display-name] [--slug] [--description]
 │  │                  [--category C ...] [--topic T ...] [--release-tag TAG ...]
 │  │                  [--changelog] [--dry-run] [--wait] [--json]
-│  ├─ retry-publish <slug> [--wait] [--json]     # 对已暂存包重新跑审查
+│  ├─ retry-inspection <slug> [--wait] [--json]     # 对已暂存包重新跑审查
 │  ├─ status   <slug> [--version VER] [--json]  # 发布状态 + 各版本审查结论 → GET /skills/:slug
 │  └─ report   <slug> [--version] [--json]     # 安全/质量报告 → GET /skills/:slug/versions/:version
 ├─ 检索
@@ -130,7 +130,7 @@ skillnav
 - 请求体携带 `metadata` 对象，服务端 `applySkillPublishMetadata` 写入 frontmatter；`author` 由服务端写入当前登录用户。
 - 缺少必填 metadata 时，交互模式下会逐项提示补全；`--no-input` 或 `--json` 下直接报错。
 - `--dry-run`：调用 `POST /skills/publish/preview`（服务端预检：元数据 + 打包校验），不落库、不发版；CLI 本地先校验 metadata 完整性。
-- 默认 **异步审查**：上传并暂存包后立即返回 **202**（`inspectionStatus: inspecting`），审查在服务端后台执行；传 `async: false` 或 CLI `--wait` 可阻塞至审查结束。`--wait` 的请求预算默认 **600s**（`SKILLNAV_PUBLISH_WAIT_TIMEOUT` 可覆盖）；客户端超时与「无法连接 API」分开报错（`Request timed out after <N>s`），并提示查 `status` / `retry-publish`、勿重复上传同版本。VirusTotal 报告默认由服务端后台补取，`inspecting` 属正常等待。
+- 默认 **异步审查**：上传并暂存包后立即返回 **202**（`inspectionStatus: inspecting`），审查在服务端后台执行；传 `async: false` 或 CLI `--wait` 可阻塞至审查结束。`--wait` 的请求预算默认 **600s**（`SKILLNAV_PUBLISH_WAIT_TIMEOUT` 可覆盖）；客户端超时与「无法连接 API」分开报错（`Request timed out after <N>s`），并提示查 `status` / `retry-inspection`、勿重复上传同版本。VirusTotal 报告默认由服务端后台补取，`inspecting` 属正常等待。
 - 成功（201，仅 `async: false`）：打印 slug、version、status、contentHash，并按需展示 inspection / evaluation 摘要；`--json` 输出完整响应体。
 - 失败语义：`skill_in_recycle_bin` → 提示先恢复；`Only skill contributors can publish new versions` → 提示需要贡献者权限；`inspection_pipeline_incomplete`（503）→ 提示可重试。
 
@@ -154,8 +154,24 @@ skillnav
 - `unpublish <slug>`：`POST /skills/:slug/unpublish`，把 Skill 从公开搜索移除。**不是删除**——包、审查数据与版本历史都保留。交互模式先显示影响并要求 `y/N`（回答 n → 退出码 1 且**不发请求**）；`--no-input` 跳过确认。
 - `unpublish --version VER`：`POST .../versions/:version/unpublish`，只下架某个版本；**latest 不能单独下架**（`cannot_unpublish_latest_version`，400）。
 - `unpublish --delete`：`DELETE /skills/:slug`，移入回收站（保留 3 天，期间可在 Web 恢复，到期永久删除）。回收站期间**同 slug 被禁止发布**（`skill_in_recycle_bin`）。与 `--version` 互斥（用法错误，退出码 3）。命名刻意不用 `purge`——本仓库里 `purge` 指"永久清除"，而这里只是软删除。
-- `republish <slug> [--version VER]`：`POST .../republish`，只恢复可见性、不产生新版本；**不能绕过审查**——审查中 / 中断 / 被拒绝时服务端拒绝（`skill_republish_blocked_*`，409），提示指向 `retry-publish` 或发新版本。
+- `republish <slug> [--version VER]`：`POST .../republish`，只恢复可见性、不产生新版本；**不能绕过审查**——审查中 / 中断 / 被拒绝时服务端拒绝（`skill_republish_blocked_*`，409），提示指向 `retry-inspection` 或发新版本。
 - 结果：`published=false` 时 `status` 显示 `Published: no (private)`；`--json` 返回 `{slug, version, action, visibility}`（action 为 `unpublished` / `deleted` / `republished`）。
+
+### 命令命名与别名约定
+
+破坏性改名一律保留旧名作为 **hidden 别名**，脚本与既有 Agent 提示不断供：
+
+| 推荐（可见） | 旧名（隐藏别名） | 原因 |
+| --- | --- | --- |
+| `create-issue` | `issue` | 与 `list-issues` 只差一个字母却语义相反（提交 vs 列出） |
+| `list-issues` | `issues` | 同上 |
+| `retry-inspection` | `retry-publish` | 该命令只重跑审查，不重新发布（端点名仍为 `retry-publish`） |
+| `config connect-test` | `config test` | 只做 `GET /health` 连通性检查，不是配置校验 |
+| `trash restore` | —（顶层 `restore` 保留） | 回收站域内的等价入口 |
+
+### `--version` 与 `--skill-version`
+
+子命令的 `--version` 指的是 **Skill 版本**（`status` / `report` / `download` / `install` / `rate` / `publish` / `unpublish` / `republish`），与根命令的 `skillnav --version`（**CLI 自身版本**）不是一回事。为避免误用，所有子命令都接受等价的 `--skill-version` 别名。
 
 ### `update` 与每日版本检查
 
@@ -196,13 +212,16 @@ skillnav
 | logout | —（本地清除） | — |
 | whoami | `GET /auth/me` | Bearer |
 | update | PyPI `skillnav` JSON（失败回退阿里云 simple index） | 公开（本地 pip/pipx 升级） |
-| config test | `GET /health` | 公开 |
+| config connect-test | `GET /health` | 公开 |
 | publish | `POST /skills/publish` | Bearer |
 | publish --dry-run | `POST /skills/publish/preview` | Bearer |
-| retry-publish | `POST /skills/:slug/retry-publish` | Bearer（contributor） |
+| retry-inspection | `POST /skills/:slug/retry-publish` | Bearer（contributor） |
 | status / info | `GET /skills/:slug` | 视可见性 |
 | report | `GET /skills/:slug/versions/:version` | 视可见性 |
 | search | `GET /skills?query=` | 公开 |
+| check-slug | `GET /skills/:slug/availability` | 公开 |
+| search-users | `GET /users/search?query=` | Bearer |
+| creators | `GET /creators?query=` | 公开 |
 | top | `GET /leaderboard` | 公开 |
 | download / install | `GET /skills/:slug/versions/:version/download` | Bearer |
 | rate | `POST /skills/:slug/ratings` | Bearer |
@@ -210,8 +229,13 @@ skillnav
 | issues | `GET /skills/:slug/issues` | 公开 |
 | add-contributor | `POST /skills/:slug/contributors` | Bearer（owner） |
 | remove-contributor | `DELETE /skills/:slug/contributors/:id` | Bearer（owner） |
-| unpublish | `POST /skills/:slug/unpublish`（或 `.../versions/:version/unpublish`；`--delete` → `DELETE /skills/:slug`）| Bearer（owner）|
+| unpublish | `POST /skills/:slug/unpublish`（或 `.../versions/:version/unpublish`；`--delete` / `--trash` → `DELETE /skills/:slug`）| Bearer（owner）|
 | republish | `POST /skills/:slug/republish`（或 `.../versions/:version/republish`）| Bearer（owner）|
+| restore / trash restore | `POST /skills/:slug/restore` | Bearer（owner）|
+| trash list | `GET /users/me/recycle-bin` | Bearer |
+| trash purge | `DELETE /skills/:slug/purge` | Bearer（owner）|
+| bookmark add / remove | `PUT` / `DELETE /skills/:slug/bookmark` | Bearer |
+| bookmark list | `GET /users/me/bookmarks` | Bearer |
 
 ## 9. 版本与里程碑
 

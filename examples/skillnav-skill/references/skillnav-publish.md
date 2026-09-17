@@ -6,6 +6,14 @@
 
 ---
 
+## check-slug — 发布前检查 slug 是否可用
+
+发布要等到上传结束才会因 slug 冲突失败，这一步可以提前确认，并区分"已被在架 Skill 占用"与"被回收站里的 Skill 持有"（后者可 `restore` 或 `trash purge` 释放）。公开可用，无需登录。
+
+```bash
+skillnav check-slug my-skill
+```
+
 ## publish — 发布
 
 ```bash
@@ -39,16 +47,16 @@ skillnav --no-input publish ./my-skill \
 | `--dry-run` | 调用 preview 接口，不写入数据库 |
 | `--wait` | 阻塞至审查结束再返回（默认仅上传并后台审查）。请求预算 **600s**，`SKILLNAV_PUBLISH_WAIT_TIMEOUT` 可覆盖 |
 
-## retry-publish — 重新审查已上传的包
+## retry-inspection — 重新审查已上传的包
 
 ```bash
-skillnav retry-publish my-skill
-skillnav retry-publish my-skill --wait
+skillnav retry-inspection my-skill
+skillnav retry-inspection my-skill --wait
 ```
 
 对已暂存但审查**中断**（`interrupted`）的 Skill 重新跑审查，**无需重新上传**。默认 **只重试失败或未完成的审查环节**（SkillSpector / VirusTotal / HaluCatch）。
 
-⚠️ 仅在 `interrupted` 时使用：若 `status` 显示 `inspecting`（VirusTotal 报告待后台补取，通常几分钟），那是**正常等待**，此时 retry-publish 会返回 409 `skill_inspection_in_progress`。
+⚠️ 仅在 `interrupted` 时使用：若 `status` 显示 `inspecting`（VirusTotal 报告待后台补取，通常几分钟），那是**正常等待**，此时 retry-inspection 会返回 409 `skill_inspection_in_progress`。
 
 ---
 
@@ -101,14 +109,14 @@ skillnav report my-skill --version 1.0.1
 skillnav unpublish my-skill                    # 交互确认（y/N，显示影响）
 skillnav --no-input unpublish my-skill         # Agent / CI：跳过确认
 skillnav unpublish my-skill --version 1.0.0    # 仅下架该版本（latest 不可 → cannot_unpublish_latest_version）
-skillnav unpublish my-skill --delete           # 移入回收站（3 天内可恢复；到期永久删除）
+skillnav unpublish my-skill --delete           # 移入回收站（--trash 等价；保留期内可恢复，到期永久删除）
 ```
 
 | 参数 | 说明 |
 | --- | --- |
 | `slug` | 目标 Skill（positional） |
 | `--version` | 只下架该版本；latest 不能单独下架 |
-| `--delete` | 整个 Skill 入回收站（3 天内可恢复，到期永久删除；不能与 `--version` 同用） |
+| `--delete` / `--trash` | 整个 Skill 入回收站（保留期内可恢复，到期永久删除；不能与 `--version` 同用）。查看与取回：`skillnav trash list` / `skillnav restore <slug>` |
 
 权限：仅 **owner**（contributor 与其他人均返回 403）。下架后 `skillnav status <slug>` 显示 `Published: no (private)`；`--json` 返回 `{slug, version, action: "unpublished", visibility}`。**仅在用户明确要求时执行。**
 
@@ -129,6 +137,24 @@ skillnav republish my-skill --version 1.0.0    # 只恢复该版本
 
 ---
 
+## restore — 从回收站还原（`unpublish --delete` 的逆操作）
+
+```bash
+skillnav trash list                   # 先看回收站里有什么、还剩几天
+skillnav restore my-skill             # 等价于 skillnav trash restore my-skill
+```
+
+回收站有保留期，到期由服务端自动永久删除，因此要在期限内恢复。恢复**只清除删除状态、不改变原有可见性**：若之后仍不在公开列表中，再用 `republish` 重新上架。
+
+## trash — 查看与管理回收站
+
+```bash
+skillnav trash list                   # slug / 名称 / 删除时间 / 剩余天数；--json 可脚本化
+skillnav trash purge my-skill         # 立即永久删除（不可恢复，需交互确认）
+```
+
+`trash purge` 只有在想立刻腾出该 slug 时才需要——否则等它自然过期即可。
+
 ## 常见错误
 
 | 现象 | 处理 |
@@ -136,7 +162,7 @@ skillnav republish my-skill --version 1.0.0    # 只恢复该版本
 | 缺 metadata | 补 frontmatter 或传 CLI flag；`--no-input` 下不能交互补全 |
 | slug 无权限 | 仅 owner/contributor 可发新版 |
 | 回收站 | Web 先恢复 Skill |
-| 重复上传同版本 | `pending_publish_use_retry` → `skillnav retry-publish <slug>` |
+| 重复上传同版本 | `pending_publish_use_retry` → `skillnav retry-inspection <slug>` |
 | 限流 | `publish_rate_limited`，等待后重试 |
 | 下架 latest 版本被拒 | `cannot_unpublish_latest_version` → 改用整包下架，或先发新版本 |
 | 下架别人的 Skill | 403 → 仅 **owner** 可下架（contributor 亦不可）|

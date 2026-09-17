@@ -24,7 +24,8 @@ VirusTotal 配额、依赖 SkillSpector 运行环境。
 VIRUSTOTAL_WAIT_FOR_ANALYSIS=true VIRUSTOTAL_ANALYSIS_TIMEOUT_MS=600000 \
   node_modules/.bin/tsx scripts/seed-inspection.mjs --skill skillnav-skill
 
-node_modules/.bin/tsx scripts/seed-inspection.mjs --skill demo-skill
+VIRUSTOTAL_WAIT_FOR_ANALYSIS=true VIRUSTOTAL_ANALYSIS_TIMEOUT_MS=600000 \
+  node_modules/.bin/tsx scripts/seed-inspection.mjs --skill demo-skill
 ```
 
 > ⚠️ **为什么这两个变量必须显式设置**：默认（异步）模式下 VT 阶段会停在

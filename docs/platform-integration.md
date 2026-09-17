@@ -180,7 +180,7 @@ SkillNavigator 当前是**独立账号体系**（用户名/密码 + session toke
 - [ ] 确认 CORS：`apps/api` 目前 `origin: true`（允许所有来源），生产建议收紧为 `aaa.bbb.com`
 - [ ] 发布上传体量：Nginx `client_max_body_size` 与服务端 `API_BODY_LIMIT_MB`（默认 **50**，见 `packages/storage/src/env.ts`）匹配
 - [ ] 用 `curl {registry}/health` 验证连通性
-- [ ] 用 CLI 验证：`skillnav config add embed --registry https://aaa.bbb.com/{brand}/api && skillnav config test embed`
+- [ ] 用 CLI 验证：`skillnav config add embed --registry https://aaa.bbb.com/{brand}/api && skillnav config connect-test embed`
 
 ## 5. CLI 侧连接方式（两种模式同一机制）
 

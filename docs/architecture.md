@@ -125,7 +125,7 @@ Web 发布路径会在审查前补全缺失或不完整的 frontmatter，避免�
 
 **待补取 ≠ 失败**：VirusTotal 报告尚未就绪时该阶段为 `processing`，整体 `inspectionStatus: inspecting`，**仅拥有者 / contributor（及管理员）可见**、不进公开搜索；补齐后自动 finalize 并公开。判定由响应驱动（404 / 统计未齐 → 继续等；401/403/429 或超过 `VIRUSTOTAL_DEFERRED_TIMEOUT_MS`（默认 45 分钟）→ 中断），补取完成后换入 VT findings 并 **重新判定 verdict**。
 
-**审查中断**（任一已启用环节未成功完成）：`inspectionStatus: interrupted`（旧数据里的 `failed` 归一化为它），包通常 **已暂存**；通过 `POST /skills/:slug/retry-publish` 或 CLI `retry-publish` **增量重试**失败/未完成环节。`inspecting` 期间调用 retry 会返回 409 `skill_inspection_in_progress`。
+**审查中断**（任一已启用环节未成功完成）：`inspectionStatus: interrupted`（旧数据里的 `failed` 归一化为它），包通常 **已暂存**；通过 `POST /skills/:slug/retry-publish` 或 CLI `retry-inspection` **增量重试**失败/未完成环节。`inspecting` 期间调用 retry 会返回 409 `skill_inspection_in_progress`。
 
 **Verdict 规则**（`calculateInspectionVerdict`，仅 SkillSpector / VirusTotal 触发自动拒绝）：
 

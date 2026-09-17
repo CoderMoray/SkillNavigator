@@ -4,7 +4,14 @@ node_modules/
 # Build outputs
 .next/
 dist/
+build/
 coverage/
+
+# Generated web artifacts — scripts/sync-usage-public.mjs bakes deployment URLs
+# into them at build time, so they are per-machine snapshots. Generated at
+# deploy time, never committed.
+/apps/web/public/install
+/apps/web/public/usage/
 
 # Auto-generated
 next-env.d.ts

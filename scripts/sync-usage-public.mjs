@@ -40,19 +40,46 @@ function cliInstallPublicFilename() {
 
 const installScriptTarget = path.join(publicDir, cliInstallPublicFilename());
 
-// Deployment configuration placeholders render as explicit "ask the maintainer"
-// notices when unset (Option B): .env is a required bootstrap file, so a
-// properly configured instance always injects real values here.
+// The generated artifacts (apps/web/public/install, public/usage/*) are served
+// statically and are git-ignored: they bake deployment URLs in at build time, so
+// they are per-machine snapshots rather than repo content. `--strict` (used by
+// the web app's `prebuild`) refuses to render the "ask the maintainer" notices,
+// because a missing URL there means the deploy build is misconfigured.
+const strict = process.argv.includes("--strict");
+const allowUnconfigured = process.argv.includes("--allow-unconfigured");
+
+const UNSET_REGISTRY_NOTICE = "（部署方未配置 Registry API 地址——请向平台维护者索取）";
+const UNSET_WEB_NOTICE = "（部署方未配置对外 Web 地址——请向平台维护者索取）";
+
 function deploymentConfig() {
+  const registryApiUrl = process.env.NEXT_PUBLIC_REGISTRY_API_URL?.trim();
+  const webUrl =
+    process.env.NEXT_PUBLIC_WEB_URL?.trim() || process.env.WEB_PUBLIC_URL?.trim();
+
+  if (strict && !allowUnconfigured) {
+    const missing = [];
+    if (!registryApiUrl) {
+      missing.push("NEXT_PUBLIC_REGISTRY_API_URL");
+    }
+    if (!webUrl) {
+      missing.push("NEXT_PUBLIC_WEB_URL (or WEB_PUBLIC_URL)");
+    }
+    if (missing.length > 0) {
+      console.error(
+        `sync-usage-public: refusing to render placeholder notices — missing ${missing.join(", ")}.`
+      );
+      console.error(
+        "Set them in your dotenv file (.env / .env.rapid), or re-run with --allow-unconfigured " +
+          "to render the notices instead."
+      );
+      process.exit(1);
+    }
+  }
+
   return {
     brandName: process.env.BRAND_NAME?.trim() || DEFAULT_BRAND_NAME,
-    registryApiUrl:
-      process.env.NEXT_PUBLIC_REGISTRY_API_URL?.trim() ||
-      "（部署方未配置 Registry API 地址——请向平台维护者索取）",
-    webUrl:
-      process.env.NEXT_PUBLIC_WEB_URL?.trim() ||
-      process.env.WEB_PUBLIC_URL?.trim() ||
-      "（部署方未配置对外 Web 地址——请向平台维护者索取）",
+    registryApiUrl: registryApiUrl || UNSET_REGISTRY_NOTICE,
+    webUrl: webUrl || UNSET_WEB_NOTICE,
   };
 }
 

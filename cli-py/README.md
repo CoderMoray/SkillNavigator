@@ -16,7 +16,9 @@ pip install -e "cli-py[dev]"
 
 ```bash
 skillnav --version
-skillnav config test                  # tests the active profile
+skillnav config connect-test          # tests the active profile
+skillnav trash list                   # what is in your recycle bin
+skillnav bookmark list                # skills you saved for later
 # Create an API key in the Web UI (Account → API Keys), then:
 skillnav login --api-key sk_...
 skillnav search demo                  # anonymous
@@ -46,7 +48,7 @@ Environment: `SKILLNAV_REGISTRY`, `SKILLNAV_PROFILE`, `SKILLNAV_API_KEY` (legacy
 
 `publish` returns as soon as the package is stored — inspection runs in the
 background unless you ask otherwise. `publish --wait` (and
-`retry-publish --wait`) keep the request open until the whole pipeline is
+`retry-inspection --wait`) keep the request open until the whole pipeline is
 done; that pipeline waits on SkillSpector, VirusTotal and HaluCatch, and
 VirusTotal queues newly uploaded files for minutes. Those calls therefore use
 a **600s** request budget instead of the default 120s:
@@ -58,14 +60,14 @@ SKILLNAV_PUBLISH_WAIT_TIMEOUT=900 skillnav publish ./my-skill --wait
 
 A timed-out request is reported as a **timeout**, never as "cannot reach the
 API", and the hint points at `skillnav status <slug>` and
-`skillnav retry-publish <slug>` — the server keeps working after the client
+`skillnav retry-inspection <slug>` — the server keeps working after the client
 gives up, so re-uploading the same version is never the right fix.
 
 VirusTotal defers by default: the upload ends that stage, the report is
 collected by a background sweep (every 5 minutes, 45-minute fallback) and the
 verdict is decided again once it lands. A version waiting for it shows
 `inspectionStatus: inspecting` and stage `virustotal: processing` — that is
-**normal waiting, not a failure**: do not `retry-publish` (it returns 409
+**normal waiting, not a failure**: do not `retry-inspection` (it returns 409
 `skill_inspection_in_progress`) and do not re-upload the version. The skill is
 owner-only until the report lands.
 
@@ -86,7 +88,7 @@ skillnav republish my-skill                   # put it back (visibility only)
 that slug is blocked until it is restored from the recycle bin (or the 3-day
 window expires). `republish` is the counterpart of `unpublish` and **cannot
 bypass review** — the server refuses while an inspection is running, interrupted
-or rejected, pointing at `retry-publish` or at shipping a new version.
+or rejected, pointing at `retry-inspection` or at shipping a new version.
 
 An unpublished skill reports `Published: no (private)` in `skillnav status`.
 
