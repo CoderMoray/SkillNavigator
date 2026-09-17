@@ -1008,7 +1008,7 @@ export function buildServer() {
     }
   });
 
-  app.post<{ Params: SkillParams; Body: { async?: boolean; stages?: SkillInspectionStage[] } }>("/skills/:slug/retry-publish", async (request, reply) => {
+  app.post<{ Params: SkillParams; Body: { async?: boolean; stages?: SkillInspectionStage[] } }>("/skills/:slug/retry-inspection", async (request, reply) => {
     const user = await getAuthenticatedUser(request.headers.authorization, authStore);
     if (!user) {
       return reply.code(401).send({ error: "Unauthorized" });
@@ -1937,7 +1937,7 @@ async function markDeferredVirusTotalFailed(
 function virusTotalReportUnavailableMessage(): string {
   return (
     "VirusTotal no longer has the analysis of this upload (its report is unavailable), so the " +
-    "scan cannot be completed. Re-run the inspection: skillnav retry-publish <slug>"
+    "scan cannot be completed. Re-run the inspection: skillnav retry-inspection <slug>"
   );
 }
 
@@ -1948,7 +1948,7 @@ function virusTotalWaitTimedOutMessage(timeoutMs: number, startedAt?: string): s
   return (
     `VirusTotal did not produce a report within ${minutes} minutes${waitedText} and the analysis ` +
     "is still queued on their side, so the scan cannot be completed. " +
-    "Re-run the inspection: skillnav retry-publish <slug>"
+    "Re-run the inspection: skillnav retry-inspection <slug>"
   );
 }
 

@@ -88,8 +88,8 @@ SkillSpector 对每条 finding 按 **严重度** 与 **置信度** 贡献分数�
 
 **审查流水线未完成** 有两种性质不同的情况，处理方式也不同：
 
-- **仍在等待 VirusTotal 报告**（`inspectionStatus: inspecting`，该阶段 `processing`）：属 **正常等待**，不是失败。VT 对新上传文件通常要排队 1–5 分钟，平台每 5 分钟在后台补取一次报告，补齐后自动重新判定 verdict 并公开。**不要**对它 `retry-publish`（此时会返回 409 `skill_inspection_in_progress`），也不要重复上传同版本。
-- **审查中断**（`inspectionStatus: interrupted`；旧数据里的 `failed` 会被归一化）：由鉴权/配额错误（401 / 403 / 429）、VT 明确丢弃了报告，或等待超过兜底上限（`VIRUSTOTAL_DEFERRED_TIMEOUT_MS`，默认 45 分钟）导致。**包通常已暂存在服务端**，但 **不会公开**。在 Skill 详情页或 CLI 使用 **重试失败环节 / `skillnav retry-publish`** 重新跑审查（默认只重试失败或未完成的环节）。
+- **仍在等待 VirusTotal 报告**（`inspectionStatus: inspecting`，该阶段 `processing`）：属 **正常等待**，不是失败。VT 对新上传文件通常要排队 1–5 分钟，平台每 5 分钟在后台补取一次报告，补齐后自动重新判定 verdict 并公开。**不要**对它 `retry-inspection`（此时会返回 409 `skill_inspection_in_progress`），也不要重复上传同版本。
+- **审查中断**（`inspectionStatus: interrupted`；旧数据里的 `failed` 会被归一化）：由鉴权/配额错误（401 / 403 / 429）、VT 明确丢弃了报告，或等待超过兜底上限（`VIRUSTOTAL_DEFERRED_TIMEOUT_MS`，默认 45 分钟）导致。**包通常已暂存在服务端**，但 **不会公开**。在 Skill 详情页或 CLI 使用 **重试失败环节 / `skillnav retry-inspection`** 重新跑审查（默认只重试失败或未完成的环节）。
 
 以上都与「审查已全部完成，但 verdict 为 **已拒绝**」不同（见 [发布流程](./publish-workflow.md)）。
 
@@ -190,10 +190,10 @@ hash lookup 响应 **不包含** 进行中的 `analysisId`，因此无法在无 
 | 200 且引擎统计完整 | ✅ 完成 → 换入 VT findings，按平台规则 **重新判定 verdict** |
 | 200 但统计仍为 0 | ⏳ 继续等（**不判失败**） |
 | 404（VT 尚未收录） | ⏳ 继续等（**不判失败**） |
-| 401 / 403 / 429 | ❌ 阶段失败 → `interrupted`，可 `retry-publish` |
+| 401 / 403 / 429 | ❌ 阶段失败 → `interrupted`，可 `retry-inspection` |
 | 5xx | ⏳ 本轮跳过，下轮再试 |
 
-判定 **完全由响应驱动**；唯一的时间兜底是 `VIRUSTOTAL_DEFERRED_TIMEOUT_MS`（默认 **45 分钟**）——VT 未公开样本保留规则，长时间停在「排队中」的极端情况需要一个出口，超时后转 `interrupted`（可 `retry-publish`）。
+判定 **完全由响应驱动**；唯一的时间兜底是 `VIRUSTOTAL_DEFERRED_TIMEOUT_MS`（默认 **45 分钟**）——VT 未公开样本保留规则，长时间停在「排队中」的极端情况需要一个出口，超时后转 `interrupted`（可 `retry-inspection`）。
 
 等待期间：该阶段为 `processing`，版本整体为 `inspecting` → **仅拥有者可见**，不进公开搜索与榜单；补齐后自动公开。
 
@@ -219,7 +219,7 @@ GET /files/{zipSha256}  → 200，last_analysis_stats 合计 > 0
 同步：GET /files/{zipSha256} × N → 前台轮询直至 stats 就绪或超时
 ```
 
-→ 默认模式约 **1 + N 次 quota**（N = 后台补取次数，每次 file lookup 通常算 1 次），但 **不阻塞发布**；同步模式若超时则阶段失败、版本 `interrupted`（包通常已暂存），在详情页或 `skillnav retry-publish` 重试。  
+→ 默认模式约 **1 + N 次 quota**（N = 后台补取次数，每次 file lookup 通常算 1 次），但 **不阻塞发布**；同步模式若超时则阶段失败、版本 `interrupted`（包通常已暂存），在详情页或 `skillnav retry-inspection` 重试。  
 常见原因：他人刚上传同 hash、VT 仍在排队，或首次上传后分析尚未就绪。
 
 **路径 B：Hash 不存在且开启 upload-on-miss**

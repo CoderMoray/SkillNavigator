@@ -99,6 +99,7 @@ skillnav config connect-test
 
 ```bash
 skillnav search <关键词>                          # 搜索（匿名可用）
+skillnav check-slug <slug>                        # 发布前检查 slug 是否可用（匿名可用）
 skillnav info <slug>                              # 查看元数据与版本（匿名可用）
 skillnav install <slug> --dir <skills 目录>/<slug>   # 必填；目标为该 Skill 的目录（解压后含 SKILL.md）
 skillnav install <slug> --version <版本> --dir <skills 目录>/<slug>

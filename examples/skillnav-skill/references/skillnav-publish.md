@@ -6,6 +6,14 @@
 
 ---
 
+## check-slug — 发布前检查 slug 是否可用
+
+发布要等到上传结束才会因 slug 冲突失败，这一步可以提前确认，并区分"已被在架 Skill 占用"与"被回收站里的 Skill 持有"（后者可 `restore` 或 `trash purge` 释放）。公开可用，无需登录。
+
+```bash
+skillnav check-slug my-skill
+```
+
 ## publish — 发布
 
 ```bash
@@ -128,6 +136,24 @@ skillnav republish my-skill --version 1.0.0    # 只恢复该版本
 `--json` 返回 `{slug, version, action: "republished", visibility}`。**仅在用户明确要求时执行。**
 
 ---
+
+## restore — 从回收站还原（`unpublish --delete` 的逆操作）
+
+```bash
+skillnav trash list                   # 先看回收站里有什么、还剩几天
+skillnav restore my-skill             # 等价于 skillnav trash restore my-skill
+```
+
+回收站有保留期，到期由服务端自动永久删除，因此要在期限内恢复。恢复**只清除删除状态、不改变原有可见性**：若之后仍不在公开列表中，再用 `republish` 重新上架。
+
+## trash — 查看与管理回收站
+
+```bash
+skillnav trash list                   # slug / 名称 / 删除时间 / 剩余天数；--json 可脚本化
+skillnav trash purge my-skill         # 立即永久删除（不可恢复，需交互确认）
+```
+
+`trash purge` 只有在想立刻腾出该 slug 时才需要——否则等它自然过期即可。
 
 ## 常见错误
 

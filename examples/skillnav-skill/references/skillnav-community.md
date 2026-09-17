@@ -25,11 +25,11 @@ skillnav rate my-skill --score 4 --version 1.0.0
 
 ```bash
 # 提交 Issue
-skillnav issue my-skill --title "安装失败" --type bug --severity high --body "复现步骤…"
+skillnav create-issue my-skill --title "安装失败" --type bug --severity high --body "复现步骤…"
 
 # 列出 Issue
-skillnav issues my-skill
-skillnav issues my-skill --status open
+skillnav list-issues my-skill
+skillnav list-issues my-skill --status open
 ```
 
 `--type`（平台固定 5 类）：`bug` / `security` / `compatibility` / `feature` / `docs`；`--severity`：low / medium / high / critical。

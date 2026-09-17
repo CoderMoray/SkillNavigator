@@ -23,6 +23,27 @@ skillnav --json search keyword
 
 ---
 
+## creators — 创作者列表
+
+```bash
+skillnav creators                     # 全部创作者
+skillnav creators moray               # 按名称 / handle 过滤
+```
+
+## search-users — 按名查用户
+
+`add-contributor` 需要**准确用户名**，不确定时先查（需要登录）：
+
+```bash
+skillnav search-users donnia
+```
+
+## check-slug — 发布前检查 slug 是否可用
+
+```bash
+skillnav check-slug my-skill          # 匿名可用
+```
+
 ## top — 排行榜
 
 ```bash

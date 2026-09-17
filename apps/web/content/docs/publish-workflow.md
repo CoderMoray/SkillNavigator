@@ -59,7 +59,7 @@
 VirusTotal 对新上传的文件通常要排队 **1–5 分钟**。默认模式下平台 **不等它**：上传被接受后 VT 阶段即为 `processing`，版本整体为 `inspecting`，报告由后台每 5 分钟补取，补齐后自动重新判定 verdict 并公开。
 
 - 期间 **仅拥有者 / contributor 可见**（公开索引要求 `inspectionStatus: completed`），**这不是失败**
-- **不要** 对它 `retry-publish`：此时会返回 409 `skill_inspection_in_progress`；也不要重复上传同版本
+- **不要** 对它 `retry-inspection`：此时会返回 409 `skill_inspection_in_progress`；也不要重复上传同版本
 - 判定由响应驱动：404 或引擎统计未齐 → 继续等；401/403/429、报告被 VT 丢弃、或超过 `VIRUSTOTAL_DEFERRED_TIMEOUT_MS`（默认 45 分钟）→ 转为下面的「审查中断」
 
 ### 审查中断（inspectionStatus: interrupted）
@@ -68,9 +68,9 @@ SkillSpector/HaluCatch 运行时不可用、服务重启导致审查中断、VT 
 
 - **包与版本元数据通常已暂存**（与「verdict 已拒绝但审查已完成」不同）
 - Skill 标记为 **审查中断**，**不会公开**；拥有者在详情页看到 **审查中断** 提示与阶段进度
-- 在详情页点击 **重新发布** 或 **重试失败环节**（或 CLI：`skillnav retry-publish <slug>`）**重新跑审查**，**无需重新上传**；默认 **只重试失败或未完成的环节**
-- 若暂存包已丢失，需重新上传；同版本再次 `publish` 可能返回 `pending_publish_use_retry`，应改用 `retry-publish`
-- 使用 CLI **`publish --wait`** 同步等待时，失败会返回 `inspection_pipeline_incomplete`（503），同样应 **`retry-publish`**，而不是重复上传
+- 在详情页点击 **重新发布** 或 **重试失败环节**（或 CLI：`skillnav retry-inspection <slug>`）**重新跑审查**，**无需重新上传**；默认 **只重试失败或未完成的环节**
+- 若暂存包已丢失，需重新上传；同版本再次 `publish` 可能返回 `pending_publish_use_retry`，应改用 `retry-inspection`
+- 使用 CLI **`publish --wait`** 同步等待时，失败会返回 `inspection_pipeline_incomplete`（503），同样应 **`retry-inspection`**，而不是重复上传
 
 典型场景：某次上传后平台在报告就绪前重启，或 VT 的 Key 配额耗尽；重试时 hash 可能已命中，由前台轮询（同步模式）或后台补取取回统计（见 [安全检测](./security-scan.md) 路径 A2）。
 
@@ -133,10 +133,10 @@ skillnav publish ./my-skill              # 默认：上传后 202，后台审查
 skillnav publish ./my-skill --wait       # 同步等待整条流水线（请求预算 600s，见下）
 skillnav status my-skill               # 查看审查进度与各版本状态
 skillnav status my-skill --version 1.0.0
-skillnav retry-publish my-skill          # 审查中断后重试（无需重新上传）
+skillnav retry-inspection my-skill          # 审查中断后重试（无需重新上传）
 ```
 
-> `publish --wait` / `retry-publish --wait` 会保持连接直到流水线结束，因此请求预算为 **600 秒**（默认 120s），可用 `SKILLNAV_PUBLISH_WAIT_TIMEOUT` 覆盖。请求超时会明确报为超时（形如 `Request timed out after <N>s`，与「无法连接 API」区分），此时应查 `status` / `retry-publish`，**不要**重复上传同版本。
+> `publish --wait` / `retry-inspection --wait` 会保持连接直到流水线结束，因此请求预算为 **600 秒**（默认 120s），可用 `SKILLNAV_PUBLISH_WAIT_TIMEOUT` 覆盖。请求超时会明确报为超时（形如 `Request timed out after <N>s`，与「无法连接 API」区分），此时应查 `status` / `retry-inspection`，**不要**重复上传同版本。
 
 CLI 与 Web 共用同一 API 与审查逻辑；Web 发布额外校验分类等表单字段。
 
@@ -146,7 +146,7 @@ CLI 与 Web 共用同一 API 与审查逻辑；Web 发布额外校验分类等�
 
 - **slug 冲突或版本已存在**：更换 slug 或提高 version。
 - **frontmatter 缺字段或 SemVer 不合法**：对照 [Skill 格式](./skill-format.md) 修改。
-- **审查中断（inspectionStatus: interrupted；同步发布时 API 错误码为 `inspection_pipeline_incomplete`）**：包 **通常已暂存**。修复环境后使用详情页 **重试失败环节** 或 `skillnav retry-publish <slug>`；勿对同版本重复 `publish`（可能 `pending_publish_use_retry`）。详见 [安全检测](./security-scan.md)。
+- **审查中断（inspectionStatus: interrupted；同步发布时 API 错误码为 `inspection_pipeline_incomplete`）**：包 **通常已暂存**。修复环境后使用详情页 **重试失败环节** 或 `skillnav retry-inspection <slug>`；勿对同版本重复 `publish`（可能 `pending_publish_use_retry`）。详见 [安全检测](./security-scan.md)。
 - **审查 rejected（verdict，审查已完成）**：版本已入库但 **不会出现在搜索页**；打开 Skill 详情 →「审查与评估」，处理 finding 后 **发新版本**。
 - **需复核**：版本已保存，可在修复非阻断 finding 后发新版本，或由管理员人工确认后推广。
 
