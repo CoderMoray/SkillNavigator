@@ -183,7 +183,9 @@ skillnav report <slug>          # 完整安全/质量报告
 skillnav unpublish <slug>                    # 从公开搜索移除（交互确认 y/N）
 skillnav --no-input unpublish <slug>         # 自动化：跳过确认
 skillnav unpublish <slug> --version <版本>    # 只下架某个版本（latest 不可，会报 cannot_unpublish_latest_version）
-skillnav unpublish <slug> --delete           # 移入回收站（3 天内可恢复；到期永久删除全部数据）
+skillnav unpublish <slug> --delete           # 移入回收站（--trash 等价；保留期内可恢复，到期永久删除全部数据）
+skillnav trash list                          # 查看回收站内容与剩余天数
+skillnav restore <slug>                      # 从回收站取回（仅 owner）
 ```
 
 **不是删除**：包、审查数据与版本历史都保留，之后可重新上架或用新版本发布。仅 **owner** 可执行（contributor 亦不可），非 owner 调用返回 **403**。下架后 `skillnav status <slug>` 会显示 `Published: no (private)`。**写操作，须用户明确要求后再执行。**

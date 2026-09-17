@@ -269,7 +269,7 @@ Skill 所有者或 contributor 可在详情页右侧点击 **发布新版本**�
 
 - **下架：** 从 Skill 广场、榜单和公开搜索中隐藏；之后可点击 **上架** 恢复。
 - **下架历史版本：** 在 **Versions** 中对非最新版本操作；最新版本不能单独下架。
-- **删除：** 先移入回收站，默认保留 3 天；可在个人中心恢复，或立即永久删除。
+- **删除：** 先移入回收站（保留期内可恢复，到期自动永久删除）；Web 个人中心可恢复或立即永久删除，CLI 对应 `skillnav trash list`、`skillnav restore <slug>`、`skillnav trash purge <slug>`。
 
 ![图 14：版本管理](../../public/docs/tutorial/16-versions.png)
 *图 14：版本管理*

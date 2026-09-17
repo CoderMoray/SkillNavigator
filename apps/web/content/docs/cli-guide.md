@@ -309,7 +309,7 @@ skillnav status my-first-skill             # 查看审查进度
 skillnav unpublish my-first-skill              # 交互确认（显示影响，y/N）
 skillnav --no-input unpublish my-first-skill   # 自动化 / CI：跳过确认
 skillnav unpublish my-first-skill --version 1.0.0   # 只下架某个版本（latest 不可）
-skillnav unpublish my-first-skill --delete     # 移入回收站（3 天内可恢复；到期永久删除）
+skillnav unpublish my-first-skill --delete     # 移入回收站（--trash 等价；保留期内可恢复，到期永久删除）
 ```
 
 仅 **owner** 可执行（contributor 与其他人均返回 403）；下架后 `skillnav status <slug>` 显示 `Published: no (private)`。
@@ -494,7 +494,7 @@ skillnav restore my-skill             # 取回来（仅 owner 可执行）
 
 保留期到期后服务端会自动永久删除，所以要在期限内恢复。恢复**不改变可见性**，必要时再 `republish`。若只想马上腾出该 slug，可用 `skillnav trash purge <slug>`（不可恢复）。
 
-Web 个人中心回收站中的 Skill 需先恢复，再 CLI 发布。
+Skill 在回收站时不能发布：用 `skillnav trash list` 查看、`skillnav restore <slug>` 取回（仅 owner），再 `publish`。
 
 ### 分类报错
 

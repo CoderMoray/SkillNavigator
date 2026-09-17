@@ -122,7 +122,7 @@ skillnav publish ./my-skill [--version … --category …]
 skillnav status <slug> / report <slug>
 ```
 
-**下架是高危写操作**：仅在用户**明确要求**时执行 `skillnav unpublish <slug>`，执行前说明影响（从公开搜索移除，可重新上架）并取得确认；`--delete`（入回收站，3 天内可恢复、到期永久删除）风险更高，须单独确认。下架**不是删除**，包与审查数据保留。恢复公开用 `skillnav republish <slug>`（只改可见性，**不能绕过审查**：审查中 / 中断 / 被拒时会被服务端拒绝）。
+**下架是高危写操作**：仅在用户**明确要求**时执行 `skillnav unpublish <slug>`，执行前说明影响（从公开搜索移除，可重新上架）并取得确认；`--delete` / `--trash`（入回收站，保留期内可用 `skillnav restore <slug>` 取回、到期永久删除）风险更高，须单独确认。下架**不是删除**，包与审查数据保留。恢复公开用 `skillnav republish <slug>`（只改可见性，**不能绕过审查**：审查中 / 中断 / 被拒时会被服务端拒绝）。
 
 ### 自动化场景
 
@@ -151,7 +151,7 @@ skillnav status <slug> / report <slug>
 | --- | --- |
 | `not logged in` | `skillnav login --api-key sk_…` 或 `SKILLNAV_API_KEY` |
 | `Only skill contributors can publish` | 换 slug 或让 owner 在 Web 添加 contributor |
-| `skill_in_recycle_bin` | Web 个人中心回收站先恢复 |
+| `skill_in_recycle_bin` | 用 `skillnav trash list` 查看、`skillnav restore <slug>` 取回后再 publish |
 | `inspection_pipeline_incomplete` | 仅 `--wait` 同步发布时；用 `skillnav retry-inspection <slug>` 重试 |
 | `pending_publish_use_retry` | 包已上传，用 `skillnav retry-inspection <slug>`，勿重复 publish |
 | 分类报错 | 9 类之一：Automation、Developer Tools、Documentation、Productivity、Data & Analytics、Security、Design & Creative、Communication、Other |

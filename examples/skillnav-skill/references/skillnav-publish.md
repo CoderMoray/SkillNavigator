@@ -109,14 +109,14 @@ skillnav report my-skill --version 1.0.1
 skillnav unpublish my-skill                    # 交互确认（y/N，显示影响）
 skillnav --no-input unpublish my-skill         # Agent / CI：跳过确认
 skillnav unpublish my-skill --version 1.0.0    # 仅下架该版本（latest 不可 → cannot_unpublish_latest_version）
-skillnav unpublish my-skill --delete           # 移入回收站（3 天内可恢复；到期永久删除）
+skillnav unpublish my-skill --delete           # 移入回收站（--trash 等价；保留期内可恢复，到期永久删除）
 ```
 
 | 参数 | 说明 |
 | --- | --- |
 | `slug` | 目标 Skill（positional） |
 | `--version` | 只下架该版本；latest 不能单独下架 |
-| `--delete` | 整个 Skill 入回收站（3 天内可恢复，到期永久删除；不能与 `--version` 同用） |
+| `--delete` / `--trash` | 整个 Skill 入回收站（保留期内可恢复，到期永久删除；不能与 `--version` 同用）。查看与取回：`skillnav trash list` / `skillnav restore <slug>` |
 
 权限：仅 **owner**（contributor 与其他人均返回 403）。下架后 `skillnav status <slug>` 显示 `Published: no (private)`；`--json` 返回 `{slug, version, action: "unpublished", visibility}`。**仅在用户明确要求时执行。**
 
