@@ -219,6 +219,7 @@ skillnav
 | status / info | `GET /skills/:slug` | 视可见性 |
 | report | `GET /skills/:slug/versions/:version` | 视可见性 |
 | search | `GET /skills?query=` | 公开 |
+| check-slug | `GET /skills/:slug/availability` | 公开 |
 | top | `GET /leaderboard` | 公开 |
 | download / install | `GET /skills/:slug/versions/:version/download` | Bearer |
 | rate | `POST /skills/:slug/ratings` | Bearer |

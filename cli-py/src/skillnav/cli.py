@@ -470,6 +470,51 @@ def config_connect_test(
 config_app.command("test", hidden=True)(config_connect_test)
 
 
+@app.command("check-slug")
+def check_slug_cmd(
+    slug: Annotated[str, typer.Argument(help="Skill slug to check")],
+) -> None:
+    """Check whether a slug is free before publishing.
+
+    Publishing to a taken slug only fails at the end, after uploading. This
+    answers it up front and distinguishes "taken by a live skill" from "held by a
+    skill in the recycle bin", which can be restored or purged to free it.
+    """
+    try:
+        cli = _ctx()
+        status, payload = request_json(
+            "GET",
+            join_registry_url(cli.registry, f"/skills/{slug_path(slug)}/availability"),
+            token=cli.token,
+        )
+        raise_for_api_status(status, payload)
+
+        if cli.json_output:
+            emit_json(payload)
+            return
+
+        state = payload.get("status") if isinstance(payload, dict) else None
+        if state == "available":
+            typer.echo(f"Available: '{slug}' is free — publish it: skillnav publish <package>")
+            return
+        if state == "recycle_bin":
+            purge_at = payload.get("purgeAt")
+            suffix = f" (purges at {purge_at})" if purge_at else ""
+            typer.echo(f"Taken: '{slug}' is in the recycle bin{suffix}.")
+            typer.echo(
+                f"Release it by restoring and renaming, or delete it for good: "
+                f"skillnav trash purge {slug}"
+            )
+            return
+        latest = payload.get("latestVersion")
+        listed = "listed publicly" if payload.get("published") else "not listed publicly"
+        version_text = f" (latest {latest})" if latest else ""
+        typer.echo(f"Taken: '{slug}' belongs to an existing skill{version_text}, {listed}.")
+        typer.echo(f"Inspect it: skillnav info {slug}")
+    except Exception as exc:  # noqa: BLE001
+        _handle_error(exc)
+
+
 # --- auth ---
 
 

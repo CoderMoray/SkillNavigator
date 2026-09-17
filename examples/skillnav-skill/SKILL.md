@@ -98,6 +98,7 @@ skillnav
 ├── search <query> [--category]     # 搜索 → [references/skillnav-discover.md](references/skillnav-discover.md)
 ├── top [--sort] [--limit]
 ├── info <slug>
+├── check-slug <slug>               # 发布前检查 slug 是否可用（区分已有 Skill / 回收站占用）
 ├── download <slug> [-o PATH]       # 分发 → [references/skillnav-distribute.md](references/skillnav-distribute.md)
 ├── install <slug> --dir DIR       # --dir 必填：指向 Agent 加载 Skill 的目录
 ├── rate / create-issue / list-issues # 社区 → [references/skillnav-community.md](references/skillnav-community.md)
