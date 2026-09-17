@@ -155,7 +155,7 @@ skillnav
 - `unpublish --version VER`：`POST .../versions/:version/unpublish`，只下架某个版本；**latest 不能单独下架**（`cannot_unpublish_latest_version`，400）。
 - `unpublish --delete`：`DELETE /skills/:slug`，移入回收站（保留 3 天，期间可在 Web 恢复，到期永久删除）。回收站期间**同 slug 被禁止发布**（`skill_in_recycle_bin`）。与 `--version` 互斥（用法错误，退出码 3）。命名刻意不用 `purge`——本仓库里 `purge` 指"永久清除"，而这里只是软删除。
 - `republish <slug> [--version VER]`：`POST .../republish`，只恢复可见性、不产生新版本；**不能绕过审查**——审查中 / 中断 / 被拒绝时服务端拒绝（`skill_republish_blocked_*`，409），提示指向 `retry-publish` 或发新版本。
-- 结果：`published=false` 时 `status` 显示 `Published: no`；`--json` 返回 `{slug, version, action, visibility}`（action 为 `unpublished` / `deleted` / `republished`）。
+- 结果：`published=false` 时 `status` 显示 `Published: no (private)`；`--json` 返回 `{slug, version, action, visibility}`（action 为 `unpublished` / `deleted` / `republished`）。
 
 ### `update` 与每日版本检查
 

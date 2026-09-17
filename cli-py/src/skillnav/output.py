@@ -397,8 +397,8 @@ def _format_visibility(published: bool | None) -> str:
 def _format_published_listing(published: bool | None) -> str:
     """Public search listing (skillnav unpublish / republish)."""
     if published is False:
-        return "no"
-    return "yes"
+        return "no (private)"
+    return "yes (public)"
 
 
 def _format_uploaded(entry: dict[str, Any], skill: dict[str, Any] | None = None) -> str:

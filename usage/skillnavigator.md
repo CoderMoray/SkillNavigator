@@ -185,7 +185,7 @@ skillnav unpublish <slug> --version <版本>    # 只下架某个版本（latest
 skillnav unpublish <slug> --delete           # 移入回收站（3 天内可恢复；到期永久删除全部数据）
 ```
 
-**不是删除**：包、审查数据与版本历史都保留，之后可重新上架或用新版本发布。仅 **owner** 可执行（contributor 亦不可），非 owner 调用返回 **403**。下架后 `skillnav status <slug>` 会显示 `Published: no`。**写操作，须用户明确要求后再执行。**
+**不是删除**：包、审查数据与版本历史都保留，之后可重新上架或用新版本发布。仅 **owner** 可执行（contributor 亦不可），非 owner 调用返回 **403**。下架后 `skillnav status <slug>` 会显示 `Published: no (private)`。**写操作，须用户明确要求后再执行。**
 
 **重新上架（恢复公开）**：
 

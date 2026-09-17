@@ -110,7 +110,7 @@ skillnav unpublish my-skill --delete           # 移入回收站（3 天内可�
 | `--version` | 只下架该版本；latest 不能单独下架 |
 | `--delete` | 整个 Skill 入回收站（3 天内可恢复，到期永久删除；不能与 `--version` 同用） |
 
-权限：仅 **owner**（contributor 与其他人均返回 403）。下架后 `skillnav status <slug>` 显示 `Published: no`；`--json` 返回 `{slug, version, action: "unpublished", visibility}`。**仅在用户明确要求时执行。**
+权限：仅 **owner**（contributor 与其他人均返回 403）。下架后 `skillnav status <slug>` 显示 `Published: no (private)`；`--json` 返回 `{slug, version, action: "unpublished", visibility}`。**仅在用户明确要求时执行。**
 
 ---
 

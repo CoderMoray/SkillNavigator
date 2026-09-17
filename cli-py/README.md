@@ -88,7 +88,7 @@ window expires). `republish` is the counterpart of `unpublish` and **cannot
 bypass review** — the server refuses while an inspection is running, interrupted
 or rejected, pointing at `retry-publish` or at shipping a new version.
 
-An unpublished skill reports `Published: no` in `skillnav status`.
+An unpublished skill reports `Published: no (private)` in `skillnav status`.
 
 ## Upgrade and version check
 
