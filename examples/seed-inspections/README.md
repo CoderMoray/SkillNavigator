@@ -40,7 +40,72 @@ VIRUSTOTAL_WAIT_FOR_ANALYSIS=true VIRUSTOTAL_ANALYSIS_TIMEOUT_MS=600000 \
 **verdict 为 published、无 findings、无 stage failures**，再提交工件
 （scores/verdict 与 `stageStatuses` / `stageFailureMessages` 都会被固化）。
 **若打印出 `⚠️ stage failures:`，说明固化的是降级结果，不要提交。**
-改动内容时同时 **bump `SKILL.md` 的 `version`**（同一 `slug@version` 内容不可覆盖）。
+改动内容时同时 **bump `SKILL.md` 的 `version`**（同一 `slug@version` 内容不可覆盖）——
+走正式发布路径时这是硬要求，只有下面的 `--refresh` 运维路径例外。
+
+## 把变更同步到已部署的实例
+
+种子工件**只在 bootstrap 时生效**——它不会回头更新一个已经跑起来的实例。改了
+`examples/skillnav-skill` 之后线上仍挂着旧内容，必须显式同步。两条路：
+
+### 方式 A — 正式发布新版本（默认选择）
+
+```bash
+# 1) bump SKILL.md 的 version
+# 2) 重跑工件（见上一节；会消耗 VT 配额）
+# 3) 发布
+skillnav publish examples/skillnav-skill
+```
+
+后端 preflight 强制 `Version must be greater than latest`，所以这条路**必须 bump**。
+好处是版本号前进（用户与 Web 都能看到新版本）、社区数据（bookmark / rating /
+issue）保留。
+
+### 方式 B — `--refresh`（运维直刷，版本号不变）
+
+适用于"只把内容改对、不需要用户感知版本"的修正：
+
+```bash
+cd <repo>
+git fetch origin main && git checkout main && git pull --ff-only
+
+npm run verify:seed-artifacts        # 前置：工件必须与包内容一致
+
+DOTENV_FILE=/path/to/prod.env node_modules/.bin/tsx scripts/bootstrap-admin.mjs --refresh
+```
+
+它做的事（`scripts/bootstrap-admin-core.mjs`）：先 `deleteSkill` +
+`purgeRecycleBinSkill` **永久删除**官方 Skill，再用**当前冻结工件**重新
+`publishSnapshot`。因此：
+
+- ✅ **不消耗 VirusTotal 配额**——bootstrap 里 `VIRUSTOTAL_ENABLED=false`、
+  `SKILLSPECTOR_ENABLED=false`，结果全部取自工件（仅 HaluCatch 现场离线重跑）
+- ✅ 先删除再重建，"版本必须大于 latest" 的 preflight 不适用 → **版本号保持不变**
+- ⚠️ **级联清空**该 Skill 的 bookmark / rating / issue / 文件，**不可恢复**
+- ⚠️ **绕过 API 直连数据库**，不经鉴权与业务校验，纯运维动作
+
+**环境条件**（缺一不可）：
+
+| 条件 | 原因 |
+| --- | --- |
+| 能连**生产** Postgres + MinIO | 它直接用 `createAuthStoreFromEnv()` / `createRegistryStoreFromEnv()` |
+| 有 `ADMIN_USERNAME` / `ADMIN_EMAIL` / `ADMIN_DISPLAY_NAME` | 没有 `ADMIN_*` 会走 demo 分支，不会刷新官方 Skill |
+| `DOTENV_FILE` 指向生产 dotenv | 否则按 `DOTENV_FILE` → `.env` → `.env.rapid` 顺序加载，开发机的 `.env` 指向本地库 |
+
+> ⚠️ **`--refresh` 不是 `npm run setup` 的开关**：`scripts/setup.sh` 传给
+> `bootstrap-admin.mjs` 的参数是写死的（只有 demo 模式传 `--demo`），必须直接
+> 调用 `scripts/bootstrap-admin.mjs`。
+
+**验证内容真的换了**：
+
+```bash
+skillnav --profile <prod> download skillnav-skill -o /tmp/s.zip
+unzip -p /tmp/s.zip SKILL.md | grep -c "<新内容里的关键词>"   # 旧内容为 0
+```
+
+> 注意：`skillnav install` 是无状态的（只拉 `/versions/latest/download`），重跑
+> install 必定拿到新内容；但**版本号没变就没有任何自动更新信号**，已安装的用户
+> 需要人工通知重装。这正是方式 A 更可取的原因。
 
 ## 设计要点
 

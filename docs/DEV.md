@@ -20,6 +20,7 @@ npm run test:e2e    # Playwright，自动拉起 API + Web（需 PG/MinIO + Chrom
 | `packages/*`、`apps/api` 逻辑 | `npm run lint` + `npm run test` | 涉及发布链时 `npm run test:smoke` |
 | `apps/web/app/**`（页面/组件） | `npm run lint` + `npm run build:web` | `npm run test:e2e` |
 | `cli-py/**`（Python CLI） | `ruff check` + `mypy` + `pytest`（`pip install -e "cli-py[dev]"` 后） | — |
+| `examples/*-skill/**`（官方 Skill 包内容） | `npm run verify:seed-artifacts` | 内容变更须重跑工件并同步到已部署实例，两条路径见 `examples/seed-inspections/README.md` |
 | 品牌名 / `BRAND_NAME` / `NEXT_PUBLIC_*` 相关 | `npm run build:web`（确认内联生效 + `public/usage/`、`public/install` 产物同步） | — |
 
 要点：
