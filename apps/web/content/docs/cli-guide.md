@@ -300,7 +300,7 @@ skillnav unpublish my-first-skill --version 1.0.0   # 只下架某个版本（la
 skillnav unpublish my-first-skill --delete     # 移入回收站（3 天内可恢复；到期永久删除）
 ```
 
-仅 **owner** 可执行（contributor 与其他人均返回 403）；下架后 `skillnav status <slug>` 显示 `Visibility: private`。
+仅 **owner** 可执行（contributor 与其他人均返回 403）；下架后 `skillnav status <slug>` 显示 `Published: no`。
 
 **想要重新上架（`skillnav republish`）**：`unpublish` 的逆操作，只恢复可见性——不产生新版本、不改版本历史（同样仅 **owner** 可执行）。
 
@@ -328,7 +328,7 @@ skillnav status my-first-skill --version 1.0.0
 - `Inspection status:`：`inspectionStatus`（审查中 inspecting / 审查完成 completed / 审查中断 interrupted / 审查拒绝 rejected）
 - `Inspection progress:`：各环节状态；平台未返回阶段数据时显示 `unavailable (...)`
 - `Security:`：SkillSpector 安全分与阻塞项、VirusTotal 检出与引擎数
-- `Published`、`Visibility` 等发布信息
+- `Uploaded:`（包是否已上传）、`Published:`（是否上架公开搜索，yes/no）
 
 `--version` 可选，省略时与指定 latest 输出格式一致；`--json` 会在顶层额外给出 `verdict` 字段。
 

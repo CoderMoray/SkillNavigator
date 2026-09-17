@@ -394,6 +394,13 @@ def _format_visibility(published: bool | None) -> str:
     return "public"
 
 
+def _format_published_listing(published: bool | None) -> str:
+    """Public search listing (skillnav unpublish / republish)."""
+    if published is False:
+        return "no"
+    return "yes"
+
+
 def _format_uploaded(entry: dict[str, Any], skill: dict[str, Any] | None = None) -> str:
     if entry.get("uploaded") is True:
         return "yes"
@@ -722,7 +729,7 @@ def _print_version_status_row(
     print(
         f"  {version_id}{latest_marker}  status={context['aggregate_status']}  "
         f"uploaded={_format_uploaded(entry, skill)}  "
-        f"visibility={_format_visibility(skill.get('published'))}"
+        f"published={_format_published_listing(entry.get('published', skill.get('published')))}"
     )
     print(f"    progress: {context['progress']}")
 
@@ -745,7 +752,7 @@ def _print_single_version_status(body: dict[str, Any], version: str) -> None:
         f"Inspection scores: {_format_inspection_scores_summary(inspection, entry.get('evaluation'))}"
     )
     print(f"Uploaded: {_format_uploaded(entry, body)}")
-    print(f"Visibility: {_format_visibility(body.get('published'))}")
+    print(f"Published: {_format_published_listing(body.get('published'))}")
     if context["inspection_started_at"]:
         print(f"Inspection started: {context['inspection_started_at']}")
     if context["inspection_ended_at"]:
