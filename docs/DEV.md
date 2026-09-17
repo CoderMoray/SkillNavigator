@@ -45,17 +45,18 @@ npm run test:e2e    # Playwright，自动拉起 API + Web（需 PG/MinIO + Chrom
 ## 三、品牌名与生成产物
 
 - 一切用户可见品牌名经 `BRAND_NAME` 环境变量注入（`apps/web/lib/brand-name.ts` 等），**禁止硬编码**品牌字符串。
-- `apps/web/public/usage/`、`apps/web/public/install`、`.next/types` 等是构建/prebuild 生成物（`scripts/sync-usage-public.mjs`），**不要手工编辑**；出现 diff 属预期时用构建产物提交（参考 usage 产物同步提交 `af19586`）。
-- 该同步靠 **`prebuild` 钩子**触发，只有 `npm run build:web` 会跑；CI/部署脚本若直接调 `next build`，产物不会刷新——部署侧应在 env 变更后走 `build:web`，或显式执行 `node scripts/sync-usage-public.mjs`。
-- **源头 ↔ 产物对应关系**（仓库里出现的"两份内容相近的文件"是预期形态，产物带着渲染后的真实地址）：
+- **源头 ↔ 产物对应关系**（**源头入库；产物构建时生成，不入库**）：
 
-  | 源头（改这里） | 产物（勿手改） |
+  | 源头（改这里） | 产物（勿手改、勿提交） |
   | --- | --- |
   | `usage/skillnavigator.md` | `apps/web/public/usage/skillnavigator.md` |
   | `apps/web/content/docs/platform-agent-prompt.md` | `apps/web/public/usage/platform-agent-prompt.md` |
   | `usage/install.sh` | `apps/web/public/install` |
 
-  产物的用途是提供**可 `curl` 的原始 Markdown / 脚本**（网页版走 `/docs/*` 渲染 HTML，Agent 解析 HTML 成本高）。两处都存在是必要的：源头带 `{{...}}` 占位符，产物才是能直接交给 Agent 的成品。
+- 产物由 `scripts/sync-usage-public.mjs` 生成，会把**部署地址烧进去**（替换 `{{registry_api_url}}` / `{{web_url}}` / `{{brand_name}}`）。地址取自生成环境的 dotenv，产物因而只是"某台机器当时的快照"——**已在 `.gitignore` 忽略，不要提交**。
+- 为什么必须有产物：`apps/web/public/` 下的文件是**静态提供**的（用户 `curl {webRoot}/install | bash` 拿到的是原文），没有运行时解析变量的机会，只能在构建时替换好。网页（`/docs/*`）走 React 渲染，不受影响。
+- 生成由 web 的 **`prebuild` 钩子**触发，只有 `npm run build:web` 会跑（`--strict`）。缺少 `NEXT_PUBLIC_REGISTRY_API_URL` / `NEXT_PUBLIC_WEB_URL` 时**直接报错退出**，不再产出"（部署方未配置…）"占位产物；本地只想预览时显式加 `--allow-unconfigured`。
+- CI/部署脚本若直接调 `next build`，产物不会刷新——部署侧应在 env 变更后走 `build:web`，或显式执行 `node scripts/sync-usage-public.mjs --strict`。
 
 ## 四、提交纪律
 
