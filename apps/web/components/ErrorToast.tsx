@@ -2,6 +2,7 @@
 
 import { X, XCircle } from "lucide-react";
 import { useEffect } from "react";
+import { useToastSlot } from "../lib/toast-slot";
 
 const AUTO_DISMISS_MS = 5000;
 
@@ -11,10 +12,19 @@ interface ErrorToastProps {
 }
 
 export function ErrorToast({ message, onClose }: ErrorToastProps) {
+  const superseded = useToastSlot(message);
+
   useEffect(() => {
+    if (superseded) {
+      return;
+    }
     const timer = window.setTimeout(onClose, AUTO_DISMISS_MS);
     return () => window.clearTimeout(timer);
-  }, [message, onClose]);
+  }, [message, onClose, superseded]);
+
+  if (superseded) {
+    return null;
+  }
 
   return (
     <div className="publish-notice-toast rejected error-toast" role="alert" aria-live="assertive" aria-atomic="true">

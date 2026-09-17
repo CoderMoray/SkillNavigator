@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { AlertCircle, CheckCircle2, X, XCircle } from "lucide-react";
 import type { PublishNotice } from "../lib/publish-notice";
 import { publishNoticeDescription, publishNoticeTitle } from "../lib/publish-notice";
+import { useToastSlot } from "../lib/toast-slot";
 
 const AUTO_DISMISS_MS = 5000;
 
@@ -33,12 +34,22 @@ export function PublishNoticeToast({ notice, onClose }: PublishNoticeToastProps)
   const Icon =
     notice.verdict === "published" ? CheckCircle2 : notice.verdict === "needs-inspection" ? AlertCircle : XCircle;
 
+  const slotKey = `${notice.slug}@${notice.version}:${notice.verdict}`;
+  const superseded = useToastSlot(slotKey);
+
   useEffect(() => {
+    if (superseded) {
+      return;
+    }
     const timer = window.setTimeout(dismiss, AUTO_DISMISS_MS);
     return () => {
       window.clearTimeout(timer);
     };
-  }, [dismiss]);
+  }, [dismiss, superseded]);
+
+  if (superseded) {
+    return null;
+  }
 
   return (
     <div
