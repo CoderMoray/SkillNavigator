@@ -1834,12 +1834,6 @@ export default function SkillDetailPage() {
                             <strong>{formatVirusTotalThreatVerdict(virusTotalScan!.threatVerdict)}</strong>
                           </div>
                         ) : null}
-                        {virusTotalScan?.sha256 ? (
-                          <div>
-                            <span>归档 SHA-256</span>
-                            <strong className="mono">{virusTotalScan.sha256.slice(0, 16)}...</strong>
-                          </div>
-                        ) : null}
                         {virusTotalScan?.analysisUrl ? (
                           <div>
                             <span>分析报告</span>
