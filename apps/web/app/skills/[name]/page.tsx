@@ -52,6 +52,7 @@ import { ErrorToast } from "../../../components/ErrorToast";
 import { SuccessToast } from "../../../components/SuccessToast";
 import { UsernameSuggestInput } from "../../../components/UsernameSuggestInput";
 import { HaluCatchRadar } from "../../../components/HaluCatchRadar";
+import { HaluCatchReportSummary } from "../../../components/HaluCatchReportSummary";
 import { VersionInspectionScores } from "../../../components/VersionInspectionScores";
 import { FindingConfidenceBadge } from "../../../components/FindingConfidenceBadge";
 import { FindingSourceBadge } from "../../../components/FindingSourceBadge";
@@ -1731,9 +1732,7 @@ export default function SkillDetailPage() {
                   {haluCatchReport && haluCatchReportSummary ? (
                     <div className="halucatch-inline-summary">
                       <h4>报告摘要</h4>
-                      <MarkdownContent className="markdown-content halucatch-report-summary">
-                        {haluCatchReportSummary}
-                      </MarkdownContent>
+                      <HaluCatchReportSummary summaryMarkdown={haluCatchReportSummary} />
                     </div>
                   ) : null}
                 </div>

@@ -2679,6 +2679,52 @@ button {
   font-weight: 600;
 }
 
+.halucatch-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.halucatch-summary-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.58);
+  padding: 14px 16px;
+}
+
+.halucatch-summary-card-icon {
+  flex-shrink: 0;
+}
+
+.halucatch-summary-card-value {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.halucatch-summary-card-critical {
+  color: var(--red);
+  border-color: rgba(217, 48, 37, 0.22);
+  background: var(--red-soft);
+}
+
+.halucatch-summary-card-warning {
+  color: var(--amber);
+  border-color: rgba(176, 96, 0, 0.22);
+  background: var(--amber-soft);
+}
+
+.halucatch-summary-card-optimizable {
+  color: #8a6d00;
+  border-color: rgba(138, 109, 0, 0.22);
+  background: #fef9e7;
+}
+
 .halucatch-inline-summary .halucatch-report-summary {
   margin-top: 0;
 }
@@ -3382,8 +3428,27 @@ button {
 :root[data-theme="dark"] .version-score-item,
 :root[data-theme="dark"] .evaluation-summary > div,
 :root[data-theme="dark"] .halucatch-report-content,
-:root[data-theme="dark"] .halucatch-report-summary {
+:root[data-theme="dark"] .halucatch-report-summary,
+:root[data-theme="dark"] .halucatch-summary-card {
   background: rgba(24, 26, 36, 0.72);
+}
+
+:root[data-theme="dark"] .halucatch-summary-card-critical {
+  color: #f28b82;
+  border-color: rgba(242, 139, 130, 0.28);
+  background: rgba(242, 139, 130, 0.12);
+}
+
+:root[data-theme="dark"] .halucatch-summary-card-warning {
+  color: var(--amber);
+  border-color: rgba(253, 214, 99, 0.28);
+  background: var(--amber-soft);
+}
+
+:root[data-theme="dark"] .halucatch-summary-card-optimizable {
+  color: #fdd663;
+  border-color: rgba(253, 214, 99, 0.2);
+  background: rgba(253, 214, 99, 0.08);
 }
 
 :root[data-theme="dark"] .score-radar-grid {
@@ -4727,6 +4792,10 @@ button {
 
   .evaluation-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .halucatch-summary-grid {
+    grid-template-columns: 1fr;
   }
 
   .docs-shell {

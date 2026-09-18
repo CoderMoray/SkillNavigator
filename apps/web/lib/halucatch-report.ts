@@ -5,6 +5,31 @@ export function buildHaluCatchReportPath(skillSlug: string, version: string): st
   return `/skills/${encodeURIComponent(skillSlug)}/halucatch?${params.toString()}`;
 }
 
+export type HaluCatchSummaryCounts = {
+  critical: number;
+  warning: number;
+  optimizable: number;
+};
+
+function parseSummaryCount(text: string, pattern: RegExp): number {
+  const match = text.match(pattern);
+  if (!match?.[1]) {
+    return 0;
+  }
+  const value = Number.parseInt(match[1], 10);
+  return Number.isFinite(value) ? value : 0;
+}
+
+/** Parse TL;DR markdown like "🔴 1 严重 · ⚠️ 8 注意 · 💡 2 可优化". */
+export function parseHaluCatchSummaryCounts(summaryMarkdown: string): HaluCatchSummaryCounts {
+  const text = summaryMarkdown.replace(/\s+/g, " ").trim();
+  return {
+    critical: parseSummaryCount(text, /(\d+)\s*严重/),
+    warning: parseSummaryCount(text, /(\d+)\s*注意/),
+    optimizable: parseSummaryCount(text, /(\d+)\s*(?:项)?可优化/)
+  };
+}
+
 export function extractHaluCatchSummary(markdown: string): string {
   const normalized = markdown.replace(/\r\n/g, "\n");
   const tldrMatch = normalized.match(
