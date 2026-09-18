@@ -1774,7 +1774,7 @@ export default function SkillDetailPage() {
                       <strong>{toSkillSpectorSafetyScore(skillSpectorScan.riskScore)}/100</strong>
                     </div>
                     <div>
-                      <span>包级风险</span>
+                      <span>Skill风险</span>
                       <strong>{formatSkillSpectorRiskSeverity(skillSpectorScan.riskSeverity)}</strong>
                     </div>
                     <div>
@@ -1820,7 +1820,7 @@ export default function SkillDetailPage() {
                         </div>
                         {virusTotalScan?.status === "completed" && virusTotalEngineTotal > 0 ? (
                           <div>
-                            <span>厂家总数</span>
+                            <span>项目检测数量</span>
                             <strong>{virusTotalEngineTotal}</strong>
                           </div>
                         ) : null}
