@@ -28,14 +28,23 @@ export function HaluCatchReportSummary({ summaryMarkdown }: { summaryMarkdown: s
 
   return (
     <div className="halucatch-summary-grid" role="list" aria-label="HaluCatch 报告摘要">
-      {summaryCards.map(({ key, label, Icon, toneClass }) => (
-        <div className={`halucatch-summary-card ${toneClass}`} key={key} role="listitem">
-          <Icon aria-hidden className="halucatch-summary-card-icon" size={20} strokeWidth={2.25} />
-          <strong className="halucatch-summary-card-value">
-            {formatNumber(counts[key])}个{label}
-          </strong>
-        </div>
-      ))}
+      {summaryCards.map(({ key, label, Icon, toneClass }) => {
+        const count = counts[key];
+        const isZero = count === 0;
+
+        return (
+          <div
+            className={`halucatch-summary-card ${toneClass}${isZero ? " halucatch-summary-card-zero" : ""}`}
+            key={key}
+            role="listitem"
+          >
+            <Icon aria-hidden className="halucatch-summary-card-icon" size={20} strokeWidth={2.25} />
+            <strong className="halucatch-summary-card-value">
+              {formatNumber(count)}个{label}
+            </strong>
+          </div>
+        );
+      })}
     </div>
   );
 }
