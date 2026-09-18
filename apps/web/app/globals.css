@@ -3407,6 +3407,10 @@ button {
   gap: 10px;
 }
 
+.evaluation-summary.evaluation-summary-cols-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .evaluation-summary + .evaluation-summary {
   margin-top: 12px;
 }
@@ -4818,6 +4822,10 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .evaluation-summary.evaluation-summary-cols-5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
   .halucatch-summary-grid {
     grid-template-columns: 1fr;
   }
@@ -4977,6 +4985,12 @@ button {
   .requirements-grid,
   .evaluation-summary {
     grid-template-columns: 1fr;
+  }
+
+  .evaluation-summary.evaluation-summary-cols-5 {
+    grid-template-columns: repeat(5, minmax(120px, 1fr));
+    overflow-x: auto;
+    padding-bottom: 4px;
   }
 
   .detail-tab {

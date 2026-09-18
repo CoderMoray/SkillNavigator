@@ -1764,7 +1764,7 @@ export default function SkillDetailPage() {
                   </div>
                 </div>
                 {skillSpectorScan ? (
-                  <div className="evaluation-summary">
+                  <div className="evaluation-summary evaluation-summary-cols-5">
                     <div>
                       <span>扫描器</span>
                       <strong>SkillSpector</strong>
@@ -1788,7 +1788,7 @@ export default function SkillDetailPage() {
                   </div>
                 ) : null}
                 {showVirusTotalSection ? (
-                  <div className="evaluation-summary">
+                  <div className="evaluation-summary evaluation-summary-cols-5">
                     <div>
                       <span>扫描器</span>
                       <strong>VirusTotal</strong>
