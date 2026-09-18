@@ -13,6 +13,24 @@ const RECOMMENDATION_LABELS: Record<string, string> = {
   DO_NOT_INSTALL: "不建议安装（DO_NOT_INSTALL）"
 };
 
+/** Badge tone classes aligned with existing `.badge.passed` / `.partial` / `.rejected`. */
+const RECOMMENDATION_BADGE_CLASSES: Record<keyof typeof RECOMMENDATION_LABELS, string> = {
+  SAFE: "passed",
+  CAUTION: "partial",
+  DO_NOT_INSTALL: "rejected"
+};
+
+export function skillSpectorRecommendationBadgeClass(recommendation: string | undefined): string | null {
+  if (!recommendation) {
+    return null;
+  }
+  const key = recommendation.trim().toUpperCase();
+  if (!(key in RECOMMENDATION_BADGE_CLASSES)) {
+    return null;
+  }
+  return RECOMMENDATION_BADGE_CLASSES[key as keyof typeof RECOMMENDATION_LABELS] ?? null;
+}
+
 export function formatSkillSpectorRiskSeverity(severity: string | undefined): string {
   if (!severity) {
     return "-";

@@ -57,7 +57,13 @@ import { VersionInspectionScores } from "../../../components/VersionInspectionSc
 import { FindingConfidenceBadge } from "../../../components/FindingConfidenceBadge";
 import { FindingSourceBadge } from "../../../components/FindingSourceBadge";
 import { SkillCategoryLabel } from "../../../components/SkillCategoryIcon";
-import { EvaluationBadge, SeverityBadge, SkillInspectionStatusBadge, VerdictBadge } from "../../../components/StatusBadge";
+import {
+  EvaluationBadge,
+  SeverityBadge,
+  SkillInspectionStatusBadge,
+  SkillSpectorRecommendationBadge,
+  VerdictBadge
+} from "../../../components/StatusBadge";
 import { findSkillContributorByHandle, isSkillContributor, isSkillOwner } from "../../../lib/skill-contributors";
 import { buildSkillInstallPrompt } from "../../../lib/skill-install-prompt";
 import { skillnavInstallExample } from "../../../lib/cli-examples";
@@ -88,7 +94,6 @@ import { formatDateTime, formatFileSize, formatNumber, formatSkillInspectionFail
 import { buildHaluCatchReportPath, extractHaluCatchSummary } from "../../../lib/halucatch-report";
 import { localizeSkillSpectorFinding } from "@skill-platform/inspection-engine/skillspector-i18n";
 import {
-  formatSkillSpectorRecommendation,
   formatSkillSpectorRiskSeverity,
   formatSkillSpectorScanMode,
   formatSkillSpectorSummaryLine,
@@ -1776,7 +1781,7 @@ export default function SkillDetailPage() {
                     </div>
                     <div>
                       <span>安装建议</span>
-                      <strong>{formatSkillSpectorRecommendation(skillSpectorScan.recommendation)}</strong>
+                      <SkillSpectorRecommendationBadge recommendation={skillSpectorScan.recommendation} />
                     </div>
                     <div>
                       <span>模式</span>

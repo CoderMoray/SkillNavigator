@@ -3416,6 +3416,14 @@ button {
   font-size: 14px;
 }
 
+.evaluation-summary .badge {
+  width: fit-content;
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+  line-height: 1.35;
+}
+
 :root[data-theme="dark"] .detail-tab-bar,
 :root[data-theme="dark"] .detail-meta-grid > div,
 :root[data-theme="dark"] .file-list,

@@ -1,5 +1,9 @@
 import type { EvaluationStatus, InspectionSeverity, InspectionVerdict, SkillInspectionStatus } from "../lib/types";
 import { severityLabel, skillInspectionStatusLabel, verdictLabel } from "../lib/format";
+import {
+  formatSkillSpectorRecommendation,
+  skillSpectorRecommendationBadgeClass
+} from "../lib/skillspector-summary";
 
 export function VerdictBadge({ verdict, title }: { verdict: InspectionVerdict; title?: string }) {
   return (
@@ -44,4 +48,19 @@ export function EvaluationBadge({ status }: { status: EvaluationStatus }) {
 
 export function SeverityBadge({ severity }: { severity: InspectionSeverity }) {
   return <span className={`badge ${severity}`}>{severityLabel(severity)}</span>;
+}
+
+export function SkillSpectorRecommendationBadge({ recommendation }: { recommendation: string | undefined }) {
+  const label = formatSkillSpectorRecommendation(recommendation);
+  const toneClass = skillSpectorRecommendationBadgeClass(recommendation);
+
+  if (label === "-" || !toneClass) {
+    return <strong>{label}</strong>;
+  }
+
+  return (
+    <span className={`badge ${toneClass}`} title={label}>
+      {label}
+    </span>
+  );
 }
