@@ -1820,6 +1820,12 @@ export default function SkillDetailPage() {
                                 : "未命中历史报告"}
                           </strong>
                         </div>
+                        {virusTotalScan?.status === "completed" && virusTotalEngineTotal > 0 ? (
+                          <div>
+                            <span>厂家总数</span>
+                            <strong>{virusTotalEngineTotal}</strong>
+                          </div>
+                        ) : null}
                         <div>
                           <span>检出结果</span>
                           <strong>
@@ -1830,12 +1836,6 @@ export default function SkillDetailPage() {
                                 : "未检出"}
                           </strong>
                         </div>
-                        {virusTotalScan?.status === "completed" && virusTotalEngineTotal > 0 ? (
-                          <div>
-                            <span>厂家总数</span>
-                            <strong>{virusTotalEngineTotal}</strong>
-                          </div>
-                        ) : null}
                         {formatVirusTotalThreatVerdict(virusTotalScan?.threatVerdict) ? (
                           <div>
                             <span>威胁裁决</span>
