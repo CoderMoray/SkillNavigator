@@ -4,6 +4,11 @@ import {
   formatSkillSpectorRecommendation,
   skillSpectorRecommendationBadgeClass
 } from "../lib/skillspector-summary";
+import {
+  formatVirusTotalDetectionSummary,
+  virusTotalDetectionBadgeClass
+} from "../lib/virustotal-summary";
+import type { VirusTotalScanSummary } from "../lib/types";
 
 export function VerdictBadge({ verdict, title }: { verdict: InspectionVerdict; title?: string }) {
   return (
@@ -56,6 +61,33 @@ export function SkillSpectorRecommendationBadge({ recommendation }: { recommenda
 
   if (label === "-" || !toneClass) {
     return <strong>{label}</strong>;
+  }
+
+  return (
+    <span className={`badge ${toneClass}`} title={label}>
+      {label}
+    </span>
+  );
+}
+
+export function VirusTotalDetectionBadge({
+  scan
+}: {
+  scan: Pick<VirusTotalScanSummary, "status" | "malicious" | "suspicious"> | undefined;
+}) {
+  const label = formatVirusTotalDetectionSummary(scan);
+  const toneClass = virusTotalDetectionBadgeClass(scan);
+
+  if (label === "-") {
+    return <strong>{label}</strong>;
+  }
+
+  if (!toneClass) {
+    return (
+      <span className="badge" title={label}>
+        {label}
+      </span>
+    );
   }
 
   return (

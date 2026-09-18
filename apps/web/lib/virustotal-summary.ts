@@ -16,6 +16,39 @@ export function formatVirusTotalThreatVerdict(
   return THREAT_VERDICT_LABELS[verdict] ?? verdict;
 }
 
+export function formatVirusTotalDetectionSummary(
+  scan: Pick<VirusTotalScanSummary, "status" | "malicious" | "suspicious"> | undefined
+): string {
+  if (!scan) {
+    return "-";
+  }
+  if (scan.status === "not_found") {
+    return "未扫描";
+  }
+  const detections = scan.malicious + scan.suspicious;
+  if (detections > 0) {
+    return `${scan.malicious} 恶意 · ${scan.suspicious} 可疑`;
+  }
+  return "未检出";
+}
+
+/** Badge tone classes aligned with `.badge.passed` / `.partial` / `.rejected`. */
+export function virusTotalDetectionBadgeClass(
+  scan: Pick<VirusTotalScanSummary, "status" | "malicious" | "suspicious"> | undefined
+): string | null {
+  if (!scan || scan.status === "not_found") {
+    return null;
+  }
+  const detections = scan.malicious + scan.suspicious;
+  if (detections === 0) {
+    return "passed";
+  }
+  if (scan.malicious > 0) {
+    return "rejected";
+  }
+  return "partial";
+}
+
 export function resolveVirusTotalEngineTotal(
   summary: Pick<
     VirusTotalScanSummary,

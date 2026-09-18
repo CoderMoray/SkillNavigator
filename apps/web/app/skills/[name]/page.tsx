@@ -62,7 +62,8 @@ import {
   SeverityBadge,
   SkillInspectionStatusBadge,
   SkillSpectorRecommendationBadge,
-  VerdictBadge
+  VerdictBadge,
+  VirusTotalDetectionBadge
 } from "../../../components/StatusBadge";
 import { findSkillContributorByHandle, isSkillContributor, isSkillOwner } from "../../../lib/skill-contributors";
 import { buildSkillInstallPrompt } from "../../../lib/skill-install-prompt";
@@ -600,9 +601,6 @@ export default function SkillDetailPage() {
   const virusTotalScanError =
     virusTotalScan?.error ?? extractVirusTotalLegacyError(virusTotalLegacyUnavailableFinding?.message);
   const showVirusTotalSection = Boolean(virusTotalScan || virusTotalLegacyUnavailableFinding);
-  const virusTotalDetections = virusTotalScan
-    ? virusTotalScan.malicious + virusTotalScan.suspicious
-    : 0;
   const virusTotalEngineTotal = virusTotalScan ? resolveVirusTotalEngineTotal(virusTotalScan) : 0;
   const hiddenPlatformFindingCount = inspectionFindings.length - securityFindings.length;
   const isHaluCatchEvaluation = currentVersion.evaluation?.provider === "halucatch-adapter";
@@ -1828,13 +1826,7 @@ export default function SkillDetailPage() {
                         ) : null}
                         <div>
                           <span>检出结果</span>
-                          <strong>
-                            {virusTotalScan?.status === "not_found"
-                              ? "未扫描"
-                              : virusTotalDetections
-                                ? `${virusTotalScan!.malicious} 恶意 · ${virusTotalScan!.suspicious} 可疑`
-                                : "未检出"}
-                          </strong>
+                          <VirusTotalDetectionBadge scan={virusTotalScan} />
                         </div>
                         {formatVirusTotalThreatVerdict(virusTotalScan?.threatVerdict) ? (
                           <div>
