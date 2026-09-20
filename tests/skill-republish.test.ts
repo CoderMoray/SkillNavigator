@@ -137,6 +137,30 @@ describe("skill republish policy", () => {
     expect(canRetryVersionReview(multiVersion, "1.0.0")).toBe(false);
   });
 
+  it("still blocks skill republish when latest is rejected even if an older version is public", () => {
+    const multi = skill({
+      latestVersion: "1.1.0",
+      published: true,
+      versions: {
+        "1.0.0": version({
+          version: "1.0.0",
+          published: true,
+          inspectionStatus: "completed",
+        }),
+        "1.1.0": version({
+          version: "1.1.0",
+          status: "rejected",
+          published: false,
+          inspectionStatus: "rejected",
+        }),
+      },
+    });
+
+    expect(isSkillUnlisted(multi)).toBe(false);
+    expect(getSkillRepublishBlockReason(multi)).toBe("inspection_rejected");
+    expect(() => assertSkillRepublishAllowed(multi)).toThrow("skill_republish_blocked_inspection_rejected");
+  });
+
   it("blocks republish for rejected version rows", () => {
     const rejectedVersion = skill({
       versions: {

@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   hasPubliclyListedVersion,
   isSkillUnlisted,
+  isUserDelisted,
   isVersionPubliclyListed,
   recomputeSkillPublishedFlag,
   resolveLatestApprovedVersion,
   resolvePublicSearchSortTimestamp,
   resolveSkillPublishedFlag,
+  toIsoTimestampString,
   toSearchResult,
 } from "../packages/storage/src/utils.js";
 import type { RegistrySkill, RegistryVersion } from "../packages/storage/src/types.js";
@@ -192,5 +194,60 @@ describe("public listing helpers", () => {
 
     expect(resolveSkillPublishedFlag(registry)).toBe(false);
     expect(toSearchResult(registry).published).toBe(false);
+  });
+
+  it("treats legacy finalized version rows as publicly listed", () => {
+    expect(
+      isVersionPubliclyListed(
+        version({
+          version: "0.1.4",
+          published: true,
+          status: "published",
+          inspectionStatus: "inspecting",
+          inspectionEndedAt: "2026-09-20T06:38:59.680Z",
+        })
+      )
+    ).toBe(true);
+  });
+
+  it("identifies owner delist separately from never-listed skills", () => {
+    const delisted = skill({
+      published: false,
+      versions: { "1.0.0": version({ version: "1.0.0" }) },
+    });
+    const neverListed = skill({
+      published: false,
+      versions: {
+        "1.0.0": version({ version: "1.0.0", published: false, inspectionStatus: "rejected", status: "rejected" }),
+      },
+    });
+
+    expect(isUserDelisted(delisted)).toBe(true);
+    expect(isUserDelisted(neverListed)).toBe(false);
+  });
+
+  it("falls back to skill updatedAt for sort when no public version exists", () => {
+    const registry = skill({
+      published: false,
+      updatedAt: "2026-03-15T12:00:00.000Z",
+      versions: {
+        "1.0.0": version({
+          version: "1.0.0",
+          published: false,
+          inspectionStatus: "rejected",
+          status: "rejected",
+        }),
+      },
+    });
+
+    expect(resolvePublicSearchSortTimestamp(registry)).toBe("2026-03-15T12:00:00.000Z");
+  });
+
+  it("normalizes search result updatedAt to ISO", () => {
+    const legacyUpdatedAt = "Sun Sep 20 2026 14:38:59 GMT+0800 (China Standard Time)";
+    const registry = skill({ updatedAt: legacyUpdatedAt });
+
+    expect(toSearchResult(registry).updatedAt).toBe(toIsoTimestampString(legacyUpdatedAt));
+    expect(toSearchResult(registry).updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/);
   });
 });

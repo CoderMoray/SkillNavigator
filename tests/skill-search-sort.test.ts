@@ -60,6 +60,13 @@ describe("skill search recent sort helpers", () => {
     expect(items.map((item) => item.slug)).toEqual(["iso-recent", "legacy-string-date"]);
   });
 
+  test("getRecentSortTimestamp normalizes legacy Date.toString values", () => {
+    const legacy = "Wed Aug 12 2026 22:33:59 GMT+0800 (China Standard Time)";
+    const normalized = getRecentSortTimestamp(skill({ slug: "legacy", latestVersionCreatedAt: legacy }));
+    expect(normalized).toBe(toIsoTimestampString(legacy));
+    expect(normalized).not.toBe(legacy);
+  });
+
   test("recent sort prefers latestVersionCreatedAt over skill updatedAt", () => {
     const items = sortSkillSearchResultsByRecent([
       skill({
