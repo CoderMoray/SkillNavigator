@@ -98,6 +98,26 @@ export function getSkillRepublishBlockReason(
   return getVersionRepublishBlockReason(skill, skill.latestVersion);
 }
 
+function isVersionPubliclyListed(
+  version: Pick<RegistryVersion, "published" | "inspectionStatus" | "status" | "version">,
+  skill: Pick<RegistrySkill, "inspectionStatus" | "latestVersion">
+): boolean {
+  if (version.published === false) {
+    return false;
+  }
+  const inspectionStatus = resolveVersionInspectionStatus(version, skill);
+  if (inspectionStatus !== "completed") {
+    return false;
+  }
+  return version.status !== "rejected";
+}
+
+export function hasPubliclyListedVersion(
+  skill: Pick<RegistrySkill, "inspectionStatus" | "latestVersion" | "versions">
+): boolean {
+  return Object.values(skill.versions).some((version) => isVersionPubliclyListed(version, skill));
+}
+
 export function getVersionRepublishBlockReason(
   skill: Pick<RegistrySkill, "inspectionStatus" | "latestVersion" | "versions">,
   version: string
@@ -122,19 +142,20 @@ export function getVersionRepublishBlockReason(
 export function isSkillUnlisted(
   skill: Pick<RegistrySkill, "published" | "inspectionStatus" | "latestVersion" | "versions">
 ): boolean {
+  if (hasPubliclyListedVersion(skill)) {
+    return false;
+  }
   if (skill.published === false) {
     return true;
   }
   return getSkillRepublishBlockReason(skill) !== null;
 }
 
+/** Public search rows use the latest publicly listed version; do not treat in-review latest as unlisted. */
 export function isSkillSearchResultUnlisted(
-  skill: Pick<SkillSearchResult, "published" | "inspectionStatus" | "status">
+  skill: Pick<SkillSearchResult, "published" | "status">
 ): boolean {
   if (skill.published === false) {
-    return true;
-  }
-  if (skill.inspectionStatus === "inspecting" || isInspectionFailureStatus(skill.inspectionStatus)) {
     return true;
   }
   if (skill.status === "rejected") {

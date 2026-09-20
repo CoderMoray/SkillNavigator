@@ -5,6 +5,7 @@ import {
   isVersionPubliclyListed,
   recomputeSkillPublishedFlag,
   resolveLatestApprovedVersion,
+  toSearchResult,
 } from "../packages/storage/src/utils.js";
 import type { RegistrySkill, RegistryVersion } from "../packages/storage/src/types.js";
 
@@ -91,5 +92,28 @@ describe("public listing helpers", () => {
     expect(recomputeSkillPublishedFlag(registry)).toBe(true);
     expect(isSkillUnlisted(registry)).toBe(false);
     expect(resolveLatestApprovedVersion(registry)).toBe("1.0.0");
+  });
+
+  it("search facade uses latest publicly listed version metadata", () => {
+    const registry = skill({
+      latestVersion: "1.1.0",
+      inspectionStatus: "inspecting",
+      published: true,
+      versions: {
+        "1.0.0": version({ version: "1.0.0", published: true, inspectionStatus: "completed" }),
+        "1.1.0": version({
+          version: "1.1.0",
+          published: false,
+          inspectionStatus: "inspecting",
+          status: "needs-inspection",
+        }),
+      },
+    });
+
+    const row = toSearchResult(registry);
+    expect(row.latestVersion).toBe("1.0.0");
+    expect(row.inspectionStatus).toBe("completed");
+    expect(row.published).toBe(true);
+    expect(row.status).toBe("published");
   });
 });

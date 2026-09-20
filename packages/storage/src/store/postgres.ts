@@ -63,6 +63,7 @@ import {
   isPubliclyListable,
   recomputeSkillPublishedFlag,
   isPendingPublishVersion,
+  toSearchResult,
 } from "../utils";
 import { JsonRegistryStore } from "./base";
 
@@ -440,7 +441,6 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         and(
           isNull(schema.skills.deletedAt),
           eq(schema.skills.published, true),
-          options.excludeRejected ? ne(schema.skillVersions.status, "rejected") : undefined,
           q
             ? or(
                 ilike(schema.skills.slug, searchPattern),
@@ -468,41 +468,23 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     const slugs = rows.map((r) => r.slug);
     if (slugs.length === 0) return [];
 
-    // 批量查 contributors
-    const allContributors = await this.db
-      .select()
-      .from(schema.skillContributors)
-      .where(inArray(schema.skillContributors.skillSlug, slugs));
+    const skills = await Promise.all(slugs.map((slug) => this.getSkill(slug)));
+    const results = skills
+      .filter((skill): skill is RegistrySkill => Boolean(skill))
+      .map((skill) => toSearchResult(skill))
+      .filter((item) => item.published !== false)
+      .filter((item) => !options.excludeRejected || item.status !== "rejected");
 
-    const contributorsMap = new Map<string, SkillSearchResult["contributors"]>();
-    for (const c of allContributors) {
-      const list = contributorsMap.get(c.skillSlug) ?? [];
-      list.push(mapContributorRow(c));
-      contributorsMap.set(c.skillSlug, list);
+    if (selectedCategories.length > 0) {
+      const categorySet = new Set(selectedCategories);
+      return results.filter((item) => item.categories.some((category) => categorySet.has(category)));
     }
 
-    return rows.map((r) => ({
-      slug: r.slug,
-      name: r.name,
-      description: r.description,
-      latestVersion: r.latestVersion,
-      inspectionStatus: parseSkillInspectionStatus(r.inspectionStatus),
-      status: r.status as SkillSearchResult["status"],
-      scores: {
-        qualityScore: Number(r.qualityScore),
-        securityScore: Number(r.securityScore),
-        reliabilityScore: Number(r.reliabilityScore),
-      },
-      categories: r.categories ?? [],
-      averageRating: Number(r.averageRating),
-      ratingCount: Number(r.ratingCount),
-      openIssues: r.openIssues,
-      contributors: contributorsMap.get(r.slug) ?? [],
-      downloads: r.totalDownloads,
-      updatedAt: toIsoTimestampString(r.updatedAt),
-      latestVersionCreatedAt: toIsoTimestampString(r.latestVersionCreatedAt),
-      published: true,
-    }));
+    return results.sort((a, b) => {
+      const aTime = a.latestVersionCreatedAt ?? a.updatedAt;
+      const bTime = b.latestVersionCreatedAt ?? b.updatedAt;
+      return bTime.localeCompare(aTime);
+    });
   }
 
   async listUnpublishedSkillsForOwner(ownerUserId: string): Promise<SkillSearchResult[]> {
