@@ -427,7 +427,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
       averageRating: existingSkill?.averageRating ?? 0,
       ratingCount: existingSkill?.ratingCount ?? 0,
       uploaded: true,
-      published: listPublicly,
+      published: existingSkill?.published ?? false,
       createdAt: existingSkill?.createdAt ?? now,
       updatedAt: now,
     };

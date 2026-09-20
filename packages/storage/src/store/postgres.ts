@@ -62,6 +62,7 @@ import {
   resolveVersionReference,
   isPubliclyListable,
   recomputeSkillPublishedFlag,
+  resolveSkillPublishedFlag,
   isPendingPublishVersion,
   toSearchResult,
 } from "../utils";
@@ -1295,11 +1296,6 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         })
         .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
       await this.syncSkillInspectionDenormFromLatest(slug);
-      if (listPublicly) {
-        await this.db.update(schema.skills)
-          .set({ published: true, updatedAt: new Date() })
-          .where(eq(schema.skills.slug, slug));
-      }
     }
 
     return (await this.getSkill(slug))?.versions[version] as RegistryVersion;
@@ -1348,12 +1344,6 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
 
     await this.syncSkillInspectionDenormFromLatest(slug);
-
-    if (listPublicly) {
-      await this.db.update(schema.skills)
-        .set({ published: true, updatedAt: new Date() })
-        .where(eq(schema.skills.slug, slug));
-    }
   }
 
   /**
@@ -1496,7 +1486,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
 
     const inspectionStatus = parseSkillInspectionStatus(versionRow.inspectionStatus);
     const skill = await this.getSkill(slug);
-    const published = skill ? recomputeSkillPublishedFlag(skill) : false;
+    const published = skill ? resolveSkillPublishedFlag(skill) : false;
     await this.db.update(schema.skills)
       .set({
         inspectionStatus,
@@ -1994,7 +1984,6 @@ export class PostgresRegistryStore extends JsonRegistryStore {
             description,
             latestVersion: releaseTags.includes("latest") ? version : existingSkill.latestVersion,
             uploaded: true,
-            published: listPublicly,
             inspectionStatus: "completed",
             inspectionFailedMessage: null,
             inspectionEndedAt: now,

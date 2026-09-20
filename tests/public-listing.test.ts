@@ -6,6 +6,7 @@ import {
   recomputeSkillPublishedFlag,
   resolveLatestApprovedVersion,
   resolvePublicSearchSortTimestamp,
+  resolveSkillPublishedFlag,
   toSearchResult,
 } from "../packages/storage/src/utils.js";
 import type { RegistrySkill, RegistryVersion } from "../packages/storage/src/types.js";
@@ -77,7 +78,7 @@ describe("public listing helpers", () => {
     const registry = skill({
       latestVersion: "1.1.0",
       inspectionStatus: "inspecting",
-      published: false,
+      published: true,
       versions: {
         "1.0.0": version({ version: "1.0.0", published: true, inspectionStatus: "completed" }),
         "1.1.0": version({
@@ -142,5 +143,54 @@ describe("public listing helpers", () => {
     expect(resolveLatestApprovedVersion(registry)).toBe("1.1.0");
     expect(resolvePublicSearchSortTimestamp(registry)).toBe("2026-09-20T10:00:00.000Z");
     expect(toSearchResult(registry).latestVersionCreatedAt).toBe("2026-09-20T10:00:00.000Z");
+  });
+
+  it("keeps skill listed when latest version is rejected but an older version is public", () => {
+    const registry = skill({
+      latestVersion: "1.1.0",
+      published: true,
+      versions: {
+        "1.0.0": version({ version: "1.0.0", published: true, inspectionStatus: "completed" }),
+        "1.1.0": version({
+          version: "1.1.0",
+          status: "rejected",
+          published: false,
+          inspectionStatus: "rejected",
+        }),
+      },
+    });
+
+    expect(resolveSkillPublishedFlag(registry)).toBe(true);
+    expect(toSearchResult(registry).published).toBe(true);
+    expect(toSearchResult(registry).latestVersion).toBe("1.0.0");
+  });
+
+  it("leaves brand-new skill unlisted when its only version is rejected", () => {
+    const registry = skill({
+      published: false,
+      versions: {
+        "1.0.0": version({
+          version: "1.0.0",
+          status: "rejected",
+          published: false,
+          inspectionStatus: "rejected",
+        }),
+      },
+    });
+
+    expect(resolveSkillPublishedFlag(registry)).toBe(false);
+    expect(toSearchResult(registry).published).toBe(false);
+  });
+
+  it("honors owner unpublish even when a version row remains listable", () => {
+    const registry = skill({
+      published: false,
+      versions: {
+        "1.0.0": version({ version: "1.0.0", published: true, inspectionStatus: "completed" }),
+      },
+    });
+
+    expect(resolveSkillPublishedFlag(registry)).toBe(false);
+    expect(toSearchResult(registry).published).toBe(false);
   });
 });

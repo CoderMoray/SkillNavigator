@@ -206,8 +206,26 @@ export function hasPubliclyListedVersion(skill: RegistrySkill): boolean {
   return Object.values(skill.versions).some(isVersionPubliclyListed);
 }
 
-export function recomputeSkillPublishedFlag(skill: RegistrySkill): boolean {
+/** Owner used unpublish while completed versions remain on disk (version rows may still be listable). */
+export function isUserDelisted(
+  skill: Pick<RegistrySkill, "published" | "versions">
+): boolean {
+  return skill.published === false && hasPubliclyListedVersion(skill as RegistrySkill);
+}
+
+/**
+ * Skill-level search listing flag: true when a publicly listable version exists,
+ * except when the owner explicitly unpublish-ed. Not driven by latest-version review alone.
+ */
+export function resolveSkillPublishedFlag(skill: RegistrySkill): boolean {
+  if (isUserDelisted(skill)) {
+    return false;
+  }
   return hasPubliclyListedVersion(skill);
+}
+
+export function recomputeSkillPublishedFlag(skill: RegistrySkill): boolean {
+  return resolveSkillPublishedFlag(skill);
 }
 
 /** Whether a version package has been stored (explicit flag or legacy contentHash/uploadedAt). */
@@ -345,6 +363,9 @@ export function getSkillRepublishBlockReason(
 export function isSkillUnlisted(
   skill: Pick<RegistrySkill, "published" | "inspectionStatus" | "latestVersion" | "versions">
 ): boolean {
+  if (isUserDelisted(skill)) {
+    return true;
+  }
   if (hasPubliclyListedVersion(skill as RegistrySkill)) {
     return false;
   }
@@ -416,7 +437,7 @@ export function toSearchResult(skill: RegistrySkill): SkillSearchResult {
     downloads: Object.values(skill.versions).reduce((t, v) => t + v.downloads, 0),
     updatedAt: toIsoTimestampString(skill.updatedAt),
     latestVersionCreatedAt: resolvePublicSearchSortTimestamp(skill),
-    published: isSkillUnlisted(skill) ? false : skill.published !== false,
+    published: resolveSkillPublishedFlag(skill),
   };
 }
 

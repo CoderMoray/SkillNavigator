@@ -82,9 +82,14 @@ describe("skill republish policy", () => {
 
   it("treats review-rejected latest version as unlisted", () => {
     const rejected = skill({
-      published: true,
+      published: false,
       versions: {
-        "1.0.0": version({ status: "rejected", inspection: { ...version().inspection!, verdict: "rejected" } }),
+        "1.0.0": version({
+          status: "rejected",
+          published: false,
+          inspectionStatus: "rejected",
+          inspection: { ...version().inspection!, verdict: "rejected" },
+        }),
       },
     });
 

@@ -169,6 +169,8 @@ export {
   isVersionPubliclyListed,
   hasPubliclyListedVersion,
   recomputeSkillPublishedFlag,
+  resolveSkillPublishedFlag,
+  isUserDelisted,
 } from "./utils";
 
 export {
