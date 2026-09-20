@@ -55,6 +55,31 @@ function skill(overrides: Partial<RegistrySkill> = {}): RegistrySkill {
 }
 
 describe("skill republish policy", () => {
+  it("stays listed when an older version remains publicly listed", () => {
+    const multi = skill({
+      latestVersion: "1.1.0",
+      inspectionStatus: "interrupted",
+      published: true,
+      versions: {
+        "1.0.0": version({
+          version: "1.0.0",
+          status: "published",
+          published: true,
+          inspectionStatus: "completed",
+        }),
+        "1.1.0": version({
+          version: "1.1.0",
+          status: "published",
+          published: false,
+          inspectionStatus: "interrupted",
+        }),
+      },
+    });
+
+    expect(isSkillUnlisted(multi)).toBe(false);
+    expect(canRetryVersionReview(multi, "1.1.0")).toBe(true);
+  });
+
   it("treats review-rejected latest version as unlisted", () => {
     const rejected = skill({
       published: true,
@@ -81,7 +106,12 @@ describe("skill republish policy", () => {
   });
 
   it("allows republish for manually unpublished completed skills", () => {
-    const unpublished = skill({ published: false });
+    const unpublished = skill({
+      published: false,
+      versions: {
+        "1.0.0": version({ published: false, inspectionStatus: "completed" }),
+      },
+    });
     expect(isSkillUnlisted(unpublished)).toBe(true);
     expect(getSkillRepublishBlockReason(unpublished)).toBeNull();
     expect(() => assertSkillRepublishAllowed(unpublished)).not.toThrow();

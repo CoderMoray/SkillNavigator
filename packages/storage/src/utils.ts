@@ -147,6 +147,25 @@ export function isPubliclyListable(
   return inspectionStatus === "completed" && verdict !== "rejected";
 }
 
+/** A version that completed review and is listed for public search/download. */
+export function isVersionPubliclyListed(
+  version: Pick<RegistryVersion, "published" | "inspectionStatus" | "status">
+): boolean {
+  if (version.published === false) {
+    return false;
+  }
+  const inspectionStatus = resolveVersionInspectionStatus(version);
+  return isPubliclyListable(inspectionStatus, version.status);
+}
+
+export function hasPubliclyListedVersion(skill: RegistrySkill): boolean {
+  return Object.values(skill.versions).some(isVersionPubliclyListed);
+}
+
+export function recomputeSkillPublishedFlag(skill: RegistrySkill): boolean {
+  return hasPubliclyListedVersion(skill);
+}
+
 /** Whether a version package has been stored (explicit flag or legacy contentHash/uploadedAt). */
 export function isVersionUploaded(
   version: Pick<RegistryVersion, "uploaded" | "contentHash" | "uploadedAt">
@@ -195,6 +214,49 @@ export function resolveVersionInspectionStatus(
   return normalizeSkillInspectionStatus(version.inspectionStatus);
 }
 
+/**
+ * Effective review status for the latest version: prefers skill-level failure when
+ * the version row was partially finalized (e.g. inspection persisted as completed
+ * but publish never finished and the skill remains interrupted).
+ */
+export function resolveVersionReviewStatus(
+  skill: Pick<RegistrySkill, "inspectionStatus" | "latestVersion" | "versions">,
+  versionKey: string
+): SkillInspectionStatus {
+  const entry = skill.versions[versionKey];
+  if (!entry) {
+    return normalizeSkillInspectionStatus(skill.inspectionStatus);
+  }
+  const versionStatus = resolveVersionInspectionStatus(entry);
+  if (versionKey !== skill.latestVersion) {
+    return versionStatus;
+  }
+  const skillStatus = normalizeSkillInspectionStatus(skill.inspectionStatus);
+  if (
+    isInspectionFailureStatus(skillStatus) &&
+    entry.published === false &&
+    (versionStatus === "completed" || versionStatus === "inspecting")
+  ) {
+    return skillStatus === "rejected" ? versionStatus : skillStatus;
+  }
+  return versionStatus;
+}
+
+/** Same-version re-review is allowed only while the latest version is interrupted (not rejected/completed). */
+export function canRetryInterruptedLatestVersion(
+  skill: RegistrySkill,
+  version: string
+): boolean {
+  const entry = skill.versions[version];
+  if (!entry || !isLatestReviewTarget(skill, version)) {
+    return false;
+  }
+  if (resolveVersionReviewStatus(skill, version) !== "interrupted") {
+    return false;
+  }
+  return isVersionUploaded(entry) || skill.uploaded === true;
+}
+
 export function isLatestReviewTarget(
   skill: Pick<RegistrySkill, "latestVersion">,
   version: string
@@ -206,11 +268,7 @@ export function canRetryVersionReview(
   skill: RegistrySkill,
   version: string
 ): boolean {
-  const entry = skill.versions[version];
-  if (!entry || !isLatestReviewTarget(skill, version)) {
-    return false;
-  }
-  return isInspectionFailureStatus(resolveVersionInspectionStatus(entry));
+  return canRetryInterruptedLatestVersion(skill, version);
 }
 
 export function getVersionRepublishBlockReason(
@@ -243,6 +301,9 @@ export function getSkillRepublishBlockReason(
 export function isSkillUnlisted(
   skill: Pick<RegistrySkill, "published" | "inspectionStatus" | "latestVersion" | "versions">
 ): boolean {
+  if (hasPubliclyListedVersion(skill as RegistrySkill)) {
+    return false;
+  }
   if (skill.published === false) {
     return true;
   }
@@ -281,7 +342,9 @@ export function assertSkillVersionRepublishAllowed(
 }
 
 export function toSearchResult(skill: RegistrySkill): SkillSearchResult {
-  const latest = skill.versions[skill.latestVersion];
+  const displayVersionKey =
+    resolveLatestApprovedVersion(skill) ?? skill.latestVersion;
+  const latest = skill.versions[displayVersionKey] ?? skill.versions[skill.latestVersion];
   if (!latest) {
     throw new Error(`Registry is corrupt: missing latest version for ${skill.slug}`);
   }
@@ -289,7 +352,7 @@ export function toSearchResult(skill: RegistrySkill): SkillSearchResult {
     slug: skill.slug,
     name: skill.name,
     description: skill.description,
-    latestVersion: skill.latestVersion,
+    latestVersion: displayVersionKey,
     inspectionStatus: resolveVersionInspectionStatus(latest),
     inspectionFailure: latest.inspectionFailure ?? skill.inspectionFailure,
     uploadedAt: skill.uploadedAt ?? latest.uploadedAt,
@@ -329,7 +392,7 @@ export function normalizeReleaseTags(tags: unknown): string[] {
 
 export function resolveLatestApprovedVersion(skill: RegistrySkill): string | undefined {
   const candidates = Object.values(skill.versions)
-    .filter((version) => version.status !== "rejected")
+    .filter(isVersionPubliclyListed)
     .sort((a, b) => {
       const compared = compareSemver(b.version, a.version);
       if (compared !== null && compared !== 0) {
@@ -408,11 +471,14 @@ type SkillDetailAccessSubject = Pick<
 >;
 
 export function canAccessSkillDetail(
-  skill: SkillDetailAccessSubject,
+  skill: SkillDetailAccessSubject & Pick<RegistrySkill, "versions">,
   user: { id: string; username: string; role?: string } | undefined
 ): boolean {
   if (skill.deletedAt) {
     return false;
+  }
+  if (hasPubliclyListedVersion(skill as RegistrySkill)) {
+    return true;
   }
   if (skill.published !== false && skill.inspectionStatus === "completed") {
     return true;

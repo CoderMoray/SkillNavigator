@@ -81,6 +81,9 @@ import {
   sendPasswordResetEmail,
   sendRegistrationVerificationEmail,
   resolveVersionInspectionStatus,
+  resolveVersionReviewStatus,
+  resolveLatestApprovedVersion,
+  hasPubliclyListedVersion,
   type AuthStore,
   type ContributorRole,
   type IssueSeverity,
@@ -209,19 +212,28 @@ interface ContributorParams {
 type LeaderboardQuerySort = LeaderboardSort | "compliance" | "privacy";
 
 function filterSkillVersionsForViewer(skill: RegistrySkill, user: PublicUser | undefined): RegistrySkill {
-  if (
-    user &&
-    (isSkillOwner(skill, user) ||
-      (isInspectionPendingSkillStatus(skill.inspectionStatus) && isSkillContributor(skill, user)))
-  ) {
+  if (user && (isSkillOwner(skill, user) || isSkillContributor(skill, user))) {
     return skill;
   }
 
+  const publicVersionKey = resolveLatestApprovedVersion(skill);
+  const publicVersion = publicVersionKey ? skill.versions[publicVersionKey] : undefined;
+  const filteredVersions = Object.fromEntries(
+    Object.entries(skill.versions).filter(([, version]) => version.published !== false)
+  );
+
   return {
     ...skill,
-    versions: Object.fromEntries(
-      Object.entries(skill.versions).filter(([, version]) => version.published !== false)
-    )
+    ...(publicVersionKey ? { latestVersion: publicVersionKey } : {}),
+    ...(publicVersion
+      ? {
+          inspectionStatus: resolveVersionInspectionStatus(publicVersion),
+          inspectionFailure: publicVersion.inspectionFailure,
+          inspectionStageStatuses: publicVersion.inspectionStageStatuses,
+        }
+      : {}),
+    published: hasPubliclyListedVersion(skill),
+    versions: filteredVersions,
   };
 }
 
@@ -1023,13 +1035,11 @@ export function buildServer() {
       }
     const version = skill.latestVersion;
     const registryVersion = skill.versions[version];
-    const versionInspectionStatus = resolveVersionInspectionStatus(
-      registryVersion ?? { inspectionStatus: skill.inspectionStatus }
-    );
+    const versionInspectionStatus = resolveVersionReviewStatus(skill, version);
     if (versionInspectionStatus === "inspecting") {
       return reply.code(409).send({ error: "skill_inspection_in_progress" });
     }
-    if (!isInspectionFailureStatus(versionInspectionStatus)) {
+    if (versionInspectionStatus !== "interrupted") {
       return reply.code(400).send({ error: "skill_not_retryable" });
     }
 

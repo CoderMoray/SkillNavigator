@@ -96,6 +96,7 @@ describe("assertPublishPreflight", () => {
           versions: {
             "1.0.0": {
               ...skill().versions["1.0.0"],
+              uploaded: true,
               published: false,
               inspectionStatus: "failed",
             },
@@ -103,6 +104,89 @@ describe("assertPublishPreflight", () => {
         }),
       })
     ).not.toThrow();
+  });
+
+  it("allows retry preflight when version row is completed but skill is still interrupted", () => {
+    expect(() =>
+      assertPublishPreflight({
+        slug: "demo-skill",
+        version: "0.1.1",
+        releaseTags: ["latest"],
+        allowFailedInspectionRetry: true,
+        existingSkill: skill({
+          latestVersion: "0.1.1",
+          inspectionStatus: "interrupted",
+          uploaded: true,
+          published: false,
+          versions: {
+            "0.1.1": {
+              ...skill().versions["1.0.0"],
+              version: "0.1.1",
+              uploaded: true,
+              published: false,
+              inspectionStatus: "completed",
+            },
+          },
+        }),
+      })
+    ).not.toThrow();
+  });
+
+  it("allows retry preflight for interrupted latest even when version published flag is stale", () => {
+    expect(() =>
+      assertPublishPreflight({
+        slug: "demo-skill",
+        version: "0.1.1",
+        releaseTags: ["latest"],
+        allowFailedInspectionRetry: true,
+        existingSkill: skill({
+          latestVersion: "0.1.1",
+          inspectionStatus: "interrupted",
+          uploaded: true,
+          published: false,
+          versions: {
+            "0.1.0": {
+              ...skill().versions["1.0.0"],
+              version: "0.1.0",
+              uploaded: true,
+              published: true,
+              inspectionStatus: "completed",
+            },
+            "0.1.1": {
+              ...skill().versions["1.0.0"],
+              version: "0.1.1",
+              uploaded: true,
+              published: true,
+              inspectionStatus: "interrupted",
+            },
+          },
+        }),
+      })
+    ).not.toThrow();
+  });
+
+  it("rejects retry preflight for rejected latest version", () => {
+    expect(() =>
+      assertPublishPreflight({
+        slug: "demo-skill",
+        version: "1.0.0",
+        releaseTags: ["latest"],
+        allowFailedInspectionRetry: true,
+        existingSkill: skill({
+          latestVersion: "1.0.0",
+          inspectionStatus: "rejected",
+          versions: {
+            "1.0.0": {
+              ...skill().versions["1.0.0"],
+              uploaded: true,
+              published: true,
+              inspectionStatus: "rejected",
+              status: "rejected",
+            },
+          },
+        }),
+      })
+    ).toThrow(/Version already exists/);
   });
 
   it("allows republish preflight for failed orphan stub without a version row", () => {

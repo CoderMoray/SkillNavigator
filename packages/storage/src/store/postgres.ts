@@ -61,6 +61,7 @@ import {
   toIsoTimestampString,
   resolveVersionReference,
   isPubliclyListable,
+  recomputeSkillPublishedFlag,
   isPendingPublishVersion,
 } from "../utils";
 import { JsonRegistryStore } from "./base";
@@ -439,7 +440,6 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         and(
           isNull(schema.skills.deletedAt),
           eq(schema.skills.published, true),
-          eq(schema.skills.inspectionStatus, "completed"),
           options.excludeRejected ? ne(schema.skillVersions.status, "rejected") : undefined,
           q
             ? or(
@@ -1511,6 +1511,8 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     }
 
     const inspectionStatus = parseSkillInspectionStatus(versionRow.inspectionStatus);
+    const skill = await this.getSkill(slug);
+    const published = skill ? recomputeSkillPublishedFlag(skill) : false;
     await this.db.update(schema.skills)
       .set({
         inspectionStatus,
@@ -1520,9 +1522,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         inspectionHalucatchStatus: versionRow.inspectionHalucatchStatus,
         inspectionStartedAt: versionRow.inspectionStartedAt,
         inspectionEndedAt: versionRow.inspectionEndedAt,
-        ...(isInspectionFailureStatus(inspectionStatus) || inspectionStatus === "inspecting"
-          ? { published: false }
-          : {}),
+        published,
         uploaded: true,
         updatedAt: new Date(),
       })
@@ -1655,6 +1655,9 @@ export class PostgresRegistryStore extends JsonRegistryStore {
             ? mapStageStatusesToColumns({})
             : {}),
           ...(inspectionStatus === "rejected" ? { status: "rejected" as const } : {}),
+          ...(isInspectionFailureStatus(inspectionStatus) || inspectionStatus === "inspecting"
+            ? { published: false }
+            : {}),
           ...(stageStatusPatch ?? {}),
           updatedAt: now,
         })
@@ -1718,7 +1721,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       await this.insertPendingPublishVersionStub(snapshot, inspection, releaseTags);
     }
 
-    await this.upsertInspection(slug, version, inspection, { finalize: true });
+    await this.upsertInspection(slug, version, inspection, { finalize: false });
     if (evaluation) {
       await this.upsertEvaluation(slug, version, evaluation);
     }
@@ -2160,6 +2163,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       }
     });
 
+    await this.syncSkillInspectionDenormFromLatest(slug);
     return (await this.getSkill(slug))?.versions[version] as RegistryVersion;
   }
 

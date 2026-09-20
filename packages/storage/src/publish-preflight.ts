@@ -1,10 +1,12 @@
 import { compareSemver } from "@skill-platform/skill-spec/skill-format";
 import type { RegistrySkill } from "./types.js";
-import { isInspectionFailureStatus } from "./inspection-status.js";
 import {
   canRepublishFailedVersion,
+  canRetryInterruptedLatestVersion,
   isPendingPublishVersion,
   isSkillContributor,
+  isVersionUploaded,
+  resolveVersionReviewStatus,
   resolveVersionInspectionStatus,
 } from "./utils.js";
 
@@ -38,7 +40,9 @@ export function assertPublishPreflight(input: PublishPreflightInput): void {
   }
 
   const targetVersion = existingSkill?.versions[version];
-  const targetInspectionStatus = targetVersion ? resolveVersionInspectionStatus(targetVersion) : null;
+  const targetInspectionStatus = targetVersion
+    ? resolveVersionReviewStatus(existingSkill!, version)
+    : null;
   const latestEntry = existingSkill?.versions[existingSkill.latestVersion];
   const latestInspectionStatus = latestEntry ? resolveVersionInspectionStatus(latestEntry) : null;
 
@@ -69,12 +73,17 @@ export function assertPublishPreflight(input: PublishPreflightInput): void {
   const pendingVersion = existingSkill?.versions[version];
   const republishingFailedVersion =
     existingSkill !== undefined && canRepublishFailedVersion(existingSkill, version);
+  const retryInterruptedLatest =
+    allowFailedInspectionRetry &&
+    existingSkill !== undefined &&
+    canRetryInterruptedLatestVersion(existingSkill, version);
   const allowPendingVersion =
     pendingVersion !== undefined &&
-    isPendingPublishVersion(pendingVersion) &&
-    (allowInspectionInProgress ||
-      republishingFailedVersion ||
-      (allowFailedInspectionRetry && isInspectionFailureStatus(targetInspectionStatus)));
+    ((isPendingPublishVersion(pendingVersion) &&
+      (allowInspectionInProgress ||
+        republishingFailedVersion ||
+        (allowFailedInspectionRetry && targetInspectionStatus === "interrupted"))) ||
+      retryInterruptedLatest);
 
   if (existingSkill?.versions[version] && !allowPendingVersion) {
     throw new PublishPreflightError(`Version already exists: ${slug}@${version}`, 409);
@@ -87,11 +96,12 @@ export function assertPublishPreflight(input: PublishPreflightInput): void {
       isPendingPublishVersion(pendingVersion) &&
       version === existingSkill.latestVersion;
     const retryingFailedVersion =
-      allowFailedInspectionRetry &&
-      isInspectionFailureStatus(targetInspectionStatus) &&
+      retryInterruptedLatest &&
       pendingVersion !== undefined &&
-      isPendingPublishVersion(pendingVersion) &&
-      version === existingSkill.latestVersion;
+      version === existingSkill.latestVersion &&
+      (isPendingPublishVersion(pendingVersion) ||
+        isVersionUploaded(pendingVersion) ||
+        existingSkill.uploaded === true);
     const compared = compareSemver(version, existingSkill.latestVersion);
     if (
       !finalizingPendingVersion &&

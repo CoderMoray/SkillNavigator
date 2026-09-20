@@ -61,6 +61,7 @@ import {
   updateRatingAggregate,
   isVersionUploaded,
   isPendingPublishVersion,
+  recomputeSkillPublishedFlag,
 } from "../utils";
 
 function resolveMarkReviewTargetVersion(
@@ -92,9 +93,7 @@ function syncSkillInspectionDenormFromLatest(skill: RegistrySkill): void {
   skill.inspectionEndedAt = latest.inspectionEndedAt;
   skill.uploadedAt = latest.uploadedAt ?? skill.uploadedAt;
   skill.uploaded = isVersionUploaded(latest);
-  if (isInspectionFailureStatus(inspectionStatus) || inspectionStatus === "inspecting") {
-    skill.published = false;
-  }
+  skill.published = recomputeSkillPublishedFlag(skill);
 }
 
 export abstract class JsonRegistryStore implements RegistryStore {
@@ -250,10 +249,6 @@ export abstract class JsonRegistryStore implements RegistryStore {
     }
 
     const skill = data.skills[slug]!;
-    const registryVersion = skill.versions[version]!;
-    registryVersion.inspectionStatus = "completed";
-    registryVersion.inspectionFailure = undefined;
-    syncSkillInspectionDenormFromLatest(skill);
     skill.updatedAt = new Date().toISOString();
     await this.save(data);
   }

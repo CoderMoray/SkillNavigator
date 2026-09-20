@@ -162,6 +162,11 @@ export {
   getVersionRepublishBlockReason,
   isSkillUnlisted,
   resolveVersionInspectionStatus,
+  resolveVersionReviewStatus,
+  canRetryInterruptedLatestVersion,
+  isVersionPubliclyListed,
+  hasPubliclyListedVersion,
+  recomputeSkillPublishedFlag,
 } from "./utils";
 
 export {
