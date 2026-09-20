@@ -69,15 +69,16 @@ def _link(url: str, label: str) -> str:
 def _message_content(
     outcome: str,
     skill_name: str,
+    slug: str,
     version: str,
     detail_url: str,
     publicly_listed: bool,
     failure_message: str,
     brand: str,
 ) -> Tuple[str, str, str, str]:
-    safe_skill = html.escape(skill_name)
+    safe_skill = f"{html.escape(skill_name)}（slug：{html.escape(slug)}）"
     safe_version = html.escape(version)
-    detail_link = _link(detail_url, "打开 Skill 详情与审查报告")
+    detail_link = _link(detail_url, "打开 Skill 详情")
 
     if outcome == "published":
         visibility = (
@@ -96,7 +97,7 @@ def _message_content(
         return (
             f"Skill <strong>{safe_skill}</strong> 的版本 <strong>v{safe_version}</strong> 未通过审查，"
             "该版本不会公开上架。",
-            "请让 AI 根据审查报告中的 finding 修改 Skill 内容，然后发布一个新的语义化版本。",
+            "请让 AI 根据审查报告中的 finding 修改 Skill 内容，然后发布一个新的版本。",
             f"<p>{detail_link}</p>",
             "审查结论已保留在网页详情中。若此 Skill 有更早的公开版本，它会继续按原状态对外可见。",
         )
@@ -127,6 +128,7 @@ def main() -> int:
             raise ValueError("invalid_outcome")
 
         skill_name = _required_text(payload, "skillName")
+        slug = _required_text(payload, "slug")
         version = _required_text(payload, "version")
         detail_url = _required_text(payload, "detailUrl")
         publicly_listed = payload.get("publiclyListed") is True
@@ -154,10 +156,11 @@ def main() -> int:
         "interrupted": "Skill 审查中断",
         "rejected": "Skill 审查未通过",
     }[outcome]
-    subject = f"{subject_prefix}：{skill_name} v{version}"
+    subject = f"{subject_prefix}：{skill_name}（slug：{slug}） v{version}"
     main_content, note, end_content, comment = _message_content(
         outcome,
         skill_name,
+        slug,
         version,
         detail_url,
         publicly_listed,
