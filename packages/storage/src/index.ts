@@ -136,6 +136,7 @@ export type {
   PersistInspectionStageResultsOptions,
   UpsertInspectionOptions,
   RecoverStaleInspectingSkillsOptions,
+  InspectionRecoveryResult,
   MarkSkillInspectionStatusOptions,
   PostgresRegistryStoreOptions,
   FileRegistryStoreOptions,

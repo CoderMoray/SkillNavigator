@@ -8,7 +8,12 @@
  * versions the sweep is about to finish.
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { JsonRegistryStore, type RegistryData } from "@skill-platform/storage";
+import {
+  INSPECTION_INTERRUPTED_MESSAGE,
+  JsonRegistryStore,
+  type InspectionRecoveryResult,
+  type RegistryData,
+} from "@skill-platform/storage";
 
 const SHA256 = "b".repeat(64);
 const ANALYSIS_ID = "analysis-1";
@@ -210,8 +215,20 @@ describe("deferred VirusTotal store support", () => {
         })
       )
     );
+    const recovered: InspectionRecoveryResult[] = [];
 
-    await expect(store.recoverStaleInspectingSkills({ recoverAll: true })).resolves.toBe(1);
+    await expect(
+      store.recoverStaleInspectingSkills({
+        recoverAll: true,
+        onRecovered: async (recovery) => {
+          const persisted = await store.snapshot();
+          expect(persisted.skills[recovery.slug].versions[recovery.version].inspectionStatus).toBe(
+            "interrupted"
+          );
+          recovered.push(recovery);
+        },
+      })
+    ).resolves.toBe(1);
 
     const saved = await store.snapshot();
     const version = saved.skills["demo-skill"].versions["1.0.0"];
@@ -221,6 +238,13 @@ describe("deferred VirusTotal store support", () => {
       virustotal: "interrupted",
       halucatch: "done",
     });
+    expect(recovered).toEqual([
+      {
+        slug: "demo-skill",
+        version: "1.0.0",
+        failureMessage: INSPECTION_INTERRUPTED_MESSAGE,
+      },
+    ]);
   });
 
   test("does not finalize publication when a deferred report arrives before local stages finish", async () => {

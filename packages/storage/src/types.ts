@@ -231,6 +231,14 @@ export interface RecoverStaleInspectingSkillsOptions {
   recoverAll?: boolean;
   /** Fail inspecting skills whose updatedAt is older than this threshold. */
   olderThanMs?: number;
+  /** Called after an interrupted inspection state has been durably persisted. */
+  onRecovered?: (result: InspectionRecoveryResult) => void | Promise<void>;
+}
+
+export interface InspectionRecoveryResult {
+  slug: string;
+  version: string;
+  failureMessage: string;
 }
 
 export interface MarkSkillInspectionStatusOptions {

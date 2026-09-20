@@ -94,6 +94,7 @@ import {
   type PublicUser,
   type RegistrySkill,
   type RegistryStore,
+  type InspectionRecoveryResult,
   type SkillInspectionStage,
   type SkillPublishEmailOutcome,
 } from "@skill-platform/storage";
@@ -311,6 +312,28 @@ export function buildServer() {
     authStore,
     log: app.log,
   };
+  const notifyRecoveredInspection = async (
+    recovery: InspectionRecoveryResult
+  ): Promise<void> => {
+    try {
+      const skill = await store.getSkill(recovery.slug);
+      if (!skill || resolveVersionReviewStatus(skill, recovery.version) !== "interrupted") {
+        return;
+      }
+      queueSkillPublishEmail(
+        publishNotificationContext,
+        skill,
+        recovery.version,
+        "interrupted",
+        recovery.failureMessage
+      );
+    } catch (error) {
+      app.log.error(
+        { err: error, slug: recovery.slug, version: recovery.version },
+        "Recovered inspection notification failed"
+      );
+    }
+  };
 
   const runRecycleBinPurge = () => {
     void store
@@ -333,6 +356,7 @@ export function buildServer() {
       .recoverStaleInspectingSkills({
         recoverAll,
         olderThanMs: readInspectionStaleMs(),
+        onRecovered: notifyRecoveredInspection,
       })
       .then((count) => {
         if (count > 0) {

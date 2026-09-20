@@ -27,6 +27,7 @@ import type {
   CommitInspectionResultsOptions,
   PersistInspectionStageResultsOptions,
   RecoverStaleInspectingSkillsOptions,
+  InspectionRecoveryResult,
   PublishSnapshotOptions,
   StagePendingPublishSnapshotOptions,
   PostgresRegistryStoreOptions,
@@ -2717,6 +2718,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       );
 
     let recovered = 0;
+    const recoveredInspections: InspectionRecoveryResult[] = [];
     for (const row of rows) {
       const stageStatuses = parseInspectionStageStatuses({
         skillspector: row.skillspector,
@@ -2729,14 +2731,20 @@ export class PostgresRegistryStore extends JsonRegistryStore {
 
       const isLatest = row.version === row.latestVersion;
       if (!isLatest) {
+        const failureMessage = INSPECTION_SUPERSEDED_MESSAGE;
         await this.markSkillInspectionStatus(row.slug, "interrupted", {
           version: row.version,
           failure: {
             stages: [],
-            message: INSPECTION_SUPERSEDED_MESSAGE,
+            message: failureMessage,
           },
         });
         recovered += 1;
+        recoveredInspections.push({
+          slug: row.slug,
+          version: row.version,
+          failureMessage,
+        });
         continue;
       }
 
@@ -2744,16 +2752,27 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         continue;
       }
 
+      const failureMessage = recoverAll
+        ? INSPECTION_INTERRUPTED_MESSAGE
+        : INSPECTION_STALE_MESSAGE;
       await this.markSkillInspectionStatus(row.slug, "interrupted", {
         version: row.version,
         failure: {
           stages: [],
-          message: recoverAll ? INSPECTION_INTERRUPTED_MESSAGE : INSPECTION_STALE_MESSAGE,
+          message: failureMessage,
         },
       });
       recovered += 1;
+      recoveredInspections.push({
+        slug: row.slug,
+        version: row.version,
+        failureMessage,
+      });
     }
 
+    for (const recovery of recoveredInspections) {
+      await options.onRecovered?.(recovery);
+    }
     return recovered;
   }
 

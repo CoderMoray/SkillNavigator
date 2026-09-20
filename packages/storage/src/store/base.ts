@@ -29,6 +29,7 @@ import type {
   PersistInspectionStageResultsOptions,
   StagePendingPublishSnapshotOptions,
   RecoverStaleInspectingSkillsOptions,
+  InspectionRecoveryResult,
   MarkSkillInspectionStatusOptions,
   RegistryContributor,
   RegistryData,
@@ -973,6 +974,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
     const cutoff = Date.now() - olderThanMs;
     const configuredStages = getConfiguredInspectionStages();
     let recovered = 0;
+    const recoveredInspections: InspectionRecoveryResult[] = [];
 
     for (const skill of Object.values(data.skills)) {
       if (skill.deletedAt) {
@@ -992,6 +994,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
 
         const isLatest = version.version === skill.latestVersion;
         if (!isLatest) {
+          const failureMessage = INSPECTION_SUPERSEDED_MESSAGE;
           version.inspectionStageStatuses = interruptIncompleteStageStatuses(
             version.inspectionStageStatuses ?? {},
             configuredStages
@@ -999,12 +1002,17 @@ export abstract class JsonRegistryStore implements RegistryStore {
           version.inspectionStatus = "interrupted";
           version.inspectionFailure = {
             stages: [],
-            message: INSPECTION_SUPERSEDED_MESSAGE,
+            message: failureMessage,
           };
           version.status = "rejected";
           version.inspectionEndedAt = new Date().toISOString();
           version.updatedAt = version.inspectionEndedAt;
           recovered += 1;
+          recoveredInspections.push({
+            slug: skill.slug,
+            version: version.version,
+            failureMessage,
+          });
           continue;
         }
 
@@ -1012,6 +1020,9 @@ export abstract class JsonRegistryStore implements RegistryStore {
           continue;
         }
 
+        const failureMessage = recoverAll
+          ? INSPECTION_INTERRUPTED_MESSAGE
+          : INSPECTION_STALE_MESSAGE;
         version.inspectionStageStatuses = interruptIncompleteStageStatuses(
           version.inspectionStageStatuses ?? {},
           configuredStages
@@ -1019,12 +1030,17 @@ export abstract class JsonRegistryStore implements RegistryStore {
         version.inspectionStatus = "interrupted";
         version.inspectionFailure = {
           stages: [],
-          message: recoverAll ? INSPECTION_INTERRUPTED_MESSAGE : INSPECTION_STALE_MESSAGE,
+          message: failureMessage,
         };
         version.status = "rejected";
         version.inspectionEndedAt = new Date().toISOString();
         version.updatedAt = version.inspectionEndedAt;
         recovered += 1;
+        recoveredInspections.push({
+          slug: skill.slug,
+          version: version.version,
+          failureMessage,
+        });
       }
 
       syncSkillInspectionDenormFromLatest(skill);
@@ -1033,6 +1049,9 @@ export abstract class JsonRegistryStore implements RegistryStore {
 
     if (recovered > 0) {
       await this.save(data);
+    }
+    for (const recovery of recoveredInspections) {
+      await options.onRecovered?.(recovery);
     }
     return recovered;
   }
