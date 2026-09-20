@@ -114,7 +114,9 @@ def _message_content(
 
 def main() -> int:
     try:
-        payload = json.load(sys.stdin)
+        # Node writes the JSON payload as UTF-8. Reading raw bytes avoids the
+        # host console code page corrupting non-ASCII display names on Windows.
+        payload = json.loads(sys.stdin.buffer.read().decode("utf-8"))
         if not isinstance(payload, dict):
             raise ValueError("payload_must_be_object")
 
