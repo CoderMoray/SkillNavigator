@@ -44,7 +44,8 @@ import {
   buildInspectionFailureFromStageStatuses,
   parseInspectionStageStatuses,
   mapStageStatusesToColumns,
-  interruptInFlightStageStatuses,
+  interruptIncompleteStageStatuses,
+  isOnlyVirusTotalStagePending,
   INSPECTION_INTERRUPTED_MESSAGE,
   INSPECTION_STALE_MESSAGE,
   INSPECTION_SUPERSEDED_MESSAGE,
@@ -1308,12 +1309,10 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     options: PersistInspectionStageResultsOptions
   ): Promise<void> {
     await this.ensureSchema();
-    const finalize = options.finalize ?? false;
     const configuredStages = options.configuredStages ?? getConfiguredInspectionStages();
+    const inspectionStatus = resolvePipelineInspectionStatus(options.stageStatuses, configuredStages);
+    const finalize = Boolean(options.finalize) && inspectionStatus === "completed";
     const stageStatusColumns = mapStageStatusesToColumns(options.stageStatuses);
-    const inspectionStatus = finalize
-      ? ("completed" as const)
-      : resolvePipelineInspectionStatus(options.stageStatuses, configuredStages);
     const failure = buildInspectionFailureFromStageStatuses(
       options.stageStatuses,
       undefined,
@@ -1337,7 +1336,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
               status: inspection.verdict,
               published: listPublicly,
             }
-          : {}),
+          : { published: false }),
         updatedAt: new Date(),
       })
       .where(and(eq(schema.skillVersions.skillSlug, slug), eq(schema.skillVersions.version, version)));
@@ -1591,30 +1590,34 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         stageStatusPatch = mapStageStatusesToColumns({});
       }
 
-      if (!stageStatusPatch && inspectionStatus === "interrupted") {
-        const [versionRow] = await this.db
-          .select({
-            inspectionSkillspectorStatus: schema.skillVersions.inspectionSkillspectorStatus,
-            inspectionVirustotalStatus: schema.skillVersions.inspectionVirustotalStatus,
-            inspectionHalucatchStatus: schema.skillVersions.inspectionHalucatchStatus,
-          })
-          .from(schema.skillVersions)
-          .where(
-            and(
-              eq(schema.skillVersions.skillSlug, slug),
-              eq(schema.skillVersions.version, targetVersion)
+      if (inspectionStatus === "interrupted") {
+        let stageStatuses = options?.stageStatuses;
+        if (!stageStatuses) {
+          const [versionRow] = await this.db
+            .select({
+              inspectionSkillspectorStatus: schema.skillVersions.inspectionSkillspectorStatus,
+              inspectionVirustotalStatus: schema.skillVersions.inspectionVirustotalStatus,
+              inspectionHalucatchStatus: schema.skillVersions.inspectionHalucatchStatus,
+            })
+            .from(schema.skillVersions)
+            .where(
+              and(
+                eq(schema.skillVersions.skillSlug, slug),
+                eq(schema.skillVersions.version, targetVersion)
+              )
             )
-          )
-          .limit(1);
-        if (versionRow) {
+            .limit(1);
+          if (versionRow) {
+            stageStatuses = parseInspectionStageStatuses({
+              skillspector: versionRow.inspectionSkillspectorStatus,
+              virustotal: versionRow.inspectionVirustotalStatus,
+              halucatch: versionRow.inspectionHalucatchStatus,
+            });
+          }
+        }
+        if (stageStatuses) {
           stageStatusPatch = mapStageStatusesToColumns(
-            interruptInFlightStageStatuses(
-              parseInspectionStageStatuses({
-                skillspector: versionRow.inspectionSkillspectorStatus,
-                virustotal: versionRow.inspectionVirustotalStatus,
-                halucatch: versionRow.inspectionHalucatchStatus,
-              })
-            )
+            interruptIncompleteStageStatuses(stageStatuses, getConfiguredInspectionStages())
           );
         }
       }
@@ -2692,6 +2695,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     const recoverAll = options.recoverAll ?? false;
     const olderThanMs = options.olderThanMs ?? readInspectionStaleMs();
     const staleBefore = new Date(Date.now() - olderThanMs);
+    const configuredStages = getConfiguredInspectionStages();
 
     const rows = await this.db
       .select({
@@ -2699,25 +2703,30 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         version: schema.skillVersions.version,
         latestVersion: schema.skills.latestVersion,
         updatedAt: schema.skillVersions.updatedAt,
+        skillspector: schema.skillVersions.inspectionSkillspectorStatus,
+        virustotal: schema.skillVersions.inspectionVirustotalStatus,
+        halucatch: schema.skillVersions.inspectionHalucatchStatus,
       })
       .from(schema.skillVersions)
       .innerJoin(schema.skills, eq(schema.skills.slug, schema.skillVersions.skillSlug))
       .where(
         and(
           isNull(schema.skills.deletedAt),
-          eq(schema.skillVersions.inspectionStatus, "inspecting"),
-          // A version waiting for a deferred VirusTotal report is not stale —
-          // the sweep is still collecting it. Rows without a stage model are
-          // NULL, which must keep matching, hence the explicit or().
-          or(
-            isNull(schema.skillVersions.inspectionVirustotalStatus),
-            ne(schema.skillVersions.inspectionVirustotalStatus, "processing")
-          )
+          eq(schema.skillVersions.inspectionStatus, "inspecting")
         )
       );
 
     let recovered = 0;
     for (const row of rows) {
+      const stageStatuses = parseInspectionStageStatuses({
+        skillspector: row.skillspector,
+        virustotal: row.virustotal,
+        halucatch: row.halucatch,
+      });
+      if (isOnlyVirusTotalStagePending(stageStatuses, configuredStages)) {
+        continue;
+      }
+
       const isLatest = row.version === row.latestVersion;
       if (!isLatest) {
         await this.markSkillInspectionStatus(row.slug, "interrupted", {

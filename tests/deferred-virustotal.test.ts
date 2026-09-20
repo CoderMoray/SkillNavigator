@@ -7,7 +7,7 @@
  * versions alone — otherwise the 30-minute recovery would kill the very
  * versions the sweep is about to finish.
  */
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { JsonRegistryStore, type RegistryData } from "@skill-platform/storage";
 
 const SHA256 = "b".repeat(64);
@@ -31,6 +31,17 @@ class InMemoryRegistryStore extends JsonRegistryStore {
     return this.data;
   }
 }
+
+beforeEach(() => {
+  vi.stubEnv("SKILLSPECTOR_ENABLED", "true");
+  vi.stubEnv("VIRUSTOTAL_ENABLED", "true");
+  vi.stubEnv("VIRUSTOTAL_API_KEY", "test-api-key");
+  vi.stubEnv("HALUCATCH_ENABLED", "true");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 function inspection(sha256: string | undefined, analysisId?: string) {
   return {
@@ -73,7 +84,12 @@ function versionEntry(overrides: Record<string, unknown> = {}) {
     status: "published",
     releaseTags: ["latest"],
     inspectionStatus: "inspecting",
-    inspectionStageStatuses: { virustotal: "processing", halucatch: "done" },
+    inspectionStageStatuses: {
+      skillspector: "passed",
+      virustotal: "processing",
+      halucatch: "done",
+    },
+    published: false,
     inspection: inspection(SHA256, ANALYSIS_ID),
     createdAt: hourAgo,
     updatedAt: hourAgo,
@@ -180,6 +196,66 @@ describe("deferred VirusTotal store support", () => {
     await expect(store.listPendingVirusTotalInspections()).resolves.toHaveLength(1);
     const saved = await store.snapshot();
     expect(saved.skills["demo-skill"].versions["1.0.0"].inspectionStatus).toBe("inspecting");
+  });
+
+  test("interrupts a deferred VirusTotal row when a local stage is incomplete", async () => {
+    const store = new InMemoryRegistryStore(
+      registryData(
+        versionEntry({
+          inspectionStageStatuses: {
+            skillspector: "processing",
+            virustotal: "processing",
+            halucatch: "done",
+          },
+        })
+      )
+    );
+
+    await expect(store.recoverStaleInspectingSkills({ recoverAll: true })).resolves.toBe(1);
+
+    const saved = await store.snapshot();
+    const version = saved.skills["demo-skill"].versions["1.0.0"];
+    expect(version.inspectionStatus).toBe("interrupted");
+    expect(version.inspectionStageStatuses).toEqual({
+      skillspector: "interrupted",
+      virustotal: "interrupted",
+      halucatch: "done",
+    });
+  });
+
+  test("does not finalize publication when a deferred report arrives before local stages finish", async () => {
+    const store = new InMemoryRegistryStore(
+      registryData(
+        versionEntry({
+          inspectionStageStatuses: {
+            skillspector: "processing",
+            virustotal: "processing",
+            halucatch: "processing",
+          },
+        })
+      )
+    );
+
+    await store.persistInspectionStageResults(
+      "demo-skill",
+      "1.0.0",
+      inspection(SHA256, ANALYSIS_ID),
+      undefined,
+      {
+        stageStatuses: {
+          skillspector: "processing",
+          virustotal: "passed",
+          halucatch: "processing",
+        },
+        configuredStages: ["skillspector", "virustotal", "halucatch"],
+        finalize: true,
+      }
+    );
+
+    const saved = await store.snapshot();
+    const version = saved.skills["demo-skill"].versions["1.0.0"];
+    expect(version.inspectionStatus).toBe("inspecting");
+    expect(version.published).toBe(false);
   });
 
   test("stale recovery still fails an inspecting version that is not waiting for VT", async () => {

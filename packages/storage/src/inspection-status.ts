@@ -149,6 +149,65 @@ export function interruptInFlightStageStatuses(
   return next;
 }
 
+function isCompletedStageStatus(
+  stage: SkillInspectionStage,
+  status: InspectionStageDisplayStatus | undefined
+): boolean {
+  if (stage === "halucatch") {
+    return status === "done";
+  }
+  return status === "passed" || status === "rejected";
+}
+
+function isFinalStageStatus(
+  stage: SkillInspectionStage,
+  status: InspectionStageDisplayStatus | undefined
+): boolean {
+  return status === "interrupted" || isCompletedStageStatus(stage, status);
+}
+
+/**
+ * A deferred VirusTotal report may survive an API restart only when it is the
+ * sole unfinished configured stage. Other local stages have no durable worker
+ * to resume after that restart.
+ */
+export function isOnlyVirusTotalStagePending(
+  statuses: Partial<InspectionStageStatuses>,
+  configuredStages: readonly SkillInspectionStage[] = SKILL_INSPECTION_STAGES
+): boolean {
+  return (
+    configuredStages.includes("virustotal") &&
+    statuses.virustotal === "processing" &&
+    configuredStages.every(
+      (stage) => stage === "virustotal" || isCompletedStageStatus(stage, statuses[stage])
+    )
+  );
+}
+
+/** Mark every configured stage that has not reached a terminal state as interrupted. */
+export function interruptIncompleteStageStatuses(
+  statuses: Partial<InspectionStageStatuses>,
+  configuredStages: readonly SkillInspectionStage[] = SKILL_INSPECTION_STAGES
+): InspectionStageStatuses {
+  // Preserve the actual persisted stage model too: a stage can be disabled in
+  // the current process configuration but still be visibly in-flight from the
+  // process that started the review.
+  const next = interruptInFlightStageStatuses(statuses);
+  for (const stage of configuredStages) {
+    if (isFinalStageStatus(stage, next[stage])) {
+      continue;
+    }
+    if (stage === "skillspector") {
+      next.skillspector = "interrupted";
+    } else if (stage === "virustotal") {
+      next.virustotal = "interrupted";
+    } else {
+      next.halucatch = "interrupted";
+    }
+  }
+  return next;
+}
+
 export function inspectionStageStatusLabel(
   stage: SkillInspectionStage,
   status: InspectionStageDisplayStatus

@@ -24,6 +24,8 @@ export {
   parseInspectionStageStatuses,
   mapStageStatusesToColumns,
   interruptInFlightStageStatuses,
+  interruptIncompleteStageStatuses,
+  isOnlyVirusTotalStagePending,
   inspectionStageStatusLabel,
   skillInspectionStageLabel,
   skillInspectionStatusLabel,

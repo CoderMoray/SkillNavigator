@@ -13,7 +13,9 @@ import {
   INSPECTION_SUPERSEDED_MESSAGE,
   SKILL_INSPECTION_STAGES,
   buildInspectionFailureFromStageStatuses,
+  interruptIncompleteStageStatuses,
   isInspectionFailureStatus,
+  isOnlyVirusTotalStagePending,
   readInspectionStaleMs,
 } from "../inspection-status.js";
 import type {
@@ -151,6 +153,12 @@ export abstract class JsonRegistryStore implements RegistryStore {
               : {};
           } else if (inspectionStatus === "completed" || isInspectionFailureStatus(inspectionStatus)) {
             version.inspectionEndedAt = now;
+          }
+          if (inspectionStatus === "interrupted") {
+            version.inspectionStageStatuses = interruptIncompleteStageStatuses(
+              options?.stageStatuses ?? version.inspectionStageStatuses ?? {},
+              getConfiguredInspectionStages()
+            );
           }
           if (inspectionStatus === "rejected") {
             version.status = "rejected";
@@ -469,7 +477,10 @@ export abstract class JsonRegistryStore implements RegistryStore {
     evaluation: FunctionalEvaluationReport | undefined,
     options: PersistInspectionStageResultsOptions
   ): Promise<void> {
-    await this.upsertInspection(slug, version, inspection, { finalize: options.finalize ?? false });
+    const configuredStages = options.configuredStages ?? getConfiguredInspectionStages();
+    const inspectionStatus = resolvePipelineInspectionStatus(options.stageStatuses, configuredStages);
+    const finalize = Boolean(options.finalize) && inspectionStatus === "completed";
+    await this.upsertInspection(slug, version, inspection, { finalize });
     if (evaluation) {
       await this.upsertEvaluation(slug, version, evaluation);
     }
@@ -483,17 +494,17 @@ export abstract class JsonRegistryStore implements RegistryStore {
       return;
     }
     registryVersion.inspectionStageStatuses = { ...options.stageStatuses };
-    const configuredStages = options.configuredStages ?? getConfiguredInspectionStages();
-    registryVersion.inspectionStatus = options.finalize
-      ? "completed"
-      : resolvePipelineInspectionStatus(options.stageStatuses, configuredStages);
+    registryVersion.inspectionStatus = inspectionStatus;
+    if (!finalize) {
+      registryVersion.published = false;
+    }
     if (registryVersion.inspectionStatus === "interrupted") {
       registryVersion.inspectionFailure = buildInspectionFailureFromStageStatuses(
         options.stageStatuses,
         undefined,
         options.stageFailureMessages
       );
-    } else if (options.finalize || registryVersion.inspectionStatus === "completed") {
+    } else if (finalize || registryVersion.inspectionStatus === "completed") {
       registryVersion.inspectionFailure = undefined;
     }
     syncSkillInspectionDenormFromLatest(skill);
@@ -960,6 +971,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
     const recoverAll = options.recoverAll ?? false;
     const olderThanMs = options.olderThanMs ?? readInspectionStaleMs();
     const cutoff = Date.now() - olderThanMs;
+    const configuredStages = getConfiguredInspectionStages();
     let recovered = 0;
 
     for (const skill of Object.values(data.skills)) {
@@ -972,14 +984,18 @@ export abstract class JsonRegistryStore implements RegistryStore {
           continue;
         }
 
-        // Waiting for a deferred VirusTotal report: the sweep is still
-        // collecting it, so it is not stale.
-        if (version.inspectionStageStatuses?.virustotal === "processing") {
+        // A deferred VirusTotal report survives recovery only when every other
+        // configured stage has already reached a terminal result.
+        if (isOnlyVirusTotalStagePending(version.inspectionStageStatuses ?? {}, configuredStages)) {
           continue;
         }
 
         const isLatest = version.version === skill.latestVersion;
         if (!isLatest) {
+          version.inspectionStageStatuses = interruptIncompleteStageStatuses(
+            version.inspectionStageStatuses ?? {},
+            configuredStages
+          );
           version.inspectionStatus = "interrupted";
           version.inspectionFailure = {
             stages: [],
@@ -996,6 +1012,10 @@ export abstract class JsonRegistryStore implements RegistryStore {
           continue;
         }
 
+        version.inspectionStageStatuses = interruptIncompleteStageStatuses(
+          version.inspectionStageStatuses ?? {},
+          configuredStages
+        );
         version.inspectionStatus = "interrupted";
         version.inspectionFailure = {
           stages: [],

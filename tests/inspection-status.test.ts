@@ -8,7 +8,9 @@ import {
   buildSkillInspectionFailureFromStages,
   classifyInspectionFailureStatus,
   inspectionStageStatusLabel,
+  interruptIncompleteStageStatuses,
   interruptInFlightStageStatuses,
+  isOnlyVirusTotalStagePending,
   isInspectionInFlight,
   mapStageStatusesToColumns,
   parseInspectionStageStatuses,
@@ -214,6 +216,34 @@ describe("persisted stage status columns", () => {
         virustotal: "processing",
         halucatch: "processing",
       })
+    ).toEqual({
+      skillspector: "passed",
+      virustotal: "interrupted",
+      halucatch: "interrupted",
+    });
+  });
+
+  it("keeps only fully otherwise-complete deferred VirusTotal reviews pending", () => {
+    expect(
+      isOnlyVirusTotalStagePending(
+        { skillspector: "passed", virustotal: "processing", halucatch: "done" },
+        ["skillspector", "virustotal", "halucatch"]
+      )
+    ).toBe(true);
+    expect(
+      isOnlyVirusTotalStagePending(
+        { skillspector: "processing", virustotal: "processing", halucatch: "done" },
+        ["skillspector", "virustotal", "halucatch"]
+      )
+    ).toBe(false);
+  });
+
+  it("marks missing configured stages interrupted during recovery", () => {
+    expect(
+      interruptIncompleteStageStatuses(
+        { skillspector: "passed", virustotal: "processing" },
+        ["skillspector", "virustotal", "halucatch"]
+      )
     ).toEqual({
       skillspector: "passed",
       virustotal: "interrupted",

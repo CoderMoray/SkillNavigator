@@ -2048,10 +2048,11 @@ async function runBackgroundPublishInspection(
  * time.
  *
  * Response-driven with no time-based give-up: a finished report finalizes the
- * version (which is what makes it public), while "VT does not know this hash
- * yet" (404) or a report whose engine stats are still filling in simply waits
- * for the next tick. Only a non-retryable failure — bad key, exhausted quota —
- * marks the stage interrupted, so the owner can fix it and retry.
+ * version only after every configured inspection stage is terminal. While
+ * VirusTotal does not know this hash yet (404), its engine stats are still
+ * filling in, or local stages are still running, the version remains private.
+ * Only a non-retryable failure — bad key, exhausted quota — marks the stage
+ * interrupted, so the owner can fix it and retry.
  */
 /**
  * Give up on a deferred VirusTotal scan: fail the stage with a message that
@@ -2177,6 +2178,11 @@ async function resumeDeferredVirusTotalInspections(
         ...(entry.inspectionStageStatuses ?? {}),
         virustotal: resolveVirusTotalStageStatus(findings, false),
       };
+      const configuredStages = getConfiguredInspectionStages();
+      const inspectionStatus = resolvePipelineInspectionStatus(
+        stageStatuses,
+        configuredStages
+      );
 
       await store.persistInspectionStageResults(
         slug,
@@ -2190,12 +2196,17 @@ async function resumeDeferredVirusTotalInspections(
         entry.evaluation,
         {
           stageStatuses,
-          configuredStages: getConfiguredInspectionStages(),
-          finalize: true,
+          configuredStages,
+          // A finished VirusTotal report alone must not finalize a version
+          // whose local SkillSpector or HaluCatch stages never completed.
+          finalize: inspectionStatus === "completed",
         }
       );
       const updatedSkill = await store.getSkill(slug);
-      if (updatedSkill) {
+      const reviewStatus = updatedSkill
+        ? resolveVersionReviewStatus(updatedSkill, version)
+        : undefined;
+      if (updatedSkill && (reviewStatus === "completed" || reviewStatus === "interrupted")) {
         queueSkillPublishEmail(
           publishNotificationContext,
           updatedSkill,
