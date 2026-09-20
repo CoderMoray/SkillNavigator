@@ -532,7 +532,7 @@ export function isSkillContributor(
 
 type SkillDetailAccessSubject = Pick<
   RegistrySkill,
-  "published" | "inspectionStatus" | "ownerUserId" | "contributors" | "deletedAt"
+  "published" | "inspectionStatus" | "latestVersion" | "ownerUserId" | "contributors" | "deletedAt"
 >;
 
 export function canAccessSkillDetail(
@@ -555,6 +555,10 @@ export function canAccessSkillDetail(
     return isSkillContributor(skill as RegistrySkill, user);
   }
   if (skill.published === false) {
+    const latest = skill.versions[skill.latestVersion];
+    if (latest?.status === "rejected" || latest?.inspectionStatus === "rejected") {
+      return isSkillContributor(skill as RegistrySkill, user);
+    }
     return isSkillOwner(skill as RegistrySkill, user);
   }
   return true;
@@ -562,7 +566,7 @@ export function canAccessSkillDetail(
 
 export function canAccessUnpublishedVersion(
   skill: RegistrySkill,
-  version: { published?: boolean; inspectionStatus?: SkillInspectionStatus },
+  version: { published?: boolean; inspectionStatus?: SkillInspectionStatus; status?: InspectionVerdict },
   user: { id: string; username: string; role?: string } | undefined
 ): boolean {
   if (version.published !== false) {
@@ -572,6 +576,9 @@ export function canAccessUnpublishedVersion(
     return false;
   }
   if (isInspectionPendingSkillStatus(version.inspectionStatus ?? DEFAULT_SKILL_INSPECTION_STATUS)) {
+    return isSkillContributor(skill, user);
+  }
+  if (version.status === "rejected" || version.inspectionStatus === "rejected") {
     return isSkillContributor(skill, user);
   }
   return isSkillOwner(skill, user);

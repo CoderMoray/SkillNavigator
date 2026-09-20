@@ -51,7 +51,6 @@ import {
   isSessionCredential,
   isSkillContributor,
   isSkillOwner,
-  isInspectionPendingSkillStatus,
   listCreators,
   findDotEnvFilePath,
   loadDotEnvIfPresent,
@@ -78,8 +77,10 @@ import {
   isPublicRegistrationEnabled,
   isRegistrationEmailVerificationRequired,
   isRegistrationEmailConfigured,
+  isSkillPublishEmailConfigured,
   sendPasswordResetEmail,
   sendRegistrationVerificationEmail,
+  sendSkillPublishEmail,
   resolveVersionInspectionStatus,
   resolveVersionReviewStatus,
   resolveLatestApprovedVersion,
@@ -94,6 +95,7 @@ import {
   type RegistrySkill,
   type RegistryStore,
   type SkillInspectionStage,
+  type SkillPublishEmailOutcome,
 } from "@skill-platform/storage";
 
 loadDotEnvIfPresent();
@@ -305,6 +307,10 @@ export function buildServer() {
   const authStore = createAuthStoreFromEnv();
   const publishRateLimiter = new PublishRateLimiter();
   const verificationEmailRateLimiter = new VerificationEmailRateLimiter();
+  const publishNotificationContext: PublishNotificationContext = {
+    authStore,
+    log: app.log,
+  };
 
   const runRecycleBinPurge = () => {
     void store
@@ -347,7 +353,7 @@ export function buildServer() {
   }
   const runInspectionMaintenance = () => {
     runInspectionRecovery(false);
-    void resumeDeferredVirusTotalInspections(store).catch((error) => {
+    void resumeDeferredVirusTotalInspections(store, publishNotificationContext).catch((error) => {
       app.log.error({ err: error }, "Deferred VirusTotal sweep failed");
     });
   };
@@ -938,7 +944,14 @@ export function buildServer() {
       });
 
       if (request.body.async !== false) {
-        void runBackgroundPublishInspection(store, prepared, user.id, user.username, changelog).catch((error) => {
+        void runBackgroundPublishInspection(
+          store,
+          prepared,
+          user.id,
+          user.username,
+          publishNotificationContext,
+          changelog
+        ).catch((error) => {
           app.log.error(
             { err: error, slug: prepared.slug, version: prepared.version },
             "Unhandled background publish review rejection"
@@ -962,12 +975,23 @@ export function buildServer() {
         if (error instanceof InspectionSupersededError) {
           return reply.code(409).send({ error: "inspection_superseded" });
         }
-        await markPublishInspectionFailed(store, prepared.slug, prepared.version, error);
+        await markPublishInspectionFailed(
+          store,
+          prepared.slug,
+          prepared.version,
+          publishNotificationContext,
+          error
+        );
         throw error;
       }
 
       if (isPipelineIncomplete(pipelineResult.stageStatuses, getConfiguredInspectionStages())) {
-        await markPublishInspectionFailed(store, prepared.slug, prepared.version);
+        await markPublishInspectionFailed(
+          store,
+          prepared.slug,
+          prepared.version,
+          publishNotificationContext
+        );
         const failure = buildInspectionFailureFromStageStatuses(
           pipelineResult.stageStatuses,
           undefined,
@@ -996,6 +1020,7 @@ export function buildServer() {
         inspection,
         evaluation,
         { userId: user.id, username: user.username },
+        publishNotificationContext,
         changelog,
         deferredVirusTotal ? pipelineResult : undefined
       );
@@ -1101,7 +1126,15 @@ export function buildServer() {
     };
 
     if (request.body?.async !== false) {
-      void runBackgroundPublishInspection(store, prepared, user.id, user.username, changelog, inspectionOptions).catch((error) => {
+      void runBackgroundPublishInspection(
+        store,
+        prepared,
+        user.id,
+        user.username,
+        publishNotificationContext,
+        changelog,
+        inspectionOptions
+      ).catch((error) => {
         app.log.error(
           { err: error, slug: prepared.slug, version: prepared.version },
           "Unhandled background publish review rejection"
@@ -1130,12 +1163,23 @@ export function buildServer() {
         if (error instanceof InspectionSupersededError) {
           return reply.code(409).send({ error: "inspection_superseded" });
         }
-        await markPublishInspectionFailed(store, prepared.slug, prepared.version, error);
+        await markPublishInspectionFailed(
+          store,
+          prepared.slug,
+          prepared.version,
+          publishNotificationContext,
+          error
+        );
         throw error;
       }
 
       if (isPipelineIncomplete(pipelineResult.stageStatuses, getConfiguredInspectionStages())) {
-        await markPublishInspectionFailed(store, prepared.slug, prepared.version);
+        await markPublishInspectionFailed(
+          store,
+          prepared.slug,
+          prepared.version,
+          publishNotificationContext
+        );
         const failure = buildInspectionFailureFromStageStatuses(
           pipelineResult.stageStatuses,
           undefined,
@@ -1159,6 +1203,7 @@ export function buildServer() {
         inspection,
         evaluation,
         { userId: user.id, username: user.username },
+        publishNotificationContext,
         changelog
       );
 
@@ -1775,6 +1820,76 @@ interface StagedPublishInspectionOptions {
   initialState?: Partial<InspectionPipelineState>;
 }
 
+interface PublishNotificationContext {
+  authStore: AuthStore;
+  log: Pick<FastifyInstance["log"], "info" | "warn" | "error">;
+}
+
+function classifySkillPublishEmailOutcome(
+  skill: RegistrySkill,
+  version: string
+): SkillPublishEmailOutcome {
+  const registryVersion = skill.versions[version];
+  const inspectionStatus = resolveVersionReviewStatus(skill, version);
+  if (registryVersion?.status === "rejected" || inspectionStatus === "rejected") {
+    return "rejected";
+  }
+  if (inspectionStatus === "interrupted") {
+    return "interrupted";
+  }
+  return "published";
+}
+
+function queueSkillPublishEmail(
+  context: PublishNotificationContext,
+  skill: RegistrySkill,
+  version: string,
+  outcome: SkillPublishEmailOutcome,
+  failureMessage?: string
+): void {
+  if (!isSkillPublishEmailConfigured()) {
+    return;
+  }
+
+  const registryVersion = skill.versions[version];
+  void sendSkillPublishEmail({
+    authStore: context.authStore,
+    skill,
+    version,
+    outcome,
+    failureMessage: failureMessage ?? registryVersion?.inspectionFailure?.message,
+    publiclyListed:
+      outcome === "published" &&
+      skill.published !== false &&
+      registryVersion?.published !== false,
+  })
+    .then((result) => {
+      if (!result.sent) {
+        context.log.warn(
+          { slug: skill.slug, version, outcome, reason: result.reason },
+          "Skill publish notification was not sent"
+        );
+        return;
+      }
+      context.log.info(
+        {
+          slug: skill.slug,
+          version,
+          outcome,
+          recipients: result.recipients.to.length,
+          adminCc: outcome === "published" ? result.recipients.adminCc.length : 0,
+        },
+        "Skill publish notification sent"
+      );
+    })
+    .catch((error) => {
+      context.log.error(
+        { err: error, slug: skill.slug, version, outcome },
+        "Skill publish notification delivery failed"
+      );
+    });
+}
+
 class InspectionSupersededError extends Error {
   constructor() {
     super("inspection_superseded");
@@ -1872,6 +1987,7 @@ async function runBackgroundPublishInspection(
   prepared: PreparedPublishRequest,
   ownerUserId: string,
   ownerUsername: string,
+  publishNotificationContext: PublishNotificationContext,
   changelog?: string,
   inspectionOptions: StagedPublishInspectionOptions = {}
 ): Promise<void> {
@@ -1886,7 +2002,12 @@ async function runBackgroundPublishInspection(
     const { inspection, evaluation } = pipelineResult;
     await ensureLatestInspectionTarget(store, prepared.slug, prepared.version);
     if (isPipelineIncomplete(pipelineResult.stageStatuses, getConfiguredInspectionStages())) {
-      await markPublishInspectionFailed(store, prepared.slug, prepared.version);
+      await markPublishInspectionFailed(
+        store,
+        prepared.slug,
+        prepared.version,
+        publishNotificationContext
+      );
       return;
     }
 
@@ -1896,6 +2017,7 @@ async function runBackgroundPublishInspection(
       inspection,
       evaluation,
       { userId: ownerUserId, username: ownerUsername },
+      publishNotificationContext,
       changelog,
       isVirusTotalAnalysisDeferred(pipelineResult.stageStatuses) ? pipelineResult : undefined
     );
@@ -1911,7 +2033,13 @@ async function runBackgroundPublishInspection(
       `Background publish inspection failed for ${prepared.slug}@${prepared.version}:`,
       error
     );
-    await markPublishInspectionFailed(store, prepared.slug, prepared.version, error);
+    await markPublishInspectionFailed(
+      store,
+      prepared.slug,
+      prepared.version,
+      publishNotificationContext,
+      error
+    );
   }
 }
 
@@ -1931,6 +2059,7 @@ async function runBackgroundPublishInspection(
  */
 async function markDeferredVirusTotalFailed(
   store: RegistryStore,
+  publishNotificationContext: PublishNotificationContext,
   slug: string,
   version: string,
   message: string
@@ -1941,6 +2070,10 @@ async function markDeferredVirusTotalFailed(
     stageStatuses: { ...(entry?.inspectionStageStatuses ?? {}), virustotal: "interrupted" },
     failure: { stages: ["virustotal"], message },
   });
+  const updatedSkill = await store.getSkill(slug);
+  if (updatedSkill) {
+    queueSkillPublishEmail(publishNotificationContext, updatedSkill, version, "interrupted", message);
+  }
 }
 
 /** The two give-up reasons, kept together so their wording stays comparable. */
@@ -1962,7 +2095,10 @@ function virusTotalWaitTimedOutMessage(timeoutMs: number, startedAt?: string): s
   );
 }
 
-async function resumeDeferredVirusTotalInspections(store: RegistryStore): Promise<void> {
+async function resumeDeferredVirusTotalInspections(
+  store: RegistryStore,
+  publishNotificationContext: PublishNotificationContext
+): Promise<void> {
   const pending = await store.listPendingVirusTotalInspections();
   if (pending.length === 0) {
     return;
@@ -1981,6 +2117,7 @@ async function resumeDeferredVirusTotalInspections(store: RegistryStore): Promis
           console.warn(`VirusTotal no longer has the analysis for ${slug}@${version}`);
           await markDeferredVirusTotalFailed(
             store,
+            publishNotificationContext,
             slug,
             version,
             virusTotalReportUnavailableMessage()
@@ -1992,6 +2129,7 @@ async function resumeDeferredVirusTotalInspections(store: RegistryStore): Promis
             console.warn(`VirusTotal analysis for ${slug}@${version} exceeded ${timeoutMs}ms`);
             await markDeferredVirusTotalFailed(
               store,
+              publishNotificationContext,
               slug,
               version,
               virusTotalWaitTimedOutMessage(timeoutMs, startedAt)
@@ -2007,6 +2145,7 @@ async function resumeDeferredVirusTotalInspections(store: RegistryStore): Promis
         console.warn(`Deferred VirusTotal scan for ${slug}@${version} exceeded ${timeoutMs}ms`);
         await markDeferredVirusTotalFailed(
           store,
+          publishNotificationContext,
           slug,
           version,
           virusTotalWaitTimedOutMessage(timeoutMs, startedAt)
@@ -2055,6 +2194,15 @@ async function resumeDeferredVirusTotalInspections(store: RegistryStore): Promis
           finalize: true,
         }
       );
+      const updatedSkill = await store.getSkill(slug);
+      if (updatedSkill) {
+        queueSkillPublishEmail(
+          publishNotificationContext,
+          updatedSkill,
+          version,
+          classifySkillPublishEmailOutcome(updatedSkill, version)
+        );
+      }
       console.info(`Deferred VirusTotal report collected for ${slug}@${version}`);
     } catch (error) {
       const diagnosis = diagnoseVirusTotalError(error);
@@ -2063,11 +2211,13 @@ async function resumeDeferredVirusTotalInspections(store: RegistryStore): Promis
         continue;
       }
       console.error(`Deferred VirusTotal report failed for ${slug}@${version}:`, error);
-      const entry = await store.getSkill(slug).then((skill) => skill?.versions?.[version]);
-      await store.markSkillInspectionStatus(slug, "interrupted", {
+      await markDeferredVirusTotalFailed(
+        store,
+        publishNotificationContext,
+        slug,
         version,
-        stageStatuses: { ...(entry?.inspectionStageStatuses ?? {}), virustotal: "interrupted" },
-      });
+        `VirusTotal 审查失败：${errorMessage(error)}`
+      );
     }
   }
 }
@@ -2088,6 +2238,7 @@ async function publishInspectedSnapshot(
   inspection: Awaited<ReturnType<typeof inspectAndEvaluateSkillSnapshot>>["inspection"],
   evaluation: Awaited<ReturnType<typeof inspectAndEvaluateSkillSnapshot>>["evaluation"],
   owner: { userId: string; username: string },
+  publishNotificationContext: PublishNotificationContext,
   changelog?: string,
   deferred?: Pick<
     Awaited<ReturnType<typeof inspectAndEvaluateSkillSnapshot>>,
@@ -2108,7 +2259,13 @@ async function publishInspectedSnapshot(
       listPublicly: !deferred && inspection.verdict !== "rejected",
     });
   } catch (error) {
-    await markPublishInspectionFailed(store, prepared.slug, prepared.version, error);
+    await markPublishInspectionFailed(
+      store,
+      prepared.slug,
+      prepared.version,
+      publishNotificationContext,
+      error
+    );
     throw error;
   }
 
@@ -2128,6 +2285,16 @@ async function publishInspectedSnapshot(
         finalize: false,
       }
     );
+  } else {
+    const skill = await store.getSkill(prepared.slug);
+    if (skill) {
+      queueSkillPublishEmail(
+        publishNotificationContext,
+        skill,
+        prepared.version,
+        classifySkillPublishEmailOutcome(skill, prepared.version)
+      );
+    }
   }
 
   return published;
@@ -2137,10 +2304,14 @@ async function markPublishInspectionFailed(
   store: RegistryStore,
   slug: string,
   version: string,
+  publishNotificationContext: PublishNotificationContext,
   error?: unknown
 ): Promise<void> {
   const skill = await store.getSkill(slug);
   const registryVersion = skill?.versions[version];
+  if (skill && resolveVersionReviewStatus(skill, version) === "interrupted") {
+    return;
+  }
   const configuredStages = getConfiguredInspectionStages();
   const stageStatuses = registryVersion?.inspectionStageStatuses ?? {};
   const inspectionStatus = resolvePipelineInspectionStatus(stageStatuses, configuredStages);
@@ -2156,6 +2327,16 @@ async function markPublishInspectionFailed(
       failure,
       stageStatuses,
     });
+    const updatedSkill = await store.getSkill(slug);
+    if (updatedSkill) {
+      queueSkillPublishEmail(
+        publishNotificationContext,
+        updatedSkill,
+        version,
+        "interrupted",
+        failure?.message
+      );
+    }
   } catch (markError) {
     console.error(`Failed to mark inspection status failed for ${slug}@${version}:`, markError);
   }

@@ -61,7 +61,6 @@ import {
   toIsoTimestampString,
   resolveVersionReference,
   isPubliclyListable,
-  recomputeSkillPublishedFlag,
   resolveSkillPublishedFlag,
   isPendingPublishVersion,
   toSearchResult,

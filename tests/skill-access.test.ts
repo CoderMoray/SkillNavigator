@@ -91,4 +91,31 @@ describe("skill access helpers", () => {
     expect(canAccessUnpublishedVersion(inspecting, { published: false, inspectionStatus: "interrupted" }, contributor)).toBe(true);
     expect(canAccessUnpublishedVersion(inspecting, { published: false, inspectionStatus: "interrupted" }, stranger)).toBe(false);
   });
+
+  it("allows collaborators to open a rejected version linked from a publish-failure email", () => {
+    const rejected = skill({
+      slug: "rejected",
+      latestVersion: "1.0.0",
+      inspectionStatus: "completed",
+      published: false,
+      ownerUserId: owner.id,
+      contributors: [
+        { id: "c1", name: "owner", username: "owner", role: "owner", userId: owner.id, addedAt: "2026-01-01T00:00:00.000Z" },
+        { id: "c2", name: "contrib", username: "contrib", role: "contributor", userId: contributor.id, addedAt: "2026-01-01T00:00:00.000Z" },
+      ],
+      versions: {
+        "1.0.0": {
+          status: "rejected",
+          published: false,
+          inspectionStatus: "completed",
+        } as RegistrySkill["versions"][string],
+      },
+    });
+
+    const version = rejected.versions["1.0.0"]!;
+    expect(canAccessSkillDetail(rejected, contributor)).toBe(true);
+    expect(canAccessSkillDetail(rejected, stranger)).toBe(false);
+    expect(canAccessUnpublishedVersion(rejected, version, contributor)).toBe(true);
+    expect(canAccessUnpublishedVersion(rejected, version, stranger)).toBe(false);
+  });
 });
