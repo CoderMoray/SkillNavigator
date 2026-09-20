@@ -10,6 +10,7 @@ export type SkillPublishEmailOutcome = "published" | "interrupted" | "rejected";
 export interface SkillPublishEmailPayload {
   to: string[];
   cc: string[];
+  recipientName: string;
   outcome: SkillPublishEmailOutcome;
   skillName: string;
   slug: string;
@@ -21,6 +22,7 @@ export interface SkillPublishEmailPayload {
 
 export interface SkillPublishEmailRecipients {
   to: string[];
+  recipientNames: string[];
   adminCc: string[];
 }
 
@@ -169,6 +171,25 @@ function uniqueEmails(values: Iterable<string | null | undefined>): string[] {
   return emails;
 }
 
+function uniqueRecipientNames(values: Iterable<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const value of values) {
+    const name = value?.trim();
+    const key = name?.toLowerCase();
+    if (!name || !key || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    names.push(name);
+  }
+  return names;
+}
+
+function getRecipientName(user: PublicUser): string {
+  return user.displayName?.trim() || user.username;
+}
+
 function userMatchesSkillMember(
   user: PublicUser,
   skill: Pick<RegistrySkill, "ownerUserId" | "contributors">
@@ -189,11 +210,13 @@ export async function resolveSkillPublishEmailRecipients(
   authStore: AuthStore
 ): Promise<SkillPublishEmailRecipients> {
   const users = await authStore.listUsers();
+  const directRecipients = users
+    .filter((user) => userMatchesSkillMember(user, skill))
+    .filter((user) => normalizeEmail(user.email) !== undefined);
   const to = uniqueEmails(
-    users
-      .filter((user) => userMatchesSkillMember(user, skill))
-      .map((user) => user.email)
+    directRecipients.map((user) => user.email)
   );
+  const recipientNames = uniqueRecipientNames(directRecipients.map(getRecipientName));
   const directRecipientKeys = new Set(to.map((email) => email.toLowerCase()));
   const adminCc = uniqueEmails(
     users
@@ -201,7 +224,7 @@ export async function resolveSkillPublishEmailRecipients(
       .map((user) => user.email)
   ).filter((email) => !directRecipientKeys.has(email.toLowerCase()));
 
-  return { to, adminCc };
+  return { to, recipientNames, adminCc };
 }
 
 export function getSkillPublishDetailUrl(slug: string, env: NodeJS.ProcessEnv = process.env): string {
@@ -217,6 +240,7 @@ export function buildSkillPublishEmailPayload(
   return {
     to: uniqueEmails(options.to),
     cc: options.outcome === "published" ? uniqueEmails(options.adminCc) : [],
+    recipientName: options.recipientName.trim(),
     outcome: options.outcome,
     skillName: options.skillName,
     slug: options.slug,
@@ -244,6 +268,7 @@ export async function sendSkillPublishEmail(
   const payload = buildSkillPublishEmailPayload({
     to: recipients.to,
     adminCc: recipients.adminCc,
+    recipientName: recipients.recipientNames.join("、"),
     outcome: options.outcome,
     skillName: options.skill.name,
     slug: options.skill.slug,

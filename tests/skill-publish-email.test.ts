@@ -36,6 +36,10 @@ describe("Skill publish email routing", () => {
     const collaborator = await authStore.register("collaborator", "password123", "collaborator@example.com", {
       autoVerifyEmail: true,
     });
+    const authorSession = await authStore.login("author", "password123");
+    const collaboratorSession = await authStore.login("collaborator", "password123");
+    await authStore.updateProfile(authorSession.token, { displayName: "作者昵称" });
+    await authStore.updateProfile(collaboratorSession.token, { displayName: "协作者昵称" });
     expect(admin.role).toBe("admin");
 
     const recipients = await resolveSkillPublishEmailRecipients(
@@ -57,11 +61,13 @@ describe("Skill publish email routing", () => {
     );
 
     expect(recipients.to).toEqual(["author@example.com", "collaborator@example.com"]);
+    expect(recipients.recipientNames).toEqual(["作者昵称", "协作者昵称"]);
     expect(recipients.adminCc).toEqual(["admin@example.com"]);
 
     const published = buildSkillPublishEmailPayload({
       to: recipients.to,
       adminCc: recipients.adminCc,
+      recipientName: recipients.recipientNames.join("、"),
       outcome: "published",
       skillName: "Demo",
       slug: "demo-skill",
@@ -70,6 +76,7 @@ describe("Skill publish email routing", () => {
       env: { WEB_PUBLIC_URL: "https://example.test/platform/" },
     });
     expect(published.cc).toEqual(["admin@example.com"]);
+    expect(published.recipientName).toBe("作者昵称、协作者昵称");
     expect(published.detailUrl).toBe("https://example.test/platform/skills/demo-skill");
 
     const rejected = buildSkillPublishEmailPayload({
@@ -130,6 +137,7 @@ describe("Skill publish email routing", () => {
     );
 
     expect(recipients.to).toEqual(["author@example.com", "legacy@example.com"]);
+    expect(recipients.recipientNames).toEqual(["author", "legacy-collaborator"]);
   });
 
   it("allows operators to disable publish notifications independently of SMTP configuration", () => {

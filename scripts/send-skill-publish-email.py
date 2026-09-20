@@ -122,6 +122,7 @@ def main() -> int:
         cc = _email_list(payload.get("cc", []), "cc")
         if not to:
             raise ValueError("missing_to")
+        recipient_name = _required_text(payload, "recipientName")
 
         outcome = _required_text(payload, "outcome")
         if outcome not in {"published", "interrupted", "rejected"}:
@@ -197,7 +198,7 @@ def main() -> int:
             template_style="MSN - General",
             content_body={
                 "subject": subject,
-                "name": "Skill 作者与协作者",
+                "name": html.escape(recipient_name),
                 "main_content": main_content,
                 "note": note,
                 "end_content": end_content,
