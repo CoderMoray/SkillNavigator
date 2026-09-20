@@ -44,6 +44,22 @@ describe("skill search recent sort helpers", () => {
     );
   });
 
+  test("recent sort orders ISO timestamps ahead of legacy String(Date) values", () => {
+    const wednesday = new Date("2026-08-12T14:33:59.184Z");
+    const items = sortSkillSearchResultsByRecent([
+      skill({
+        slug: "legacy-string-date",
+        latestVersionCreatedAt: String(wednesday),
+      }),
+      skill({
+        slug: "iso-recent",
+        latestVersionCreatedAt: "2026-09-20T06:38:59.680Z",
+      }),
+    ]);
+
+    expect(items.map((item) => item.slug)).toEqual(["iso-recent", "legacy-string-date"]);
+  });
+
   test("recent sort prefers latestVersionCreatedAt over skill updatedAt", () => {
     const items = sortSkillSearchResultsByRecent([
       skill({

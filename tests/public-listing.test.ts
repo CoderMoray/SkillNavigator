@@ -5,6 +5,7 @@ import {
   isVersionPubliclyListed,
   recomputeSkillPublishedFlag,
   resolveLatestApprovedVersion,
+  resolvePublicSearchSortTimestamp,
   toSearchResult,
 } from "../packages/storage/src/utils.js";
 import type { RegistrySkill, RegistryVersion } from "../packages/storage/src/types.js";
@@ -115,5 +116,31 @@ describe("public listing helpers", () => {
     expect(row.inspectionStatus).toBe("completed");
     expect(row.published).toBe(true);
     expect(row.status).toBe("published");
+  });
+
+  it("sorts public search by latest publicly listed version publish time", () => {
+    const registry = skill({
+      latestVersion: "1.1.0",
+      inspectionStatus: "completed",
+      published: true,
+      versions: {
+        "1.0.0": version({
+          version: "1.0.0",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        }),
+        "1.1.0": version({
+          version: "1.1.0",
+          createdAt: "2026-02-01T00:00:00.000Z",
+          updatedAt: "2026-02-01T00:00:00.000Z",
+          inspectionEndedAt: "2026-09-20T10:00:00.000Z",
+          inspectionStatus: "inspecting",
+        }),
+      },
+    });
+
+    expect(resolveLatestApprovedVersion(registry)).toBe("1.1.0");
+    expect(resolvePublicSearchSortTimestamp(registry)).toBe("2026-09-20T10:00:00.000Z");
+    expect(toSearchResult(registry).latestVersionCreatedAt).toBe("2026-09-20T10:00:00.000Z");
   });
 });

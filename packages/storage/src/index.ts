@@ -148,6 +148,8 @@ export {
   normalizeCategoryFilters,
   compareIsoTimestampsDesc,
   getRecentSortTimestamp,
+  getPublicListedVersionSortTimestamp,
+  resolvePublicSearchSortTimestamp,
   sortSkillSearchResultsByRecent,
   toIsoTimestampString,
   resolveLatestApprovedVersion,

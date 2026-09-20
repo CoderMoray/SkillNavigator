@@ -958,7 +958,8 @@ export class PostgresRegistryStore extends JsonRegistryStore {
           }),
           v.inspectionFailedMessage
         ),
-        createdAt: String(v.createdAt), updatedAt: String(v.updatedAt),
+        createdAt: toIsoTimestampString(v.createdAt),
+        updatedAt: toIsoTimestampString(v.updatedAt),
       };
     }
 
@@ -998,7 +999,8 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       uploaded: row.uploaded,
       published: row.published,
       deletedAt: row.deletedAt ? String(row.deletedAt) : undefined,
-      createdAt: String(row.createdAt), updatedAt: String(row.updatedAt),
+      createdAt: toIsoTimestampString(row.createdAt),
+      updatedAt: toIsoTimestampString(row.updatedAt),
     };
   }
 
@@ -2052,6 +2054,8 @@ export class PostgresRegistryStore extends JsonRegistryStore {
         artifactContentHash: artifact?.contentHash ?? null,
         artifactSize: artifact?.size ?? null,
         artifactStoredAt: artifact ? new Date(artifact.storedAt) : null,
+        inspectionStatus: "completed",
+        inspectionFailedMessage: null,
         inspectionEndedAt: now,
         updatedAt: now,
       };

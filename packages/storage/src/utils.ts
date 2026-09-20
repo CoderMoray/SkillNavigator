@@ -121,13 +121,27 @@ export function toIsoTimestampString(value: unknown): string {
     return value.toISOString();
   }
   if (typeof value === "string") {
-    return value;
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return trimmed;
+    }
+    const parsed = Date.parse(trimmed);
+    if (!Number.isNaN(parsed)) {
+      return new Date(parsed).toISOString();
+    }
+    return trimmed;
+  }
+  if (value != null) {
+    const parsed = Date.parse(String(value));
+    if (!Number.isNaN(parsed)) {
+      return new Date(parsed).toISOString();
+    }
   }
   return String(value);
 }
 
 export function getRecentSortTimestamp(result: Pick<SkillSearchResult, "latestVersionCreatedAt" | "updatedAt">): string {
-  return result.latestVersionCreatedAt ?? result.updatedAt;
+  return toIsoTimestampString(result.latestVersionCreatedAt ?? result.updatedAt);
 }
 
 export function compareIsoTimestampsDesc(a: string, b: string): number {
@@ -149,13 +163,43 @@ export function isPubliclyListable(
 
 /** A version that completed review and is listed for public search/download. */
 export function isVersionPubliclyListed(
-  version: Pick<RegistryVersion, "published" | "inspectionStatus" | "status">
+  version: Pick<RegistryVersion, "published" | "inspectionStatus" | "status" | "inspectionEndedAt">
 ): boolean {
   if (version.published === false) {
     return false;
   }
   const inspectionStatus = resolveVersionInspectionStatus(version);
-  return isPubliclyListable(inspectionStatus, version.status);
+  if (isPubliclyListable(inspectionStatus, version.status)) {
+    return true;
+  }
+  // Rows finalized before version-level inspectionStatus was cleared to completed.
+  if (
+    version.status === "published" &&
+    version.inspectionEndedAt &&
+    inspectionStatus !== "rejected" &&
+    inspectionStatus !== "interrupted"
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** When the version was last listed after review (for public "recent" sort). */
+export function getPublicListedVersionSortTimestamp(
+  version: Pick<RegistryVersion, "inspectionEndedAt" | "updatedAt" | "createdAt">
+): string {
+  return toIsoTimestampString(version.inspectionEndedAt ?? version.updatedAt ?? version.createdAt);
+}
+
+export function resolvePublicSearchSortTimestamp(skill: RegistrySkill): string {
+  const publicVersionKey = resolveLatestApprovedVersion(skill);
+  if (publicVersionKey) {
+    const entry = skill.versions[publicVersionKey];
+    if (entry) {
+      return getPublicListedVersionSortTimestamp(entry);
+    }
+  }
+  return skill.updatedAt;
 }
 
 export function hasPubliclyListedVersion(skill: RegistrySkill): boolean {
@@ -370,8 +414,8 @@ export function toSearchResult(skill: RegistrySkill): SkillSearchResult {
     openIssues: skill.issues.filter((i) => i.status !== "closed").length,
     contributors: skill.contributors,
     downloads: Object.values(skill.versions).reduce((t, v) => t + v.downloads, 0),
-    updatedAt: skill.updatedAt,
-    latestVersionCreatedAt: latest.createdAt,
+    updatedAt: toIsoTimestampString(skill.updatedAt),
+    latestVersionCreatedAt: resolvePublicSearchSortTimestamp(skill),
     published: isSkillUnlisted(skill) ? false : skill.published !== false,
   };
 }
