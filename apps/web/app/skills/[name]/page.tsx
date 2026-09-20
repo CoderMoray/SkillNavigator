@@ -80,7 +80,7 @@ import {
   getCurrentUser,
   getSkill,
   getSkills,
-  retrySkillPublishInspection,
+  retrySkillInspection,
   republishSkill,
   republishSkillVersion,
   removeSkillContributor,
@@ -397,7 +397,7 @@ export default function SkillDetailPage() {
 
     setRetryingPublishInspection(true);
     try {
-      await retrySkillPublishInspection(token, skill.slug, {
+      await retrySkillInspection(token, skill.slug, {
         async: true,
         stages: resolveVersionInspectionFailure(skill.versions[skill.latestVersion], skill)?.stages,
       });

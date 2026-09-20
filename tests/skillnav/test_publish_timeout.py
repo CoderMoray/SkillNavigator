@@ -169,5 +169,5 @@ def test_retry_inspection_wait_uses_the_long_budget(
     result = runner.invoke(app, ["--json", "retry-inspection", "demo-skill", "--wait"])
 
     assert result.exit_code == 0
-    assert captured["url"].endswith("/skills/demo-skill/retry-publish")
+    assert captured["url"].endswith("/skills/demo-skill/retry-inspection")
     assert captured["timeout"] == cli.PUBLISH_WAIT_TIMEOUT_SECONDS

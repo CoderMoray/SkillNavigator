@@ -972,7 +972,7 @@ def retry_inspection_cmd(
         token = cli.require_token()
         status, payload = request_json(
             method="POST",
-            url=join_registry_url(cli.registry, f"/skills/{slug_path(slug)}/retry-publish"),
+            url=join_registry_url(cli.registry, f"/skills/{slug_path(slug)}/retry-inspection"),
             body={"async": not wait},
             token=token,
             timeout=_publish_timeout(wait=wait),
@@ -988,9 +988,8 @@ def retry_inspection_cmd(
         _handle_error(exc)
 
 
-# The command only re-runs inspection on an already-stored package. The original
-# "retry-publish" name read like it re-uploaded or re-listed it, so it stays as a
-# hidden alias for scripts and agent prompts that already use it.
+# Re-runs inspection on an already-stored package. "retry-publish" stays as a hidden
+# CLI alias only (API route is /retry-inspection).
 app.command("retry-publish", hidden=True)(retry_inspection_cmd)
 
 

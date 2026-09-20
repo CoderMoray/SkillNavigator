@@ -165,7 +165,7 @@ skillnav
 | --- | --- | --- |
 | `create-issue` | `issue` | 与 `list-issues` 只差一个字母却语义相反（提交 vs 列出） |
 | `list-issues` | `issues` | 同上 |
-| `retry-inspection` | `retry-publish` | 该命令只重跑审查，不重新发布（端点名仍为 `retry-publish`） |
+| `retry-inspection` | `retry-publish` | 该命令只重跑审查，不重新发布；API 为 `POST /skills/:slug/retry-inspection` |
 | `config connect-test` | `config test` | 只做 `GET /health` 连通性检查，不是配置校验 |
 | `trash restore` | —（顶层 `restore` 保留） | 回收站域内的等价入口 |
 
@@ -215,7 +215,7 @@ skillnav
 | config connect-test | `GET /health` | 公开 |
 | publish | `POST /skills/publish` | Bearer |
 | publish --dry-run | `POST /skills/publish/preview` | Bearer |
-| retry-inspection | `POST /skills/:slug/retry-publish` | Bearer（contributor） |
+| retry-inspection | `POST /skills/:slug/retry-inspection` | Bearer（contributor） |
 | status / info | `GET /skills/:slug` | 视可见性 |
 | report | `GET /skills/:slug/versions/:version` | 视可见性 |
 | search | `GET /skills?query=` | 公开 |

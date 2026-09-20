@@ -137,7 +137,7 @@ export function interruptedStagesFromStatuses(
   );
 }
 
-/** Preserve completed stages and mark only retry targets as processing (for DB/UI on retry-publish). */
+/** Preserve completed stages and mark only retry targets as processing (for DB/UI on retry-inspection). */
 export function buildRetryStageStatusesForMark(
   existing: Partial<InspectionStageStatuses>,
   stagesToRun: InspectionStage[]

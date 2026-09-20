@@ -387,13 +387,13 @@ export async function publishSkillArchive(
   });
 }
 
-export async function retrySkillPublishInspection(
+export async function retrySkillInspection(
   token: string,
   slug: string,
   options?: { async?: boolean; stages?: SkillInspectionStage[] }
 ): Promise<PublishSkillResponse | PublishSkillAcceptedResponse> {
   return request<PublishSkillResponse | PublishSkillAcceptedResponse>(
-    apiUrl(`/skills/${encodeURIComponent(slug)}/retry-publish`),
+    apiUrl(`/skills/${encodeURIComponent(slug)}/retry-inspection`),
     {
       method: "POST",
       token,
