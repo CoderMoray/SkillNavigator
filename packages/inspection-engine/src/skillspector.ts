@@ -260,7 +260,11 @@ function runProcess(command: string, args: string[], cwd: string): Promise<Proce
       }
     });
     child.stderr.on("data", (chunk: Buffer) => {
-      stderr = appendOutput(stderr, chunk);
+      try {
+        stderr = appendOutput(stderr, chunk);
+      } catch (error) {
+        finish(() => rejectProcess(error));
+      }
     });
 
     child.on("error", (error) => finish(() => rejectProcess(error)));

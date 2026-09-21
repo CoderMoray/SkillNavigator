@@ -1,6 +1,6 @@
-import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { runPythonMailScript } from "./run-python-mail-script.js";
 
 export interface RegistrationEmailPayload {
   to: string;
@@ -85,17 +85,6 @@ function isCommandNotFoundError(error: unknown): boolean {
   return error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT";
 }
 
-function parseScriptJsonOutput(stdout: string): { ok?: boolean; error?: string } {
-  const lines = stdout.trim().split(/\r?\n/).filter(Boolean);
-  for (let index = lines.length - 1; index >= 0; index -= 1) {
-    const line = lines[index]?.trim();
-    if (line?.startsWith("{")) {
-      return JSON.parse(line) as { ok?: boolean; error?: string };
-    }
-  }
-  throw new Error("registration_email_send_failed");
-}
-
 export async function sendRegistrationVerificationEmail(
   payload: RegistrationEmailPayload,
   env: NodeJS.ProcessEnv = process.env
@@ -128,7 +117,14 @@ async function sendAuthEmail(
 
   for (const candidate of pythonCommands) {
     try {
-      await runPythonMailScript(candidate.command, candidate.prefixArgs, scriptPath, payload, env);
+      await runPythonMailScript(
+        candidate.command,
+        candidate.prefixArgs,
+        scriptPath,
+        payload,
+        env,
+        "registration_email_send_failed"
+      );
       return;
     } catch (error) {
       if (isCommandNotFoundError(error)) {
@@ -144,55 +140,4 @@ async function sendAuthEmail(
         `No Python runtime was found for auth email delivery. Set REGISTRATION_EMAIL_PYTHON=python in .env. (${lastCommandError.message})`
       )
     : new Error("No Python runtime was found for auth email delivery.");
-}
-
-function runPythonMailScript(
-  command: string,
-  prefixArgs: string[],
-  scriptPath: string,
-  payload: RegistrationEmailPayload | PasswordResetEmailPayload,
-  env: NodeJS.ProcessEnv
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, [...prefixArgs, scriptPath], {
-      env: { ...process.env, ...env },
-      stdio: ["pipe", "pipe", "pipe"]
-    });
-
-    let stdout = "";
-    let stderr = "";
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk;
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk;
-    });
-
-    child.on("error", (error) => {
-      reject(error);
-    });
-
-    child.on("close", (code) => {
-      if (code !== 0) {
-        reject(new Error(stderr.trim() || stdout.trim() || `${command} exited with code ${code}`));
-        return;
-      }
-
-      try {
-        const parsed = parseScriptJsonOutput(stdout);
-        if (parsed.ok === true) {
-          resolve();
-          return;
-        }
-        reject(new Error(parsed.error ?? "registration_email_send_failed"));
-      } catch {
-        reject(new Error(stderr.trim() || stdout.trim() || "registration_email_send_failed"));
-      }
-    });
-
-    child.stdin.write(JSON.stringify(payload));
-    child.stdin.end();
-  });
 }

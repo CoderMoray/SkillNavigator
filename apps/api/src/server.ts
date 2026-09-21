@@ -1876,42 +1876,49 @@ function queueSkillPublishEmail(
   }
 
   const registryVersion = skill.versions[version];
-  void sendSkillPublishEmail({
-    authStore: context.authStore,
-    skill,
-    version,
-    outcome,
-    failureMessage: failureMessage ?? registryVersion?.inspectionFailure?.message,
-    publiclyListed:
-      outcome === "published" &&
-      skill.published !== false &&
-      registryVersion?.published !== false,
-  })
-    .then((result) => {
-      if (!result.sent) {
-        context.log.warn(
-          { slug: skill.slug, version, outcome, reason: result.reason },
-          "Skill publish notification was not sent"
-        );
-        return;
-      }
-      context.log.info(
-        {
-          slug: skill.slug,
-          version,
-          outcome,
-          recipients: result.recipients.to.length,
-          adminCc: outcome === "published" ? result.recipients.adminCc.length : 0,
-        },
-        "Skill publish notification sent"
-      );
+  const failureText = failureMessage ?? registryVersion?.inspectionFailure?.message;
+  const publiclyListed =
+    outcome === "published" &&
+    skill.published !== false &&
+    registryVersion?.published !== false;
+
+  // Decouple SMTP/Python subprocess work from the inspection pipeline tick so a
+  // concurrent HTTP request is less likely to race child-process I/O on Windows.
+  setImmediate(() => {
+    void sendSkillPublishEmail({
+      authStore: context.authStore,
+      skill,
+      version,
+      outcome,
+      failureMessage: failureText,
+      publiclyListed,
     })
-    .catch((error) => {
-      context.log.error(
-        { err: error, slug: skill.slug, version, outcome },
-        "Skill publish notification delivery failed"
-      );
-    });
+      .then((result) => {
+        if (!result.sent) {
+          context.log.warn(
+            { slug: skill.slug, version, outcome, reason: result.reason },
+            "Skill publish notification was not sent"
+          );
+          return;
+        }
+        context.log.info(
+          {
+            slug: skill.slug,
+            version,
+            outcome,
+            recipients: result.recipients.to.length,
+            adminCc: outcome === "published" ? result.recipients.adminCc.length : 0,
+          },
+          "Skill publish notification sent"
+        );
+      })
+      .catch((error) => {
+        context.log.error(
+          { err: error, slug: skill.slug, version, outcome },
+          "Skill publish notification delivery failed"
+        );
+      });
+  });
 }
 
 class InspectionSupersededError extends Error {
@@ -2581,6 +2588,16 @@ async function startServer(): Promise<void> {
   });
   process.once("SIGINT", () => {
     void shutdown("SIGINT");
+  });
+
+  process.on("uncaughtException", (error) => {
+    server.app.log.fatal({ err: error }, "Uncaught exception — exiting");
+    void shutdown("uncaughtException").finally(() => {
+      process.exit(1);
+    });
+  });
+  process.on("unhandledRejection", (reason) => {
+    server.app.log.error({ err: reason }, "Unhandled promise rejection");
   });
 
   try {

@@ -1,8 +1,8 @@
-import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import type { AuthStore, PublicUser } from "./auth.js";
 import { getWebPublicUrl, isRegistrationEmailConfigured } from "./registration-email.js";
+import { runPythonMailScript } from "./run-python-mail-script.js";
 import type { RegistrySkill } from "./types.js";
 
 export type SkillPublishEmailOutcome = "published" | "interrupted" | "rejected";
@@ -90,65 +90,6 @@ function resolvePythonCommands(env: NodeJS.ProcessEnv = process.env): Array<{ co
 
 function isCommandNotFoundError(error: unknown): boolean {
   return error instanceof Error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT";
-}
-
-function parseScriptJsonOutput(stdout: string): { ok?: boolean; error?: string } {
-  const lines = stdout.trim().split(/\r?\n/).filter(Boolean);
-  for (let index = lines.length - 1; index >= 0; index -= 1) {
-    const line = lines[index]?.trim();
-    if (line?.startsWith("{")) {
-      return JSON.parse(line) as { ok?: boolean; error?: string };
-    }
-  }
-  throw new Error("skill_publish_email_send_failed");
-}
-
-function runPythonMailScript(
-  command: string,
-  prefixArgs: string[],
-  scriptPath: string,
-  payload: SkillPublishEmailPayload,
-  env: NodeJS.ProcessEnv
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, [...prefixArgs, scriptPath], {
-      env: { ...process.env, ...env },
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-
-    let stdout = "";
-    let stderr = "";
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk;
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk;
-    });
-
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (code !== 0) {
-        reject(new Error(stderr.trim() || stdout.trim() || `${command} exited with code ${code}`));
-        return;
-      }
-
-      try {
-        const parsed = parseScriptJsonOutput(stdout);
-        if (parsed.ok === true) {
-          resolve();
-          return;
-        }
-        reject(new Error(parsed.error ?? "skill_publish_email_send_failed"));
-      } catch {
-        reject(new Error(stderr.trim() || stdout.trim() || "skill_publish_email_send_failed"));
-      }
-    });
-
-    child.stdin.write(JSON.stringify(payload));
-    child.stdin.end();
-  });
 }
 
 function normalizeEmail(value: string | null | undefined): string | undefined {
@@ -292,7 +233,14 @@ export async function sendSkillPublishEmail(
   let lastCommandError: unknown;
   for (const candidate of resolvePythonCommands(env)) {
     try {
-      await runPythonMailScript(candidate.command, candidate.prefixArgs, scriptPath, payload, env);
+      await runPythonMailScript(
+        candidate.command,
+        candidate.prefixArgs,
+        scriptPath,
+        payload,
+        env,
+        "skill_publish_email_send_failed"
+      );
       return { sent: true, recipients };
     } catch (error) {
       if (isCommandNotFoundError(error)) {
