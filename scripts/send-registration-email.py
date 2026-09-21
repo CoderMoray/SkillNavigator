@@ -12,6 +12,8 @@ import os
 import sys
 from pathlib import Path
 
+from msn_mail_env import msn_template_style
+
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
@@ -125,7 +127,7 @@ def main() -> int:
             to=[to.strip()],
             subject=subject,
             if_template=True,
-            template_style="MSN - General",
+            template_style=msn_template_style(),
             content_body={
                 "subject": subject,
                 "name": username.strip(),

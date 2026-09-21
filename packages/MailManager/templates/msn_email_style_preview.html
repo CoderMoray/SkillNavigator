@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MonoSkillNavigator 邮件模板候选</title>
+<style>
+    :root {
+        color-scheme: dark;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+            "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+    }
+    * {
+        box-sizing: border-box;
+    }
+    body {
+        margin: 0;
+        background: #101827;
+        color: #f8fafc;
+    }
+    .page {
+        width: min(100% - 32px, 1160px);
+        margin: 0 auto;
+        padding: 44px 0 56px;
+    }
+    .eyebrow {
+        margin: 0 0 8px;
+        color: #8bb8ff;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+    h1 {
+        margin: 0;
+        font-size: clamp(26px, 4vw, 36px);
+        font-weight: 650;
+        letter-spacing: -0.04em;
+        line-height: 1.15;
+    }
+    .intro {
+        max-width: 680px;
+        margin: 14px 0 34px;
+        color: #aab7cb;
+        font-size: 14px;
+        line-height: 1.7;
+    }
+    .cards {
+        display: grid;
+        gap: 24px;
+    }
+    .candidate {
+        overflow: hidden;
+        border: 1px solid #29364d;
+        border-radius: 16px;
+        background: #172033;
+        box-shadow: 0 16px 42px rgba(0, 0, 0, 0.18);
+    }
+    .candidate-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 20px 22px 18px;
+        border-bottom: 1px solid #29364d;
+    }
+    .candidate-name {
+        margin: 0;
+        color: #ffffff;
+        font-size: 17px;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+    }
+    .candidate-copy {
+        margin: 6px 0 0;
+        color: #9caec7;
+        font-size: 13px;
+        line-height: 1.55;
+    }
+    .open-link {
+        flex: none;
+        color: #93c5fd;
+        font-size: 12px;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .open-link:hover {
+        color: #dbeafe;
+        text-decoration: underline;
+    }
+    .preview-wrap {
+        overflow: auto;
+        padding: 24px;
+        background: #0d1523;
+    }
+    iframe {
+        display: block;
+        width: 680px;
+        min-width: 100%;
+        height: 760px;
+        border: 0;
+        border-radius: 10px;
+        background: #ffffff;
+    }
+    .footnote {
+        margin: 24px 0 0;
+        color: #7687a1;
+        font-size: 12px;
+        line-height: 1.6;
+    }
+    @media (max-width: 640px) {
+        .page {
+            width: min(100% - 24px, 1160px);
+            padding-top: 28px;
+        }
+        .candidate-header {
+            display: block;
+        }
+        .open-link {
+            display: inline-block;
+            margin-top: 12px;
+        }
+        .preview-wrap {
+            padding: 12px;
+        }
+    }
+</style>
+</head>
+<body>
+<main class="page">
+    <p class="eyebrow">MonoSkillNavigator · email candidates</p>
+    <h1>三套邮件视觉方向</h1>
+    <p class="intro">
+        三个方案使用相同的发送字段、示例文案与品牌 Logo。请选择最符合平台气质的一套；
+        选定后即可将其作为正式通知模板启用。
+    </p>
+
+    <section class="cards" aria-label="邮件模板候选">
+        <article class="candidate">
+            <div class="candidate-header">
+                <div>
+                    <h2 class="candidate-name">A · Editorial Slate</h2>
+                    <p class="candidate-copy">编辑级极简、细节克制。适合审查结果、账号和平台通知等日常邮件。</p>
+                </div>
+                <a class="open-link" href="msn_email_style_editorial_preview_sample.html" target="_blank" rel="noopener">全尺寸查看 ↗</a>
+            </div>
+            <div class="preview-wrap">
+                <iframe title="Editorial Slate 邮件预览" src="msn_email_style_editorial_preview_sample.html"></iframe>
+            </div>
+        </article>
+
+        <article class="candidate">
+            <div class="candidate-header">
+                <div>
+                    <h2 class="candidate-name">B · Obsidian Signal</h2>
+                    <p class="candidate-copy">深色信号头图、高对比信息层级。适合发布成功、审查中断等关键状态通知。</p>
+                </div>
+                <a class="open-link" href="msn_email_style_obsidian_preview_sample.html" target="_blank" rel="noopener">全尺寸查看 ↗</a>
+            </div>
+            <div class="preview-wrap">
+                <iframe title="Obsidian Signal 邮件预览" src="msn_email_style_obsidian_preview_sample.html"></iframe>
+            </div>
+        </article>
+
+        <article class="candidate">
+            <div class="candidate-header">
+                <div>
+                    <h2 class="candidate-name">C · Horizon</h2>
+                    <p class="candidate-copy">柔和蓝绿光感、层次更轻。最贴近现代 SaaS 产品界面，适合作为全平台默认样式。</p>
+                </div>
+                <a class="open-link" href="msn_email_style_horizon_preview_sample.html" target="_blank" rel="noopener">全尺寸查看 ↗</a>
+            </div>
+            <div class="preview-wrap">
+                <iframe title="Horizon 邮件预览" src="msn_email_style_horizon_preview_sample.html"></iframe>
+            </div>
+        </article>
+    </section>
+
+    <p class="footnote">预览使用本地示例数据，不会发送邮件。平台已选用 B · Obsidian（<code>MSN - Obsidian</code>）作为正式通知模板。</p>
+</main>
+</body>
+</html>

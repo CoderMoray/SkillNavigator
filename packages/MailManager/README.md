@@ -68,7 +68,7 @@ mail.generate(
     to=["user@example.com"],
     subject="日报通知",
     if_template=True,
-    template_style="MSN - General",
+    template_style="MSN - Obsidian",
     content_body={
         "subject": "日报通知",           # 可选，缺省取 subject 参数
         "name": "张三",                  # 收件人称呼，可空
@@ -86,7 +86,16 @@ mail.generate(
 
 模板占位符（缺任一必填项会抛 `ValueError`）：`subject, name, main_content, note, end_content, comment, signature_name, signature_email, logo_base64`。
 
-> `template_style` 参数保留用于后续扩展新模板；新增风格只需在 `mailmanager.py` 的 `generate()` 中增加分支并实现渲染。
+可选的 `template_style`：
+
+| 值 | 风格 |
+|---|---|
+| `MSN - Obsidian` | **平台默认**（B · Obsidian Signal）：深色顶栏、高对比正文 |
+| `MSN - Editorial` | 浅色编辑级极简，适合日常平台通知 |
+| `MSN - Horizon` | 柔和蓝绿层次，适合现代产品通知 |
+| `MSN - General` | 早期渐变标题通用模板 |
+
+MonoSkillNavigator 仓库内 `scripts/send-*-email.py` 默认使用 `MSN - Obsidian`，可通过环境变量 `MSN_MAIL_TEMPLATE_STYLE` 覆盖。各风格占位符相同，切换 `template_style` 即可。
 
 ### 2. send_from_maildrop() — 投递
 

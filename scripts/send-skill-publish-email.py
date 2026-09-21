@@ -3,7 +3,7 @@
 
 Input is a JSON object on stdin. The TypeScript API determines recipients and
 whether administrators are CC'ed; this script only validates the payload,
-renders the MSN general template, and sends the queued message.
+renders the MSN mail template (default Obsidian), and sends the queued message.
 """
 from __future__ import annotations
 
@@ -14,6 +14,8 @@ import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+
+from msn_mail_env import msn_template_style
 
 
 def _repo_root() -> Path:
@@ -197,7 +199,7 @@ def main() -> int:
             cc=cc,
             subject=subject,
             if_template=True,
-            template_style="MSN - General",
+            template_style=msn_template_style(),
             content_body={
                 "subject": subject,
                 "name": html.escape(recipient_name),

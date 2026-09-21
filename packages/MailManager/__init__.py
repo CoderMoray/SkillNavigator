@@ -20,7 +20,7 @@ MailManager - 通用邮件生成与发送包
     )
 
     mail.generate(to=["user@example.com"], subject="测试",
-                  content_body={...}, template_style="MSN - General")
+                  content_body={...}, template_style="MSN - Obsidian")
     mail.send_from_maildrop()
     mail.clear(days=30)
 """

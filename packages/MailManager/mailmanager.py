@@ -65,6 +65,14 @@ class MailManager(object):
         # 模板与资源目录
         self._templates_dir = os.path.join(os.path.dirname(__file__), "templates")
         self._asset_logo = os.path.join(self._templates_dir, "msn-logo.png")
+        self._msn_template_files: Dict[str, str] = {
+            "msn - general": "msn_os_general_email.html",
+            "monoskillnavigator - general": "msn_os_general_email.html",
+            "rapid os - general": "msn_os_general_email.html",  # deprecated alias
+            "msn - editorial": "msn_email_style_editorial.html",
+            "msn - obsidian": "msn_email_style_obsidian.html",
+            "msn - horizon": "msn_email_style_horizon.html",
+        }
 
     # ------------------------------------------------------------------ #
     # 生成（排队）
@@ -115,22 +123,23 @@ class MailManager(object):
         if if_template:
             if template_style is None:
                 raise ValueError("使用模板时必须指定 template_style")
-            style = template_style.lower()
-            if style in {
-                "msn - general",
-                "monoskillnavigator - general",
-                "rapid os - general",  # deprecated alias
-            }:
-                if content_body is None:
-                    raise ValueError("使用模板时必须提供 content_body")
-                if "subject" not in content_body:
-                    content_body["subject"] = subject
-                with open(self._asset_logo, "rb") as f:
-                    logo_base64 = base64.b64encode(f.read()).decode("utf-8")
-                content_body["logo_base64"] = logo_base64
-                content = self._render_msn_os_general_template(content_body)
-            else:
-                raise KeyError(f"不支持的 template_style: {template_style}")
+            style = template_style.casefold()
+            template_filename = self._msn_template_files.get(style)
+            if template_filename is None:
+                supported = (
+                    "MSN - General, MSN - Editorial, MSN - Obsidian, MSN - Horizon"
+                )
+                raise KeyError(
+                    f"不支持的 template_style: {template_style}。可选：{supported}"
+                )
+            if content_body is None:
+                raise ValueError("使用模板时必须提供 content_body")
+            if "subject" not in content_body:
+                content_body["subject"] = subject
+            with open(self._asset_logo, "rb") as f:
+                logo_base64 = base64.b64encode(f.read()).decode("utf-8")
+            content_body["logo_base64"] = logo_base64
+            content = self._render_msn_template(template_filename, content_body)
         # if_template=False 时：content 直接作为 HTML 正文
 
         mail = {
@@ -210,13 +219,14 @@ class MailManager(object):
     # ------------------------------------------------------------------ #
     # 模板渲染
     # ------------------------------------------------------------------ #
-    def _render_msn_os_general_template(self, content_body: Dict[str, Any]) -> str:
-        """渲染 MonoSkillNavigator (MSN) 通用邮件模板。
+    def _render_msn_template(
+        self, template_filename: str, content_body: Dict[str, Any]
+    ) -> str:
+        """渲染 MonoSkillNavigator (MSN) 邮件模板。
 
-        模板文件：templates/msn_os_general_email.html
         占位符语法：${var} 或 $var（使用 string.Template.safe_substitute）
         """
-        template_path = os.path.join(self._templates_dir, "msn_os_general_email.html")
+        template_path = os.path.join(self._templates_dir, template_filename)
         if not os.path.exists(template_path):
             raise FileNotFoundError(f"模板文件未找到: {template_path}")
 
@@ -274,3 +284,7 @@ class MailManager(object):
             )
 
         return Template(template_str).safe_substitute(body)
+
+    def _render_msn_os_general_template(self, content_body: Dict[str, Any]) -> str:
+        """兼容旧调用：渲染 MonoSkillNavigator 通用模板。"""
+        return self._render_msn_template("msn_os_general_email.html", content_body)

@@ -1,0 +1,226 @@
+<!-- MonoSkillNavigator · Style C — Horizon -->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="x-apple-disable-message-reformatting">
+<title>${subject}</title>
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        background-color: #f3f6fb;
+        color: #172033;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+            "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+    }
+    table {
+        border-collapse: collapse;
+    }
+    img {
+        border: 0;
+        display: block;
+        outline: none;
+        text-decoration: none;
+    }
+    .email-shell {
+        width: 620px;
+        max-width: 620px;
+    }
+    .card {
+        overflow: hidden;
+        border: 1px solid #e0e7f0;
+        border-radius: 18px;
+        background: #ffffff;
+        box-shadow: 0 18px 46px rgba(30, 64, 96, 0.10);
+    }
+    .header {
+        padding: 30px 38px 26px;
+        border-bottom: 1px solid #dfe8f5;
+        background: #eef5ff;
+        background: linear-gradient(135deg, #eff6ff 0%, #f4faff 52%, #effbf6 100%);
+    }
+    .header-table {
+        width: 100%;
+    }
+    .platform-chip {
+        display: inline-block;
+        margin: 0 0 12px;
+        padding: 4px 10px;
+        border: 1px solid #bfdbfe;
+        border-radius: 999px;
+        background-color: #ffffff;
+        color: #1d4ed8;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.55px;
+        line-height: 13px;
+    }
+    .subject {
+        margin: 0;
+        color: #172033;
+        font-size: 23px;
+        font-weight: 650;
+        letter-spacing: -0.45px;
+        line-height: 31px;
+    }
+    .header-mark {
+        width: 46px;
+        height: 46px;
+        border: 1px solid #bfdbfe;
+        border-radius: 14px;
+        background-color: #ffffff;
+        color: #2563eb;
+        font-size: 11px;
+        font-weight: 750;
+        letter-spacing: 0.7px;
+        line-height: 44px;
+        text-align: center;
+    }
+    .content-padding {
+        padding: 30px 38px 34px;
+    }
+    .content {
+        color: #334155;
+        font-size: 15px;
+        line-height: 25px;
+    }
+    .content p {
+        margin: 0 0 16px;
+    }
+    .content a {
+        color: #1d4ed8;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+    .note {
+        margin: 20px 0;
+        padding: 14px 16px;
+        border: 1px solid #f1d9a8;
+        border-radius: 10px;
+        background-color: #fffaed;
+        color: #614b23;
+        font-size: 14px;
+        line-height: 22px;
+    }
+    .comment {
+        margin-top: 20px;
+        color: #64748b;
+        font-size: 12px;
+        line-height: 19px;
+    }
+    .signature {
+        margin-top: 28px;
+        padding-top: 23px;
+        border-top: 1px solid #e6edf5;
+        color: #334155;
+        font-size: 12px;
+        line-height: 19px;
+    }
+    .signature-desc {
+        margin: 6px 0 4px;
+        color: #64748b;
+        font-size: 10px;
+        line-height: 15px;
+    }
+    .signature-email {
+        margin-top: 2px;
+        color: #64748b;
+        font-size: 11px;
+        line-height: 16px;
+    }
+    .signature-logo {
+        width: 94px;
+        height: auto;
+        opacity: 0.34;
+    }
+    .footer-meta {
+        margin: 18px 0 0;
+        color: #94a3b8;
+        font-size: 10px;
+        letter-spacing: 0.2px;
+        line-height: 14px;
+        text-align: center;
+    }
+    @media only screen and (max-width: 640px) {
+        .email-shell {
+            width: 100% !important;
+        }
+        .page-padding {
+            padding: 18px 12px !important;
+        }
+        .header,
+        .content-padding {
+            padding-left: 24px !important;
+            padding-right: 24px !important;
+        }
+        .subject {
+            font-size: 22px !important;
+            line-height: 30px !important;
+        }
+        .signature-logo {
+            width: 74px !important;
+        }
+    }
+</style>
+</head>
+<body>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; background-color:#f3f6fb;">
+    <tr>
+        <td class="page-padding" align="center" style="padding:38px 16px;">
+            <table class="email-shell" role="presentation" width="620" cellpadding="0" cellspacing="0" border="0" style="width:620px; max-width:620px;">
+                <tr>
+                    <td class="card" style="overflow:hidden; border:1px solid #e0e7f0; border-radius:18px; background:#ffffff;">
+                        <div class="header" style="padding:30px 38px 26px; border-bottom:1px solid #dfe8f5; background:#eef5ff;">
+                            <table class="header-table" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+                                <tr>
+                                    <td valign="middle" style="padding:0;">
+                                        <span class="platform-chip">${brand_name}</span>
+                                        <h1 class="subject" style="margin:0; color:#172033; font-size:23px; font-weight:650; letter-spacing:-0.45px; line-height:31px;">${subject}</h1>
+                                    </td>
+                                    <td width="64" valign="middle" align="right" style="width:64px; padding:0 0 0 16px;">
+                                        <div class="header-mark" aria-label="${brand_name}">MSN</div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="content-padding" style="padding:30px 38px 34px;">
+                            <div class="content" style="color:#334155; font-size:15px; line-height:25px;">
+                                <p>${name}您好:</p>
+                                <p>${main_content}</p>
+                                ${note}
+                                ${end_content}
+                                ${comment}
+                            </div>
+
+                            <table class="signature" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; margin-top:28px; padding-top:23px; border-top:1px solid #e6edf5; color:#334155; font-size:12px; line-height:19px;">
+                                <tr>
+                                    <td valign="bottom" style="padding:0;">
+                                        Best Regards,<br>
+                                        ${signature_name}<br>
+                                        ${signature_email}
+                                        <div class="signature-desc">${brand_name} · Agent Skill 注册与审查平台</div>
+                                        <div class="signature-email">Support by APPLE, China | ${brand_name} Team</div>
+                                    </td>
+                                    <td width="102" valign="bottom" align="right" style="width:102px; padding:0 0 0 16px;">
+                                        <img
+                                            class="signature-logo"
+                                            src="data:image/png;base64,${logo_base64}"
+                                            alt="${brand_name} Logo"
+                                            width="94"
+                                        >
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+            <p class="footer-meta">MonoSkillNavigator Platform Notification</p>
+        </td>
+    </tr>
+</table>
+</body>
+</html>
