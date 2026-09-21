@@ -1741,6 +1741,76 @@ export default function SkillDetailPage() {
                 </div>
               ) : null}
 
+              {!isHaluCatchEvaluation ? (
+              <div className="detail-subsection">
+                <div className="section-head">
+                  <div>
+                    <h3>可靠性评估</h3>
+                    <p className="description">查看可靠性任务集的完成情况与发现。</p>
+                  </div>
+                </div>
+                {currentVersion.evaluation ? (
+                  <>
+                    <div className="evaluation-summary">
+                      <div>
+                        <span>Provider</span>
+                        <strong>{currentVersion.evaluation.provider}</strong>
+                      </div>
+                      <div>
+                        <span>Tasks</span>
+                        <strong>
+                          {currentVersion.evaluation.tasksPassed}/{currentVersion.evaluation.tasksTotal}
+                        </strong>
+                      </div>
+                      <div>
+                        <span>评估时间</span>
+                        <strong>{formatDateTime(currentVersion.evaluation.createdAt)}</strong>
+                      </div>
+                    </div>
+                    {currentVersion.evaluation.taskResults.length > 0 ? (
+                      <div className="detail-subsection">
+                        <h3>任务结果</h3>
+                        <ul className="list">
+                          {currentVersion.evaluation.taskResults.map((task) => (
+                            <li className="list-item" key={task.name}>
+                              <div className="card-head">
+                                <strong>{task.name}</strong>
+                                <span className="badge">Score {task.score}</span>
+                              </div>
+                              {task.findings.map((finding) => (
+                                <p className="description" key={finding.id}>
+                                  {finding.message}
+                                </p>
+                              ))}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {currentVersion.evaluation.findings.length > 0 ? (
+                      <div className="detail-subsection">
+                        <h3>总体发现</h3>
+                        <ul className="list">
+                          {currentVersion.evaluation.findings.map((finding) => (
+                            <li className={`list-item finding ${finding.severity}`} key={finding.id}>
+                              <div className="card-head">
+                                <strong>{finding.task ?? "可靠性检查"}</strong>
+                                <SeverityBadge severity={finding.severity} />
+                              </div>
+                              <p className="description">{finding.message}</p>
+                              <p className="description">建议：{finding.recommendation}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="empty detail-empty">该版本暂无可靠性评估报告。</div>
+                )}
+              </div>
+              ) : null}
+
               <div className="detail-subsection">
                 <div className="section-head">
                   <div>
@@ -1876,76 +1946,6 @@ export default function SkillDetailPage() {
                   </ul>
                 )}
               </div>
-
-              {!isHaluCatchEvaluation ? (
-              <div className="detail-subsection">
-                <div className="section-head">
-                  <div>
-                    <h3>可靠性评估</h3>
-                    <p className="description">查看可靠性任务集的完成情况与发现。</p>
-                  </div>
-                </div>
-                {currentVersion.evaluation ? (
-                  <>
-                    <div className="evaluation-summary">
-                      <div>
-                        <span>Provider</span>
-                        <strong>{currentVersion.evaluation.provider}</strong>
-                      </div>
-                      <div>
-                        <span>Tasks</span>
-                        <strong>
-                          {currentVersion.evaluation.tasksPassed}/{currentVersion.evaluation.tasksTotal}
-                        </strong>
-                      </div>
-                      <div>
-                        <span>评估时间</span>
-                        <strong>{formatDateTime(currentVersion.evaluation.createdAt)}</strong>
-                      </div>
-                    </div>
-                    {currentVersion.evaluation.taskResults.length > 0 ? (
-                      <div className="detail-subsection">
-                        <h3>任务结果</h3>
-                        <ul className="list">
-                          {currentVersion.evaluation.taskResults.map((task) => (
-                            <li className="list-item" key={task.name}>
-                              <div className="card-head">
-                                <strong>{task.name}</strong>
-                                <span className="badge">Score {task.score}</span>
-                              </div>
-                              {task.findings.map((finding) => (
-                                <p className="description" key={finding.id}>
-                                  {finding.message}
-                                </p>
-                              ))}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-                    {currentVersion.evaluation.findings.length > 0 ? (
-                      <div className="detail-subsection">
-                        <h3>总体发现</h3>
-                        <ul className="list">
-                          {currentVersion.evaluation.findings.map((finding) => (
-                            <li className={`list-item finding ${finding.severity}`} key={finding.id}>
-                              <div className="card-head">
-                                <strong>{finding.task ?? "可靠性检查"}</strong>
-                                <SeverityBadge severity={finding.severity} />
-                              </div>
-                              <p className="description">{finding.message}</p>
-                              <p className="description">建议：{finding.recommendation}</p>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ) : null}
-                  </>
-                ) : (
-                  <div className="empty detail-empty">该版本暂无可靠性评估报告。</div>
-                )}
-              </div>
-              ) : null}
             </>
           ) : null}
 
