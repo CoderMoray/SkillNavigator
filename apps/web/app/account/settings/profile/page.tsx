@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { Save, UserRound } from "lucide-react";
 import { ErrorToast } from "../../../../components/ErrorToast";
@@ -81,6 +82,34 @@ export default function SettingsProfilePage() {
         </header>
 
         <form className="settings-section-form" onSubmit={handleProfileSubmit}>
+          <div className="field settings-field">
+            <span className="settings-field-label">绑定邮箱</span>
+            <input
+              aria-readonly="true"
+              className="settings-field-readonly"
+              readOnly
+              type="text"
+              value={user.email ?? ""}
+              placeholder="未绑定邮箱"
+            />
+            <p className="description settings-inline-meta">
+              {user.email ? (
+                user.emailVerified ? (
+                  "该邮箱已通过验证，用于登录与 Skill 发布通知。"
+                ) : (
+                  <>
+                    邮箱尚未完成验证。
+                    <Link className="text-link" href="/verify-email">
+                      前往验证
+                    </Link>
+                  </>
+                )
+              ) : (
+                "当前账户未绑定邮箱。"
+              )}
+            </p>
+          </div>
+
           <label className="field settings-field">
             <span className="settings-field-label">显示名称</span>
             <input
