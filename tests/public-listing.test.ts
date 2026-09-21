@@ -184,6 +184,26 @@ describe("public listing helpers", () => {
     expect(toSearchResult(registry).published).toBe(false);
   });
 
+  it("keeps search rows listed when skills.published is stale but a public version exists", () => {
+    const registry = skill({
+      published: false,
+      ownerUnlisted: false,
+      versions: {
+        "0.1.2": version({
+          version: "0.1.2",
+          published: true,
+          inspectionStatus: "completed",
+          status: "published",
+        }),
+      },
+      latestVersion: "0.1.2",
+    });
+
+    expect(resolveSkillPublishedFlag(registry)).toBe(true);
+    expect(isSkillUnlisted(registry)).toBe(false);
+    expect(toSearchResult(registry).published).toBe(true);
+  });
+
   it("honors owner unpublish even when a version row remains listable", () => {
     const registry = skill({
       published: false,

@@ -65,6 +65,7 @@ import {
   isVersionUploaded,
   isPendingPublishVersion,
   recomputeSkillPublishedFlag,
+  resolveSkillPublishedFlag,
 } from "../utils";
 
 function resolveMarkReviewTargetVersion(
@@ -683,8 +684,8 @@ export abstract class JsonRegistryStore implements RegistryStore {
     const q = query.trim().toLowerCase();
     const selectedCategories = normalizeCategoryFilters(categories);
     return Object.values(data.skills)
-      .filter((s) => s.published !== false)
       .filter((s) => !s.deletedAt)
+      .filter((s) => resolveSkillPublishedFlag(s))
       .filter((s) => s.versions[s.latestVersion]?.status !== "rejected")
       .filter((s) => !q || s.slug.toLowerCase().includes(q) || s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q))
       .filter((s) => {
@@ -709,8 +710,9 @@ export abstract class JsonRegistryStore implements RegistryStore {
   async listUnpublishedSkillsForOwner(ownerUserId: string): Promise<SkillSearchResult[]> {
     const data = await this.load();
     return Object.values(data.skills)
-      .filter((skill) => skill.published === false && !skill.deletedAt && isSkillOwner(skill, { id: ownerUserId, username: "" }))
-      .map((skill) => ({ ...toSearchResult(skill), published: false }))
+      .filter((skill) => !skill.deletedAt && isSkillOwner(skill, { id: ownerUserId, username: "" }))
+      .filter((skill) => !resolveSkillPublishedFlag(skill))
+      .map(toSearchResult)
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 

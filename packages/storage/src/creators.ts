@@ -120,9 +120,7 @@ export function mergeOwnerUnpublishedSkills(
   unpublished: SkillSearchResult[]
 ): CreatorSummary {
   const existingSlugs = new Set(creator.skills.map((skill) => skill.slug));
-  const extra = unpublished
-    .filter((skill) => !existingSlugs.has(skill.slug))
-    .map((skill) => ({ ...skill, published: false }));
+  const extra = unpublished.filter((skill) => !existingSlugs.has(skill.slug));
   if (extra.length === 0) {
     return creator;
   }
@@ -137,9 +135,7 @@ export function mergeOwnerRejectedSkills(
   rejected: SkillSearchResult[]
 ): CreatorSummary {
   const existingSlugs = new Set(creator.skills.map((skill) => skill.slug));
-  const extra = rejected
-    .filter((skill) => !existingSlugs.has(skill.slug))
-    .map((skill) => ({ ...skill, published: false }));
+  const extra = rejected.filter((skill) => !existingSlugs.has(skill.slug));
   if (extra.length === 0) {
     return creator;
   }
@@ -154,9 +150,7 @@ export function mergeOwnerInspectionPendingSkills(
   pending: SkillSearchResult[]
 ): CreatorSummary {
   const existingSlugs = new Set(creator.skills.map((skill) => skill.slug));
-  const extra = pending
-    .filter((skill) => !existingSlugs.has(skill.slug))
-    .map((skill) => ({ ...skill, published: false }));
+  const extra = pending.filter((skill) => !existingSlugs.has(skill.slug));
   if (extra.length === 0) {
     return creator;
   }

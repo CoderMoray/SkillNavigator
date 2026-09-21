@@ -66,6 +66,7 @@ import {
   resolveSkillPublishedFlag,
   isPendingPublishVersion,
   toSearchResult,
+  sortSkillSearchResultsByRecent,
 } from "../utils";
 import { JsonRegistryStore } from "./base";
 
@@ -442,7 +443,19 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       .where(
         and(
           isNull(schema.skills.deletedAt),
-          eq(schema.skills.published, true),
+          or(
+            eq(schema.skills.published, true),
+            and(
+              eq(schema.skills.ownerUnlisted, false),
+              sql`exists (
+                select 1 from ${schema.skillVersions} sv
+                where sv.skill_slug = ${schema.skills.slug}
+                  and sv.published = true
+                  and sv.inspection_status = 'completed'
+                  and sv.status <> 'rejected'
+              )`
+            )
+          ),
           q
             ? or(
                 ilike(schema.skills.slug, searchPattern),
@@ -502,99 +515,20 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     );
 
     const rows = await this.db
-      .select({
-        slug: schema.skills.slug,
-        name: schema.skills.name,
-        description: schema.skills.description,
-        latestVersion: schema.skills.latestVersion,
-        inspectionStatus: schema.skills.inspectionStatus,
-        status: schema.skillVersions.status,
-        categories: schema.skillVersions.categories,
-        qualityScore: schema.skillInspections.qualityScore,
-        securityScore: schema.skillInspections.securityScore,
-        reliabilityScore: schema.skillInspections.reliabilityScore,
-        averageRating: schema.skills.averageRating,
-        ratingCount: schema.skills.ratingCount,
-        totalDownloads: sql<number>`coalesce(sum(${schema.skillVersions.downloads}), 0)`.mapWith(Number),
-        updatedAt: schema.skills.updatedAt,
-        latestVersionCreatedAt: schema.skillVersions.createdAt,
-        openIssues: sql<number>`(
-          select count(*) from ${schema.skillIssues}
-          where ${schema.skillIssues.skillSlug} = ${schema.skills.slug}
-          and ${schema.skillIssues.status} != 'closed'
-        )`.mapWith(Number),
-      })
+      .select({ slug: schema.skills.slug })
       .from(schema.skills)
-      .innerJoin(
-        schema.skillVersions,
-        and(
-          eq(schema.skillVersions.skillSlug, schema.skills.slug),
-          eq(schema.skillVersions.version, schema.skills.latestVersion)
-        )
-      )
-      .innerJoin(
-        schema.skillInspections,
-        and(
-          eq(schema.skillInspections.skillSlug, schema.skills.slug),
-          eq(schema.skillInspections.version, schema.skills.latestVersion)
-        )
-      )
-      .where(and(isNull(schema.skills.deletedAt), eq(schema.skills.published, false), ownerMatch))
-      .groupBy(
-        schema.skills.slug,
-        schema.skills.name,
-        schema.skills.description,
-        schema.skills.latestVersion,
-        schema.skills.inspectionStatus,
-        schema.skillVersions.status,
-        schema.skillVersions.categories,
-        schema.skillInspections.qualityScore,
-        schema.skillInspections.securityScore,
-        schema.skillInspections.reliabilityScore,
-        schema.skills.averageRating,
-        schema.skills.ratingCount,
-        schema.skills.updatedAt,
-        schema.skillVersions.createdAt
-      )
-      .orderBy(desc(schema.skillVersions.createdAt));
+      .where(and(isNull(schema.skills.deletedAt), ownerMatch));
 
-    const slugs = rows.map((r) => r.slug);
-    if (slugs.length === 0) return [];
-
-    const allContributors = await this.db
-      .select()
-      .from(schema.skillContributors)
-      .where(inArray(schema.skillContributors.skillSlug, slugs));
-
-    const contributorsMap = new Map<string, SkillSearchResult["contributors"]>();
-    for (const c of allContributors) {
-      const list = contributorsMap.get(c.skillSlug) ?? [];
-      list.push(mapContributorRow(c));
-      contributorsMap.set(c.skillSlug, list);
+    const results: SkillSearchResult[] = [];
+    for (const row of rows) {
+      const skill = await this.getSkill(row.slug);
+      if (!skill || resolveSkillPublishedFlag(skill)) {
+        continue;
+      }
+      results.push(toSearchResult(skill));
     }
 
-    return rows.map((r) => ({
-      slug: r.slug,
-      name: r.name,
-      description: r.description,
-      latestVersion: r.latestVersion,
-      inspectionStatus: parseSkillInspectionStatus(r.inspectionStatus),
-      status: r.status as SkillSearchResult["status"],
-      scores: {
-        qualityScore: Number(r.qualityScore),
-        securityScore: Number(r.securityScore),
-        reliabilityScore: Number(r.reliabilityScore),
-      },
-      categories: r.categories ?? [],
-      averageRating: Number(r.averageRating),
-      ratingCount: Number(r.ratingCount),
-      openIssues: r.openIssues,
-      contributors: contributorsMap.get(r.slug) ?? [],
-      downloads: r.totalDownloads,
-      updatedAt: toIsoTimestampString(r.updatedAt),
-      latestVersionCreatedAt: toIsoTimestampString(r.latestVersionCreatedAt),
-      published: false,
-    }));
+    return sortSkillSearchResultsByRecent(results);
   }
 
   async listRejectedSkillsForOwner(ownerUserId: string): Promise<SkillSearchResult[]> {
@@ -965,7 +899,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       };
     }
 
-    return {
+    const skill: RegistrySkill = {
       slug: row.slug, name: row.name, description: row.description,
       ownerUserId: row.ownerUserId ?? undefined, latestVersion: row.latestVersion,
       inspectionStatus: parseSkillInspectionStatus(row.inspectionStatus),
@@ -1005,6 +939,17 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       createdAt: toIsoTimestampString(row.createdAt),
       updatedAt: toIsoTimestampString(row.updatedAt),
     };
+
+    const computedPublished = resolveSkillPublishedFlag(skill);
+    if (row.published !== computedPublished) {
+      await this.db
+        .update(schema.skills)
+        .set({ published: computedPublished, updatedAt: new Date() })
+        .where(eq(schema.skills.slug, slug));
+      skill.published = computedPublished;
+    }
+
+    return skill;
   }
 
   // --- 写操作：增量 Drizzle，不走 load/save ---
