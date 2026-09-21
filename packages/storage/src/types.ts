@@ -142,6 +142,8 @@ export interface RegistrySkill {
   uploaded?: boolean;
   /** Public search listing for the skill. */
   published?: boolean;
+  /** Set when the owner unpublish-es; keeps search off while version rows stay listable. */
+  ownerUnlisted?: boolean;
   deletedAt?: string;
   createdAt: string;
   updatedAt: string;

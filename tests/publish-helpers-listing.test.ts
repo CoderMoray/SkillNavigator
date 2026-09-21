@@ -95,6 +95,7 @@ describe("web publish-helpers listing", () => {
   it("matches storage listing rules for owner delist and multi-version reject", () => {
     const ownerDelisted = registrySkill({
       published: false,
+      ownerUnlisted: true,
       versions: {
         "1.0.0": version({ version: "1.0.0", published: true, inspectionStatus: "completed" }),
       },

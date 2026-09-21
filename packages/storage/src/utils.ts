@@ -208,9 +208,9 @@ export function hasPubliclyListedVersion(skill: RegistrySkill): boolean {
 
 /** Owner used unpublish while completed versions remain on disk (version rows may still be listable). */
 export function isUserDelisted(
-  skill: Pick<RegistrySkill, "published" | "versions">
+  skill: Pick<RegistrySkill, "ownerUnlisted">
 ): boolean {
-  return skill.published === false && hasPubliclyListedVersion(skill as RegistrySkill);
+  return skill.ownerUnlisted === true;
 }
 
 /**
@@ -361,7 +361,7 @@ export function getSkillRepublishBlockReason(
 }
 
 export function isSkillUnlisted(
-  skill: Pick<RegistrySkill, "published" | "inspectionStatus" | "latestVersion" | "versions">
+  skill: Pick<RegistrySkill, "published" | "ownerUnlisted" | "inspectionStatus" | "latestVersion" | "versions">
 ): boolean {
   if (isUserDelisted(skill)) {
     return true;

@@ -139,14 +139,12 @@ export function getVersionRepublishBlockReason(
   return null;
 }
 
-function isUserDelisted(
-  skill: Pick<RegistrySkill, "published" | "inspectionStatus" | "latestVersion" | "versions">
-): boolean {
-  return skill.published === false && hasPubliclyListedVersion(skill);
+function isUserDelisted(skill: Pick<RegistrySkill, "ownerUnlisted">): boolean {
+  return skill.ownerUnlisted === true;
 }
 
 export function isSkillUnlisted(
-  skill: Pick<RegistrySkill, "published" | "inspectionStatus" | "latestVersion" | "versions">
+  skill: Pick<RegistrySkill, "published" | "ownerUnlisted" | "inspectionStatus" | "latestVersion" | "versions">
 ): boolean {
   if (isUserDelisted(skill)) {
     return true;

@@ -437,6 +437,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
       ratingCount: existingSkill?.ratingCount ?? 0,
       uploaded: true,
       published: existingSkill?.published ?? false,
+      ownerUnlisted: listPublicly ? false : (existingSkill?.ownerUnlisted ?? false),
       createdAt: existingSkill?.createdAt ?? now,
       updatedAt: now,
     };
@@ -800,6 +801,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
 
     const now = new Date().toISOString();
     skill.published = false;
+    skill.ownerUnlisted = true;
     skill.updatedAt = now;
     await this.save(data);
     return skill;
@@ -815,6 +817,7 @@ export abstract class JsonRegistryStore implements RegistryStore {
 
     const now = new Date().toISOString();
     skill.published = true;
+    skill.ownerUnlisted = false;
     skill.updatedAt = now;
     await this.save(data);
     return skill;

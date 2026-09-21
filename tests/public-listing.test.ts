@@ -187,6 +187,7 @@ describe("public listing helpers", () => {
   it("honors owner unpublish even when a version row remains listable", () => {
     const registry = skill({
       published: false,
+      ownerUnlisted: true,
       versions: {
         "1.0.0": version({ version: "1.0.0", published: true, inspectionStatus: "completed" }),
       },
@@ -210,9 +211,24 @@ describe("public listing helpers", () => {
     ).toBe(true);
   });
 
+  it("lists brand-new skill after its first version passes review", () => {
+    const registry = skill({
+      published: false,
+      ownerUnlisted: false,
+      versions: {
+        "1.0.0": version({ version: "1.0.0", published: true, inspectionStatus: "completed" }),
+      },
+    });
+
+    expect(isUserDelisted(registry)).toBe(false);
+    expect(resolveSkillPublishedFlag(registry)).toBe(true);
+    expect(toSearchResult(registry).published).toBe(true);
+  });
+
   it("identifies owner delist separately from never-listed skills", () => {
     const delisted = skill({
       published: false,
+      ownerUnlisted: true,
       versions: { "1.0.0": version({ version: "1.0.0" }) },
     });
     const neverListed = skill({

@@ -1000,6 +1000,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
       averageRating: Number(row.averageRating), ratingCount: Number(row.ratingCount),
       uploaded: row.uploaded,
       published: row.published,
+      ownerUnlisted: row.ownerUnlisted,
       deletedAt: row.deletedAt ? String(row.deletedAt) : undefined,
       createdAt: toIsoTimestampString(row.createdAt),
       updatedAt: toIsoTimestampString(row.updatedAt),
@@ -1990,13 +1991,15 @@ export class PostgresRegistryStore extends JsonRegistryStore {
             inspectionStatus: "completed",
             inspectionFailedMessage: null,
             inspectionEndedAt: now,
+            ...(listPublicly ? { published: true, ownerUnlisted: false } : {}),
             updatedAt: now
           })
           .where(eq(schema.skills.slug, slug));
       } else {
         await tx.insert(schema.skills).values({
           slug, name, description, ownerUserId: options.owner?.userId ?? null,
-          latestVersion: version, uploaded: true, published: listPublicly, inspectionStatus: "completed",
+          latestVersion: version, uploaded: true, published: listPublicly, ownerUnlisted: false,
+          inspectionStatus: "completed",
           inspectionFailedMessage: null,
           inspectionEndedAt: now,
           createdAt: now, updatedAt: now,
@@ -2311,7 +2314,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
     await this.ensureSchema();
     const now = new Date();
     const updated = await this.db.update(schema.skills)
-      .set({ published: false, updatedAt: now })
+      .set({ published: false, ownerUnlisted: true, updatedAt: now })
       .where(eq(schema.skills.slug, slug))
       .returning({ slug: schema.skills.slug });
 
@@ -2336,7 +2339,7 @@ export class PostgresRegistryStore extends JsonRegistryStore {
 
     const now = new Date();
     const updated = await this.db.update(schema.skills)
-      .set({ published: true, updatedAt: now })
+      .set({ published: true, ownerUnlisted: false, updatedAt: now })
       .where(eq(schema.skills.slug, slug))
       .returning({ slug: schema.skills.slug });
 

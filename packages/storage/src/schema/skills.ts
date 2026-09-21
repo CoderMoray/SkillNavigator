@@ -18,6 +18,8 @@ export const skills = pgTable("skills", {
   ratingCount: integer("rating_count").notNull().default(0),
   uploaded: boolean("uploaded").notNull().default(false),
   published: boolean("published").notNull().default(false),
+  /** Owner explicitly unpublish-ed; distinct from staging `published=false` before first public version. */
+  ownerUnlisted: boolean("owner_unlisted").notNull().default(false),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),

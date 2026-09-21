@@ -235,6 +235,7 @@ export interface RegistrySkill {
   ratingCount: number;
   uploaded?: boolean;
   published?: boolean;
+  ownerUnlisted?: boolean;
   createdAt: string;
   updatedAt: string;
   bookmarkedByViewer?: boolean;
