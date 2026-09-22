@@ -161,7 +161,7 @@ def main() -> int:
         "interrupted": "Skill 审查中断",
         "rejected": "Skill 审查未通过",
     }[outcome]
-    subject = f"{subject_prefix}：{skill_name}（slug：{slug}） v{version}"
+    subject = f"{subject_prefix}：{skill_name} v{version}"
     main_content, note, end_content, comment = _message_content(
         outcome,
         skill_name,
