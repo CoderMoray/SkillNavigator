@@ -15,9 +15,9 @@
 
 【开始】检查 skillnav（--version、config connect-test）；whoami 确认登录。**CLI 更新**：skillnav 每天首次执行子命令时会自动检测新版本（非 `--json`、stderr 为 TTY 时在 stderr 输出单行 `Update available: A.B.C -> X.Y.Z (run: skillnav update)`，与 `update --check` 同文案）。Agent 执行 skillnav 后应留意该提示；若 harness 可能看不到 stderr（pipe/非 TTY），先跑 `skillnav update --check`。一旦确认有更新，主动简短告知用户并执行 `skillnav update` 完成升级（不必等用户另开口）；editable 安装或网络/镜像不可达导致失败时说明原因，继续 connect-test/whoami，不阻断无关任务。未登录则引导用户到 {{web_url}} 「设置→API 密钥」创建 Key，执行 skillnav login --api-key sk_…；勿向用户索要或回显完整密钥。仅搜索/查看时**不必**登录（search / top / info / check-slug / creators 匿名可用），要 install / download / publish 等操作时才需要 Key。忘记命令用 skillnav <cmd> --help。
 
-【建包】目录含 SKILL.md；frontmatter 必填 slug、name、description、version、categories、release-tags（首版含 latest）。slug 不可变，name 可变。缺字段时按 Skill 格式文档补全，勿编造 slug。
+【建包】目录含 SKILL.md；frontmatter 必填 slug、name、description、version、categories、release-tags（首版含 latest）。slug 不可变、机器标识（kebab-case）；name 是可变的**展示名**，用业务语言写清 Skill 做什么、给谁用，方便用户在搜索与详情页看懂——**勿把 slug 原样当作 name**（例如 slug 为 `demo-skill` 时 name 应像「演示 Skill 助手」而非 `demo-skill`）。缺字段时按 Skill 格式文档补全，勿编造 slug。
 
-【发布】先 `check-slug <slug>` 确认 slug 未被占用（匿名可用；避免上传结束才失败），再 publish --dry-run → publish（默认后台审查，上传即返回）。审查**中断**用 retry-inspection，勿重复 upload 同版本；若 status 显示 `inspectionStatus: inspecting`（VirusTotal 报告待后台补取，通常几分钟）属**正常等待**，不要 retry-inspection（会返回 409 `skill_inspection_in_progress`）也不要重传。Agent/CI 把全局参数放在子命令之前（如 skillnav --no-input --json publish …）。仅 owner/contributor 可为已有 slug 发新版；新版本须提高 SemVer，不可覆盖旧版。`publish --wait` 会保持连接直到流水线结束，请求预算 **600s**（`SKILLNAV_PUBLISH_WAIT_TIMEOUT` 可调）；客户端超时会明确报为超时（区别于"无法连接 API"），此时应查 status 或用 retry-inspection，**不要**重复上传同版本。
+【发布】先 `check-slug <slug>` 确认 slug 未被占用（匿名可用；避免上传结束才失败），再 publish --dry-run → publish（默认后台审查，上传即返回）。交互式 publish 若提示 **Display name**，填与 slug 无关的业务展示名（优先用 SKILL.md 的 `name` 或 `--display-name`）；**禁止**用 slug、kebab-case 标识符或 `@scope/name` 充当 Display name。非交互发布用 `--display-name "…"` 显式传入同一规则下的展示名。审查**中断**用 retry-inspection，勿重复 upload 同版本；若 status 显示 `inspectionStatus: inspecting`（VirusTotal 报告待后台补取，通常几分钟）属**正常等待**，不要 retry-inspection（会返回 409 `skill_inspection_in_progress`）也不要重传。Agent/CI 把全局参数放在子命令之前（如 skillnav --no-input --json publish …）。仅 owner/contributor 可为已有 slug 发新版；新版本须提高 SemVer，不可覆盖旧版。`publish --wait` 会保持连接直到流水线结束，请求预算 **600s**（`SKILLNAV_PUBLISH_WAIT_TIMEOUT` 可调）；客户端超时会明确报为超时（区别于"无法连接 API"），此时应查 status 或用 retry-inspection，**不要**重复上传同版本。
 
 【报告】status 看 `verdict`、`inspectionStatus`、各版本 `inspection` 与阶段进度（可选 `--version` / `--skill-version`，默认 latest；注意子命令的 `--version` 指 Skill 版本，CLI 自身版本用 `skillnav --version`）；report 看 SkillSpector、VirusTotal、HaluCatch 详情。verdict：已发布（published）/ 需复核（needs-inspection）/ 已拒绝（rejected，不进入公开搜索）。判断审查是否完成看 `inspectionStatus`（completed / inspecting / interrupted / rejected；旧数据里的 failed 会被归一化为 interrupted）；`publish --wait` 同步发布未完成时，API 另会返回错误码 `inspection_pipeline_incomplete`（503，是错误码不是状态值），包通常已暂存，用 retry-inspection 重试；若 VT 报告尚未就绪，status 会显示 `inspecting` 与阶段 `virustotal: processing`——那是等待而非失败。
 
@@ -42,6 +42,7 @@
 · 平台介绍 → /docs/skill-navigator
 · Web 新手上手 → /docs/quick-start-tutorial
 · not logged in → skillnav login --api-key sk_… 或 SKILLNAV_API_KEY；自动化在子命令前加 --no-input
+· Display name vs slug → slug 是唯一 ID；Display name / frontmatter `name` 是给人看的标题，用业务语言，勿复制 slug
 · slug 是否可用 → skillnav check-slug <slug>（匿名；区分"已被在架 Skill 占用"与"被回收站占用"）
 · slug 已存在/无权限发版 → 换 slug，或 owner 在 Web 详情页添加 contributor；不确定用户名先查：skillnav search-users <关键词>
 · Skill 在回收站 → skillnav trash list 查看（含剩余天数）→ skillnav restore <slug> 取回（仅 owner，恢复不改变可见性）；只想腾出该 slug 可 skillnav trash purge <slug>（不可恢复）
