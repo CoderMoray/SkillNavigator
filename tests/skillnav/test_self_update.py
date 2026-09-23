@@ -13,6 +13,7 @@ from skillnav.cli import app
 from skillnav.errors import SkillnavError
 from skillnav.self_update import (
     UpdateStatus,
+    build_upgrade_command,
     check_for_update,
     compare_versions,
     fetch_pypi_latest_version,
@@ -56,6 +57,14 @@ def test_both_sources_failing_lists_each_reason(
     assert "pypi.org" in message and "mirrors.aliyun.com" in message
     # The fallback notice is not noise to keep when nothing worked.
     assert "falling back to mirrors" in capsys.readouterr().err
+
+
+@patch("skillnav.self_update._installed_via_pipx", return_value=False)
+def test_build_upgrade_command_uses_pypi_install_index(_mock_pipx: object) -> None:
+    command = build_upgrade_command()
+    joined = " ".join(command)
+    assert "pypi.org/simple" in joined
+    assert "mirrors.aliyun.com" not in joined
 
 
 def test_compare_versions() -> None:

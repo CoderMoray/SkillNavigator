@@ -7,7 +7,7 @@ Specification: `docs/cli-design.md` in the platform repository.
 ## Install
 
 ```bash
-pip install skillnav -i https://mirrors.aliyun.com/pypi/simple/
+pip install skillnav
 # or from this repo:
 pip install -e "cli-py[dev]"
 ```
@@ -130,6 +130,9 @@ Update available: 0.4.12 -> 0.4.13 (run: skillnav update)
   (development checkouts) skip the check automatically.
 - The check only notifies; upgrades stay explicit (`skillnav update`),
   which handles pip / pipx installs and refuses editable installs.
+- `skillnav update` reinstalls via **PyPI** (`https://pypi.org/simple/`),
+  matching the primary release lookup. Version checks still fall back to the
+  Aliyun simple index when PyPI JSON is unreachable.
 - The package version has a single source of truth:
   `skillnav/__init__.py` `__version__` (read by `pyproject.toml` via a
   dynamic attr), so the wheel and the CLI can never disagree.

@@ -18,7 +18,7 @@ PYPI_PROJECT_URL = "https://pypi.org/pypi/skillnav/json"
 # Aliyun PyPI mirror: no JSON API (404), only a PEP 503 simple index — the
 # version is parsed from the file links.
 MIRROR_SIMPLE_INDEX_URL = "https://mirrors.aliyun.com/pypi/simple/skillnav/"
-PYPI_INSTALL_INDEX = "https://mirrors.aliyun.com/pypi/simple/"
+PYPI_INSTALL_INDEX = "https://pypi.org/simple/"
 # Per-source timeout for release lookups (explicit update / --check).
 RELEASE_SOURCE_TIMEOUT = 10.0
 _RELEASE_VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)")

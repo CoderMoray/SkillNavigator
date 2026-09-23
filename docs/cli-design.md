@@ -184,6 +184,7 @@ skillnav
 - 有新版本时向 **stderr** 输出单行提示（`--json` 的 stdout 不受影响）：`Update available: A.B.C -> X.Y.Z (run: skillnav update)`（与 `update --check` 同措辞）
 - editable 安装（开发机）自动跳过；`SKILLNAV_UPDATE_CHECK=off` 可关闭
 - 只提示、不自动升级：升级仍走显式 `skillnav update`（处理 pipx/editable 分支）
+- **安装源**：`skillnav update` 的 pip 升级默认 `-i https://pypi.org/simple/`（与 PyPI 查到的 latest 一致）；查版本仍可在 PyPI 失败时回退阿里云 simple index
 
 ## 7. 输出与退出码约定
 
