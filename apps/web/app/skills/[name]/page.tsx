@@ -955,23 +955,13 @@ export default function SkillDetailPage() {
   }
 
   async function handleCopyInstallPrompt() {
-    if (!skill || !currentVersion) {
+    if (!skill) {
       setErrorToast("Skill 数据尚未加载完成。");
       return;
     }
 
-    const pageUrl =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/skills/${encodeURIComponent(skill.slug)}`
-        : `/skills/${encodeURIComponent(skill.slug)}`;
-    const prompt = buildSkillInstallPrompt({
-      skill,
-      version: currentVersion.version,
-      pageUrl
-    });
-
     try {
-      await navigator.clipboard.writeText(prompt);
+      await navigator.clipboard.writeText(buildSkillInstallPrompt({ skill }));
       setSuccessToast("已复制安装 prompt");
     } catch {
       setErrorToast("复制失败，请手动复制");

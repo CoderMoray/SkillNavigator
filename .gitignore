@@ -12,6 +12,7 @@ coverage/
 # deploy time, never committed.
 /apps/web/public/install
 /apps/web/public/usage/
+/apps/web/lib/generated/
 
 # Auto-generated
 next-env.d.ts

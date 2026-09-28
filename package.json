@@ -24,6 +24,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && npm --workspace @skill-platform/web run typecheck",
     "lint": "tsc -p tsconfig.json --noEmit && npm --workspace @skill-platform/web run typecheck && eslint . --max-warnings=0",
     "inspection:demo": "npm --workspace @skill-platform/cli run dev -- inspect examples/demo-skill",
+    "pretest": "node scripts/sync-usage-public.mjs --allow-unconfigured",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:smoke": "node scripts/run-api-smoke.mjs",

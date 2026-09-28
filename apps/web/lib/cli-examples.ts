@@ -15,14 +15,20 @@ export function skillnavDownloadExample(slug = "demo-skill", output = "demo-skil
   return `skillnav download ${slug} -o ${output}`;
 }
 
+/**
+ * Every install example targets an explicit directory: `--dir` is required, and
+ * installs must land where the caller's agent actually loads skills from.
+ */
+function installDirFlag(slug: string): string {
+  return `--dir ./skills/${slug}`;
+}
+
+function installVersionFlag(version?: string): string {
+  return version && version !== "latest" ? ` --version ${version}` : "";
+}
+
 export function skillnavInstallExample(slug: string, version?: string): string {
-  // --dir is required: installs must target a directory the caller's agent
-  // actually loads skills from, so the example always shows an explicit target.
-  const target = `./skills/${slug}`;
-  if (!version || version === "latest") {
-    return `skillnav install ${slug} --dir ${target}`;
-  }
-  return `skillnav install ${slug} --version ${version} --dir ${target}`;
+  return `skillnav install ${slug}${installVersionFlag(version)} ${installDirFlag(slug)}`;
 }
 
 export function skillnavInstallWithRegistryExample(
@@ -30,8 +36,11 @@ export function skillnavInstallWithRegistryExample(
   version: string,
   registryUrl: string
 ): string {
-  const versionFlag = version && version !== "latest" ? ` --version ${version}` : "";
-  return `skillnav --registry ${registryUrl} install ${slug}${versionFlag}`;
+  // --registry is a global option, so it stays before the subcommand; --dir is
+  // required exactly as in skillnavInstallExample (a bare install exits 2).
+  return `skillnav --registry ${registryUrl} install ${slug}${installVersionFlag(
+    version
+  )} ${installDirFlag(slug)}`;
 }
 
 export function skillnavHomeCliExamples(): string {

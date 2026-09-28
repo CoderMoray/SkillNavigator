@@ -21,6 +21,7 @@ export default defineConfig([
     "**/playwright-report/**",
     "**/__pycache__/**",
     "apps/web/public/**",
+    "apps/web/lib/generated/**",
     "**/*.py"
   ]),
 
