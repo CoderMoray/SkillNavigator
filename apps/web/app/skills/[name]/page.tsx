@@ -69,6 +69,7 @@ import { findSkillContributorByHandle, isSkillContributor, isSkillOwner } from "
 import { buildSkillInstallPrompt } from "../../../lib/skill-install-prompt";
 import { skillnavInstallExample } from "../../../lib/cli-examples";
 import { copyTextToClipboard } from "../../../lib/copy-text";
+import { buildLoginHref, skillPagePath } from "../../../lib/login-redirect";
 import {
   addSkillContributor,
   addSkillRating,
@@ -243,6 +244,7 @@ export default function SkillDetailPage() {
   const [deletingSkill, setDeletingSkill] = useState(false);
   const [versionManageModal, setVersionManageModal] = useState<{ action: "unpublish" | "republish"; version: string } | null>(null);
   const [managingVersion, setManagingVersion] = useState(false);
+  const [copyPromptLoginModalOpen, setCopyPromptLoginModalOpen] = useState(false);
   const [bookmarked, setBookmarked] = useState(false);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [platformAverageHaluCatch, setPlatformAverageHaluCatch] = useState<HaluCatchRadarScores | undefined>();
@@ -318,7 +320,7 @@ export default function SkillDetailPage() {
   }, [skillSlug]);
 
   useEffect(() => {
-    if (!issueModalOpen && !ratingModalOpen && !unpublishModalOpen && !republishModalOpen && !deleteModalOpen && !versionManageModal) {
+    if (!issueModalOpen && !ratingModalOpen && !unpublishModalOpen && !republishModalOpen && !deleteModalOpen && !versionManageModal && !copyPromptLoginModalOpen) {
       return;
     }
 
@@ -330,12 +332,13 @@ export default function SkillDetailPage() {
         setRepublishModalOpen(false);
         setDeleteModalOpen(false);
         setVersionManageModal(null);
+        setCopyPromptLoginModalOpen(false);
       }
     }
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [issueModalOpen, ratingModalOpen, unpublishModalOpen, republishModalOpen, deleteModalOpen, versionManageModal]);
+  }, [issueModalOpen, ratingModalOpen, unpublishModalOpen, republishModalOpen, deleteModalOpen, versionManageModal, copyPromptLoginModalOpen]);
 
   const currentVersion = useMemo(() => {
     if (!skill) {
@@ -960,12 +963,27 @@ export default function SkillDetailPage() {
       return;
     }
 
+    // 未登录不发放 prompt：它带着登录态才拿得到的平台上下文，而使用者随后要
+    // 照着它校验自己账号所连的 Registry，游客拿到一份对不上号的文案没有意义。
+    if (!getAuthToken()) {
+      setCopyPromptLoginModalOpen(true);
+      return;
+    }
+
     try {
       await navigator.clipboard.writeText(buildSkillInstallPrompt({ skill }));
       setSuccessToast("已复制安装 prompt");
     } catch {
       setErrorToast("复制失败，请手动复制");
     }
+  }
+
+  function goToLoginForCopyPrompt() {
+    if (!skill) {
+      return;
+    }
+    setCopyPromptLoginModalOpen(false);
+    router.push(buildLoginHref(skillPagePath(skill.slug)));
   }
 
   async function handleToggleBookmark() {
@@ -2030,6 +2048,52 @@ export default function SkillDetailPage() {
             </>
           ) : null}
         </section>
+
+        {copyPromptLoginModalOpen ? (
+          <div
+            className="modal-overlay"
+            onClick={() => setCopyPromptLoginModalOpen(false)}
+            role="presentation"
+          >
+            <div
+              aria-labelledby="copy-prompt-login-title"
+              aria-modal="true"
+              className="modal-card"
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+            >
+              <div className="modal-head">
+                <div>
+                  <span className="eyebrow">Sign in required</span>
+                  <h3 id="copy-prompt-login-title">需要登录</h3>
+                </div>
+                <button
+                  aria-label="关闭"
+                  className="modal-close"
+                  onClick={() => setCopyPromptLoginModalOpen(false)}
+                  type="button"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <p className="description">
+                登录后才能复制安装 prompt。登录完成后会自动回到这个 Skill 页面。
+              </p>
+              <div className="modal-actions">
+                <button
+                  className="button secondary"
+                  onClick={() => setCopyPromptLoginModalOpen(false)}
+                  type="button"
+                >
+                  取消
+                </button>
+                <button className="button primary" onClick={goToLoginForCopyPrompt} type="button">
+                  去登录
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {issueModalOpen ? (
           <div

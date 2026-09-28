@@ -11,6 +11,7 @@ import { getCurrentUser, loginUser, ApiRequestError } from "../../lib/api";
 import { clearAuthToken, getAuthToken, setAuthToken } from "../../lib/auth-token";
 import { resolveBrandName } from "../../lib/brand-name";
 import { creatorProfilePath } from "../../lib/creators";
+import { resolveLoginNextPath } from "../../lib/login-redirect";
 
 function formatLoginError(message: string): string {
   // 严格模式（默认）：统一文案，不暴露账号是否存在
@@ -43,6 +44,10 @@ function LoginContent() {
   // 是否展示直接由 URL 派生（响应式：searchParams 变化即重渲染），用户可关闭；
   // 已关闭的提示记录在 dismissed 集合里，URL 提示签名变化时（渲染期重置）清空，
   // 让同一组参数重新导航回来时提示再次出现（与原 effect 语义一致）。
+  // `?next=` 是可选参数：只有显式要求"登录后回到原处"的调用方才会带上它，
+  // 其余进入 /login 的路径仍走默认目标，登录后行为不变。
+  const nextPath = resolveLoginNextPath(searchParams.get("next"));
+
   const noticeParam = searchParams.get("notice");
   const noticeKind: "logged_out" | "invalid_link" | null =
     noticeParam === "logged_out" || noticeParam === "invalid_link" ? noticeParam : null;
@@ -79,7 +84,7 @@ function LoginContent() {
       try {
         const user = await getCurrentUser(token);
         if (!cancelled) {
-          router.replace(creatorProfilePath(user.username));
+          router.replace(nextPath ?? creatorProfilePath(user.username));
         }
       } catch {
         // token 失效：清除后停留在登录页正常登录。
@@ -94,7 +99,7 @@ function LoginContent() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, nextPath]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -104,7 +109,7 @@ function LoginContent() {
     try {
       const session = await loginUser(username, password);
       setAuthToken(session.token);
-      router.push(creatorProfilePath(session.user.username));
+      router.push(nextPath ?? creatorProfilePath(session.user.username));
     } catch (err) {
       if (err instanceof ApiRequestError && err.response?.error === "email_not_verified") {
         const email = err.response.email;
