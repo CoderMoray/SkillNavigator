@@ -5067,6 +5067,10 @@ button {
 }
 
 /* Homepage */
+.main:has(> .homepage) {
+  padding-top: 0;
+}
+
 .homepage {
   --homepage-ink: #153840;
   --homepage-accent: #247a76;
@@ -5111,12 +5115,14 @@ button {
   gap: clamp(32px, 6vw, 82px);
   overflow: hidden;
   width: 100vw;
-  min-height: clamp(420px, 46vh, 520px);
+  min-height: calc(100vh - 120px);
+  min-height: calc(100dvh - 120px);
   margin-inline: calc(50% - 50vw);
   background: transparent;
   color: var(--foreground);
-  padding-block: clamp(52px, 7.5vw, 104px);
+  padding-block: clamp(32px, 5vw, 64px);
   padding-inline: max(var(--layout-gutter), calc((100vw - (var(--layout-max-width) - var(--layout-gutter) * 2)) / 2));
+  box-sizing: border-box;
 }
 
 .homepage-hero::before,
@@ -5705,6 +5711,7 @@ button {
 .homepage-discovery {
   display: grid;
   gap: 32px;
+  scroll-margin-top: 12px;
 }
 
 .homepage-discovery-layout {
@@ -6266,6 +6273,8 @@ button {
 
   .homepage-hero {
     gap: 27px;
+    min-height: calc(100vh - 176px);
+    min-height: calc(100dvh - 176px);
     padding: 29px 22px;
   }
 
