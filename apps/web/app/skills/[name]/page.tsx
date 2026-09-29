@@ -763,7 +763,9 @@ export default function SkillDetailPage() {
 
   function closeRatingModal() {
     setRatingModalOpen(false);
+    setRatingScore(0);
     setHoverRating(0);
+    setRatingComment("");
     setErrorToast(null);
   }
 
