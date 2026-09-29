@@ -1118,6 +1118,19 @@ button {
   gap: 10px;
 }
 
+.skills-market-list {
+  display: grid;
+  gap: 10px;
+}
+
+.skills-market-list .audit-load-more {
+  padding: 4px 0 0;
+}
+
+.skills-market-list .audit-load-more-hint {
+  margin: 0;
+}
+
 .audit-table-wrap {
   overflow-x: auto;
   border: 1px solid var(--border);

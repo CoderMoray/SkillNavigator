@@ -18,6 +18,9 @@ import type { SkillSearchResult } from "../../lib/types";
 
 const tabs = ["Skills", "Plugins"];
 
+const SKILLS_PAGE_SIZE = 20;
+const SKILLS_BROWSE_MAX = 100;
+
 const sortOptions = [
   { value: "downloads", label: "下载次数", icon: Download },
   { value: "rating", label: "用户评分", icon: Star },
@@ -52,6 +55,9 @@ function SkillsPageContent() {
   const [sort, setSort] = useState("recent");
   const [tab, setTab] = useState("Skills");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [searchResultPool, setSearchResultPool] = useState<SkillSearchResult[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -91,11 +97,21 @@ function SkillsPageContent() {
       setLoading(true);
       setError(null);
       try {
-        const items = query.trim()
-          ? await getSkills(query, activeCategories)
-          : await getLeaderboard(sort, 50, activeCategories);
-        if (!cancelled) {
-          setSkills(items);
+        if (query.trim()) {
+          const data = await getSkills(query, activeCategories);
+          if (!cancelled) {
+            setSearchResultPool(data);
+            setSkills(data.slice(0, SKILLS_PAGE_SIZE));
+            setHasMore(data.length > SKILLS_PAGE_SIZE);
+          }
+        } else {
+          const probeLimit = Math.min(SKILLS_PAGE_SIZE + 1, SKILLS_BROWSE_MAX);
+          const data = await getLeaderboard(sort, probeLimit, activeCategories);
+          if (!cancelled) {
+            setSearchResultPool(null);
+            setSkills(data.slice(0, SKILLS_PAGE_SIZE));
+            setHasMore(data.length > SKILLS_PAGE_SIZE);
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -121,6 +137,34 @@ function SkillsPageContent() {
         ? current.filter((item) => item !== category)
         : [...current, category]
     );
+  }
+
+  async function handleLoadMore() {
+    if (loadingMore || !hasMore) {
+      return;
+    }
+
+    if (searchResultPool) {
+      const nextDisplay = Math.min(skills.length + SKILLS_PAGE_SIZE, searchResultPool.length);
+      setSkills(searchResultPool.slice(0, nextDisplay));
+      setHasMore(nextDisplay < searchResultPool.length);
+      return;
+    }
+
+    const nextDisplay = Math.min(skills.length + SKILLS_PAGE_SIZE, SKILLS_BROWSE_MAX);
+    const probeLimit = Math.min(nextDisplay + 1, SKILLS_BROWSE_MAX);
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const data = await getLeaderboard(sort, probeLimit, activeCategories);
+      const nextItems = data.slice(0, nextDisplay);
+      setSkills(nextItems);
+      setHasMore(data.length > nextItems.length);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "加载更多失败");
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
   const selectedSort = sortOptions.find((option) => option.value === sort) ?? sortOptions[2]!;
@@ -215,10 +259,26 @@ function SkillsPageContent() {
               : `暂无匹配 Skill。可在 Web 创建 API 密钥后运行 ${skillnavPublishExample("examples/demo-skill")}。`}
           </div>
         ) : (
-          <div className="claw-list">
-            {skills.map((skill) => (
-              <SkillCard key={skill.slug} skill={skill} variant="row" />
-            ))}
+          <div className="skills-market-list">
+            <div className="claw-list">
+              {skills.map((skill) => (
+                <SkillCard key={skill.slug} skill={skill} variant="row" />
+              ))}
+            </div>
+            {hasMore ? (
+              <div className="audit-load-more">
+                <button
+                  className="button secondary"
+                  disabled={loadingMore}
+                  onClick={() => void handleLoadMore()}
+                  type="button"
+                >
+                  {loadingMore ? "加载中…" : `加载更多（已显示 ${skills.length} 条）`}
+                </button>
+              </div>
+            ) : skills.length > SKILLS_PAGE_SIZE ? (
+              <p className="audit-load-more-hint">已显示全部 {skills.length} 条记录。</p>
+            ) : null}
           </div>
         )}
       </div>
