@@ -5130,6 +5130,60 @@ button {
   content: none;
 }
 
+.homepage-hero-scroll-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 0;
+  padding: 6px 14px 2px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-strong);
+  cursor: pointer;
+  transform: translateX(-50%);
+  transition: color 180ms ease;
+  will-change: opacity;
+}
+
+.homepage-hero-scroll-hint:hover {
+  color: var(--foreground);
+}
+
+.homepage-hero-scroll-hint-label {
+  font-size: 11px;
+  font-weight: 680;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.homepage-hero-scroll-hint-icon {
+  opacity: 0.88;
+  animation: homepage-scroll-hint-bob 2.4s ease-in-out infinite;
+}
+
+@keyframes homepage-scroll-hint-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(5px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .homepage-hero-scroll-hint-icon {
+    animation: none;
+  }
+}
+
 .homepage-hero-copy,
 .homepage-publish-copy {
   position: relative;

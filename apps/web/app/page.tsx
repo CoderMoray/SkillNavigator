@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { AppShell } from "../components/AppShell";
 import { HomeAgentInstallBar } from "../components/home/HomeAgentInstallBar";
+import { HomeHeroScrollHint } from "../components/home/HomeHeroScrollHint";
 import { SkillCategoryLabel } from "../components/SkillCategoryIcon";
 import { SkillCard } from "../components/SkillCard";
 import { skillnavHomeCliExamples } from "../lib/cli-examples";
@@ -173,6 +174,7 @@ export default function HomePage() {
             </div>
             </div>
           </div>
+          <HomeHeroScrollHint />
         </section>
 
         <section aria-labelledby="home-discovery-title" className="homepage-discovery">
