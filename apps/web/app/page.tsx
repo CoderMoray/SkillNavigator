@@ -129,7 +129,7 @@ export default function HomePage() {
                   </div>
                   <div className="homepage-proof-code">
                     <span>
-                      <b>name:</b> research-notes
+                      <b>name:</b> Research Notes
                     </span>
                     <span>
                       <b>slug:</b> research-notes
