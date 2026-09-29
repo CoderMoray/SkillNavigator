@@ -802,6 +802,7 @@ button {
   display: flex;
   width: 100%;
   align-items: center;
+  gap: 8px;
   border: 0;
   border-radius: 10px;
   background: transparent;

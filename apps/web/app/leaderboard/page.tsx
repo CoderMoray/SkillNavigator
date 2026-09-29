@@ -97,7 +97,11 @@ export default function LeaderboardPage() {
             ariaLabel="排序方式"
             icon={<SelectedSortIcon size={16} />}
             onChange={setSort}
-            options={sortOptions.map(({ value, label }) => ({ value, label }))}
+            options={sortOptions.map(({ value, label, icon: Icon }) => ({
+              value,
+              label,
+              icon: <Icon aria-hidden size={16} />
+            }))}
             value={sort}
           />
         </section>

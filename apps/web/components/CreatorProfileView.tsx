@@ -345,7 +345,14 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
                   ariaLabel="排序方式"
                   icon={<SelectedSkillSortIcon size={16} />}
                   onChange={(value) => setSkillSort(value as ProfileSkillSort)}
-                  options={PROFILE_SKILL_SORT_OPTIONS}
+                  options={PROFILE_SKILL_SORT_OPTIONS.map((option) => {
+                    const Icon = profileSkillSortMeta[option.value].icon;
+                    return {
+                      value: option.value,
+                      label: option.label,
+                      icon: <Icon aria-hidden size={16} />
+                    };
+                  })}
                   value={skillSort}
                 />
               </div>

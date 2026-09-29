@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 export interface PillSelectOption {
   value: string;
   label: string;
+  icon?: ReactNode;
 }
 
 interface PillSelectProps {
@@ -116,7 +117,8 @@ export function PillSelect({
           role="option"
           type="button"
         >
-          {option.label}
+          {option.icon}
+          <span>{option.label}</span>
         </button>
       ))}
     </div>
