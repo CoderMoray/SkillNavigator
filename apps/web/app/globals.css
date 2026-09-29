@@ -5145,14 +5145,9 @@ button {
   border-radius: 999px;
   background: transparent;
   color: var(--muted-strong);
-  cursor: pointer;
+  pointer-events: none;
   transform: translateX(-50%);
-  transition: color 180ms ease;
   will-change: opacity;
-}
-
-.homepage-hero-scroll-hint:hover {
-  color: var(--foreground);
 }
 
 .homepage-hero-scroll-hint-label {
