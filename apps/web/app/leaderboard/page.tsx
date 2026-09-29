@@ -14,7 +14,7 @@ const LEADERBOARD_PAGE_SIZE = 20;
 const LEADERBOARD_MAX = 100;
 
 const sortOptions = [
-  { value: "downloads", label: "下载量", icon: Download },
+  { value: "downloads", label: "下载次数", icon: Download },
   { value: "rating", label: "用户评分", icon: Star },
   { value: "recent", label: "最近更新", icon: Trophy }
 ];
@@ -91,7 +91,7 @@ export default function LeaderboardPage() {
               Leaderboard
             </span>
             <h2 style={{ marginTop: 14 }}>Skill 榜单</h2>
-            <p>按下载量、用户评分或更新时间排序；质量与安全请在 Skill 详情的 HaluCatch 与 SkillSpector 区域查看。</p>
+            <p>按下载次数、用户评分或更新时间排序；质量与安全请在 Skill 详情的 HaluCatch 与 SkillSpector 区域查看。</p>
           </div>
           <PillSelect
             ariaLabel="排序方式"

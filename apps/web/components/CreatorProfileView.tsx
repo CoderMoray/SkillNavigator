@@ -34,7 +34,7 @@ const profileSkillSortMeta: Record<
   ProfileSkillSort,
   { label: string; icon: typeof Download }
 > = {
-  downloads: { label: "下载量", icon: Download },
+  downloads: { label: "下载次数", icon: Download },
   rating: { label: "用户评分", icon: Star },
   recent: { label: "最近更新", icon: Trophy }
 };

@@ -19,7 +19,7 @@ import type { SkillSearchResult } from "../../lib/types";
 const tabs = ["Skills", "Plugins"];
 
 const sortOptions = [
-  { value: "downloads", label: "下载量", icon: Download },
+  { value: "downloads", label: "下载次数", icon: Download },
   { value: "rating", label: "用户评分", icon: Star },
   { value: "recent", label: "最近更新", icon: Trophy }
 ];

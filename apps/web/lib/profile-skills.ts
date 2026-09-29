@@ -3,7 +3,7 @@ import type { SkillSearchResult } from "./types";
 export type ProfileSkillSort = "recent" | "downloads" | "rating";
 
 export const PROFILE_SKILL_SORT_OPTIONS: Array<{ value: ProfileSkillSort; label: string }> = [
-  { value: "downloads", label: "下载量" },
+  { value: "downloads", label: "下载次数" },
   { value: "rating", label: "用户评分" },
   { value: "recent", label: "最近更新" }
 ];
