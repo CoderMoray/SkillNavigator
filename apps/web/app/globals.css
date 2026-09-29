@@ -1976,12 +1976,16 @@ button {
   transition: color 150ms ease, transform 150ms ease;
 }
 
-.rating-star:hover,
 .rating-star.active {
   color: var(--amber);
 }
 
-.rating-star:hover {
+.rating-star.active:not(.filled) svg {
+  stroke-width: 2.25px;
+}
+
+.rating-star:hover,
+.rating-star:focus-visible {
   transform: scale(1.05);
 }
 

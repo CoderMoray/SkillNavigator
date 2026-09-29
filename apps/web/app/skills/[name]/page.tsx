@@ -265,6 +265,7 @@ export default function SkillDetailPage() {
   const [issueBody, setIssueBody] = useState("");
   const [submittingIssue, setSubmittingIssue] = useState(false);
   const [ratingScore, setRatingScore] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
   const [ratingComment, setRatingComment] = useState("");
   const [submittingRating, setSubmittingRating] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
@@ -762,6 +763,7 @@ export default function SkillDetailPage() {
 
   function closeRatingModal() {
     setRatingModalOpen(false);
+    setHoverRating(0);
     setErrorToast(null);
   }
 
@@ -954,6 +956,7 @@ export default function SkillDetailPage() {
         };
       });
       setRatingScore(0);
+      setHoverRating(0);
       setRatingComment("");
       setRatingModalOpen(false);
       setSuccessToast("评分已提交。");
@@ -2254,19 +2257,36 @@ export default function SkillDetailPage() {
               <form className="modal-form" onSubmit={handleSubmitRating}>
                 <label className="field">
                   <span>评分</span>
-                  <div aria-label="选择 1 到 5 星" className="rating-stars" role="group">
-                    {[1, 2, 3, 4, 5].map((score) => (
-                      <button
-                        aria-label={`${score} 星`}
-                        aria-pressed={ratingScore === score}
-                        className={`rating-star ${ratingScore >= score ? "active" : ""}`}
-                        key={score}
-                        onClick={() => setRatingScore(score)}
-                        type="button"
-                      >
-                        <Star fill={ratingScore >= score ? "currentColor" : "none"} size={24} />
-                      </button>
-                    ))}
+                  <div
+                    aria-label="选择 1 到 5 星"
+                    className="rating-stars"
+                    onBlur={(event) => {
+                      if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                        setHoverRating(0);
+                      }
+                    }}
+                    onMouseLeave={() => setHoverRating(0)}
+                    role="group"
+                  >
+                    {[1, 2, 3, 4, 5].map((score) => {
+                      const isHovering = hoverRating > 0;
+                      const highlighted = isHovering ? hoverRating >= score : ratingScore >= score;
+                      const filled = !isHovering && ratingScore >= score;
+                      return (
+                        <button
+                          aria-label={`${score} 星`}
+                          aria-pressed={ratingScore === score}
+                          className={`rating-star ${highlighted ? "active" : ""} ${filled ? "filled" : ""}`}
+                          key={score}
+                          onClick={() => setRatingScore(score)}
+                          onFocus={() => setHoverRating(score)}
+                          onMouseEnter={() => setHoverRating(score)}
+                          type="button"
+                        >
+                          <Star fill={filled ? "currentColor" : "none"} size={24} strokeWidth={1.75} />
+                        </button>
+                      );
+                    })}
                   </div>
                   <small>当前版本：v{currentVersion.version}</small>
                 </label>
