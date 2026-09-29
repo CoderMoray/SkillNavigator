@@ -747,6 +747,10 @@ export default function SkillDetailPage() {
 
   function closeIssueModal() {
     setIssueModalOpen(false);
+    setIssueType("bug");
+    setIssueSeverity("medium");
+    setIssueTitle("");
+    setIssueBody("");
     setErrorToast(null);
   }
 
