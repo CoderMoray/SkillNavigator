@@ -22,6 +22,7 @@ import {
 } from "../../../lib/publish-helpers";
 import { SkillInspectionProgress } from "../../../components/SkillInspectionProgress";
 import {
+  AlertCircle,
   AlertTriangle,
   ArrowLeft,
   BookOpen,
@@ -39,6 +40,7 @@ import {
   History,
   Lightbulb,
   MessageSquare,
+  Minus,
   OctagonAlert,
   Package,
   Plus,
@@ -137,8 +139,8 @@ const issueSeveritySelectOptions: Array<{
   label: string;
   icon: LucideIcon;
 }> = [
-  { value: "low", label: severityLabel("low"), icon: ChevronDown },
-  { value: "medium", label: severityLabel("medium"), icon: ChevronRight },
+  { value: "low", label: severityLabel("low"), icon: Minus },
+  { value: "medium", label: severityLabel("medium"), icon: AlertCircle },
   { value: "high", label: severityLabel("high"), icon: AlertTriangle },
   { value: "critical", label: severityLabel("critical"), icon: OctagonAlert }
 ];
