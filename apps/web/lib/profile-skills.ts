@@ -3,9 +3,9 @@ import type { SkillSearchResult } from "./types";
 export type ProfileSkillSort = "recent" | "downloads" | "rating";
 
 export const PROFILE_SKILL_SORT_OPTIONS: Array<{ value: ProfileSkillSort; label: string }> = [
-  { value: "recent", label: "最近更新" },
-  { value: "downloads", label: "下载次数" },
-  { value: "rating", label: "评分" }
+  { value: "downloads", label: "下载量" },
+  { value: "rating", label: "用户评分" },
+  { value: "recent", label: "最近更新" }
 ];
 
 function recentTimestamp(skill: SkillSearchResult): string {

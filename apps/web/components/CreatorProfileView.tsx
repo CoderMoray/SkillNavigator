@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownUp, BadgeCheck, Download, Package, PackagePlus, RotateCcw, Search, SquarePen, Star, Trash2 } from "lucide-react";
+import { BadgeCheck, Download, Package, PackagePlus, RotateCcw, Search, SquarePen, Star, Trash2, Trophy } from "lucide-react";
 import { SkillCard } from "./SkillCard";
 import { ConfirmToast } from "./ConfirmToast";
 import { ErrorToast } from "./ErrorToast";
@@ -29,6 +29,15 @@ const profileTabs: Array<{ id: Exclude<CreatorProfileTab, "recycle" | "bookmarks
   { id: "skills", label: (creator) => `Skills ${creator.published}` },
   { id: "plugins", label: () => "Plugins 0" }
 ];
+
+const profileSkillSortMeta: Record<
+  ProfileSkillSort,
+  { label: string; icon: typeof Download }
+> = {
+  downloads: { label: "下载量", icon: Download },
+  rating: { label: "用户评分", icon: Star },
+  recent: { label: "最近更新", icon: Trophy }
+};
 
 interface CreatorProfileViewProps {
   creator: CreatorSummary;
@@ -64,6 +73,8 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
     () => listProfileSkills(creator.skills, skillQuery, skillSort),
     [creator.skills, skillQuery, skillSort]
   );
+  const selectedSkillSort = profileSkillSortMeta[skillSort];
+  const SelectedSkillSortIcon = selectedSkillSort.icon;
   const topSkillNames = creator.skills
     .slice(0, 3)
     .map((skill) => skill.name)
@@ -321,8 +332,8 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
             </div>
             {activeTab === "skills" && creator.skills.length > 0 ? (
               <div className="toolbar inset">
-                <div className="searchbox compact-search">
-                  <Search size={16} color="var(--muted)" />
+                <div className="searchbox">
+                  <Search size={17} color="var(--muted)" />
                   <input
                     aria-label="搜索 Skill"
                     onChange={(event) => setSkillQuery(event.target.value)}
@@ -332,8 +343,7 @@ export function CreatorProfileView({ creator, viewer = null, showBackLink = true
                 </div>
                 <PillSelect
                   ariaLabel="排序方式"
-                  className="compact"
-                  icon={<ArrowDownUp size={16} />}
+                  icon={<SelectedSkillSortIcon size={16} />}
                   onChange={(value) => setSkillSort(value as ProfileSkillSort)}
                   options={PROFILE_SKILL_SORT_OPTIONS}
                   value={skillSort}
