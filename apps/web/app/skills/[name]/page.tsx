@@ -22,9 +22,11 @@ import {
 } from "../../../lib/publish-helpers";
 import { SkillInspectionProgress } from "../../../components/SkillInspectionProgress";
 import {
+  AlertTriangle,
   ArrowLeft,
   BookOpen,
   Bookmark,
+  Bug,
   ChevronDown,
   ChevronRight,
   Copy,
@@ -35,21 +37,26 @@ import {
   FileText,
   Files,
   History,
+  Lightbulb,
   MessageSquare,
+  OctagonAlert,
   Package,
   Plus,
+  Shield,
   ShieldCheck,
   RefreshCw,
   Star,
   Trash2,
   Upload,
   Users,
-  X
+  X,
+  Boxes
 } from "lucide-react";
 import { AppShell } from "../../../components/AppShell";
 import { ConfirmToast } from "../../../components/ConfirmToast";
 import { ErrorToast } from "../../../components/ErrorToast";
 import { SuccessToast } from "../../../components/SuccessToast";
+import { PillSelect } from "../../../components/PillSelect";
 import { UsernameSuggestInput } from "../../../components/UsernameSuggestInput";
 import { HaluCatchRadar } from "../../../components/HaluCatchRadar";
 import { HaluCatchReportSummary } from "../../../components/HaluCatchReportSummary";
@@ -92,7 +99,14 @@ import {
 } from "../../../lib/api";
 import { getAuthToken } from "../../../lib/auth-token";
 import { creatorProfilePath } from "../../../lib/creators";
-import { formatDateTime, formatFileSize, formatNumber, formatSkillInspectionFailureSummary } from "../../../lib/format";
+import {
+  formatDateTime,
+  formatFileSize,
+  formatNumber,
+  formatSkillInspectionFailureSummary,
+  issueTypeLabel,
+  severityLabel
+} from "../../../lib/format";
 import { buildHaluCatchReportPath, extractHaluCatchSummary } from "../../../lib/halucatch-report";
 import { localizeSkillSpectorFinding } from "@skill-platform/inspection-engine/skillspector-i18n";
 import {
@@ -105,6 +119,29 @@ import { averageHaluCatchRadarScores, type HaluCatchRadarScores } from "../../..
 import { formatVirusTotalThreatVerdict, resolveVirusTotalEngineTotal } from "../../../lib/virustotal-summary";
 import { resolveBrandName } from "../../../lib/brand-name";
 import type { PublicUser, RegistryIssue, RegistrySkill } from "../../../lib/types";
+
+const issueTypeSelectOptions: Array<{
+  value: RegistryIssue["type"];
+  label: string;
+  icon: LucideIcon;
+}> = [
+  { value: "bug", label: issueTypeLabel("bug"), icon: Bug },
+  { value: "security", label: issueTypeLabel("security"), icon: Shield },
+  { value: "compatibility", label: issueTypeLabel("compatibility"), icon: Boxes },
+  { value: "feature", label: issueTypeLabel("feature"), icon: Lightbulb },
+  { value: "docs", label: issueTypeLabel("docs"), icon: BookOpen }
+];
+
+const issueSeveritySelectOptions: Array<{
+  value: RegistryIssue["severity"];
+  label: string;
+  icon: LucideIcon;
+}> = [
+  { value: "low", label: severityLabel("low"), icon: ChevronDown },
+  { value: "medium", label: severityLabel("medium"), icon: ChevronRight },
+  { value: "high", label: severityLabel("high"), icon: AlertTriangle },
+  { value: "critical", label: severityLabel("critical"), icon: OctagonAlert }
+];
 
 type DetailPanel =
   | "skill-md"
@@ -585,6 +622,13 @@ export default function SkillDetailPage() {
   const selectedFile = files.find((file) => file.path === selectedFilePath) ?? files[0];
   const categories = currentVersion.manifest.categories ?? [];
   const openIssues = skill.issues.filter((issue) => issue.status !== "closed");
+  const selectedIssueTypeOption =
+    issueTypeSelectOptions.find((option) => option.value === issueType) ?? issueTypeSelectOptions[0]!;
+  const SelectedIssueTypeIcon = selectedIssueTypeOption.icon;
+  const selectedIssueSeverityOption =
+    issueSeveritySelectOptions.find((option) => option.value === issueSeverity) ??
+    issueSeveritySelectOptions[1]!;
+  const SelectedIssueSeverityIcon = selectedIssueSeverityOption.icon;
   const inspectionFindings = currentVersion.inspection?.findings ?? [];
   const virusTotalLegacyUnavailableFinding = inspectionFindings.find((finding) => finding.id === "virustotal-unavailable");
   const securityFindings = inspectionFindings.filter(
@@ -2121,30 +2165,35 @@ export default function SkillDetailPage() {
                 <div className="publish-form-grid">
                   <label className="field">
                     <span>类型</span>
-                    <select
-                      className="contributor-select"
-                      onChange={(event) => setIssueType(event.target.value as RegistryIssue["type"])}
+                    <PillSelect
+                      ariaLabel="Issue 类型"
+                      className="expiry-select"
+                      icon={<SelectedIssueTypeIcon aria-hidden size={16} />}
+                      menuFixed
+                      onChange={(value) => setIssueType(value as RegistryIssue["type"])}
+                      options={issueTypeSelectOptions.map(({ value, label, icon: Icon }) => ({
+                        value,
+                        label,
+                        icon: <Icon aria-hidden size={16} />
+                      }))}
                       value={issueType}
-                    >
-                      <option value="bug">bug</option>
-                      <option value="security">security</option>
-                      <option value="compatibility">compatibility</option>
-                      <option value="feature">feature</option>
-                      <option value="docs">docs</option>
-                    </select>
+                    />
                   </label>
                   <label className="field">
                     <span>严重程度</span>
-                    <select
-                      className="contributor-select"
-                      onChange={(event) => setIssueSeverity(event.target.value as RegistryIssue["severity"])}
+                    <PillSelect
+                      ariaLabel="Issue 严重程度"
+                      className="expiry-select"
+                      icon={<SelectedIssueSeverityIcon aria-hidden size={16} />}
+                      menuFixed
+                      onChange={(value) => setIssueSeverity(value as RegistryIssue["severity"])}
+                      options={issueSeveritySelectOptions.map(({ value, label, icon: Icon }) => ({
+                        value,
+                        label,
+                        icon: <Icon aria-hidden size={16} />
+                      }))}
                       value={issueSeverity}
-                    >
-                      <option value="low">low</option>
-                      <option value="medium">medium</option>
-                      <option value="high">high</option>
-                      <option value="critical">critical</option>
-                    </select>
+                    />
                   </label>
                 </div>
                 <label className="field">

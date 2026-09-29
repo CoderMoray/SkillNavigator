@@ -1,4 +1,11 @@
-import type { InspectionSeverity, InspectionVerdict, SkillInspectionFailureInfo, SkillInspectionStage, SkillInspectionStatus } from "./types";
+import type {
+  InspectionSeverity,
+  InspectionVerdict,
+  RegistryIssue,
+  SkillInspectionFailureInfo,
+  SkillInspectionStage,
+  SkillInspectionStatus
+} from "./types";
 
 export function formatDateTime(input: string | undefined): string {
   if (!input) {
@@ -80,4 +87,15 @@ export function severityLabel(severity: InspectionSeverity): string {
     critical: "严重"
   };
   return labels[severity];
+}
+
+export function issueTypeLabel(type: RegistryIssue["type"]): string {
+  const labels: Record<RegistryIssue["type"], string> = {
+    bug: "缺陷",
+    security: "安全",
+    compatibility: "兼容性",
+    feature: "功能建议",
+    docs: "文档"
+  };
+  return labels[type];
 }
