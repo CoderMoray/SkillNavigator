@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
-import { Search, Sparkles, Trophy, UploadCloud } from "lucide-react";
+import { Download, Search, Sparkles, Star, Trophy, UploadCloud } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AppShell } from "../../components/AppShell";
@@ -19,9 +19,9 @@ import type { SkillSearchResult } from "../../lib/types";
 const tabs = ["Skills", "Plugins"];
 
 const sortOptions = [
-  { value: "recent", label: "New" },
-  { value: "rating", label: "Rating" },
-  { value: "downloads", label: "Trending" }
+  { value: "downloads", label: "下载量", icon: Download },
+  { value: "rating", label: "用户评分", icon: Star },
+  { value: "recent", label: "最近更新", icon: Trophy }
 ];
 
 export default function SkillsPage() {
@@ -123,6 +123,9 @@ function SkillsPageContent() {
     );
   }
 
+  const selectedSort = sortOptions.find((option) => option.value === sort) ?? sortOptions[2]!;
+  const SelectedSortIcon = selectedSort.icon;
+
   return (
     <AppShell title="Skill 广场">
       <div className="page-stack">
@@ -183,9 +186,9 @@ function SkillsPageContent() {
             <PillSelect
               ariaLabel="排序方式"
               disabled={Boolean(query.trim())}
-              icon={<Trophy size={16} />}
+              icon={<SelectedSortIcon size={16} />}
               onChange={setSort}
-              options={sortOptions}
+              options={sortOptions.map(({ value, label }) => ({ value, label }))}
               value={sort}
             />
           </div>
