@@ -55,7 +55,7 @@ npm run test:e2e    # Playwright，自动拉起 API + Web（需 PG/MinIO + Chrom
   | `usage/install.sh` | `apps/web/public/install` |
   | `apps/web/content/prompts/skill-install-prompt.md` | `apps/web/lib/generated/skill-install-prompt.ts` |
 
-- `skill-install-prompt.md` 的占位符分工：`{{skill_slug}}` 由运行时的 `buildSkillInstallPrompt()` 替换；`{{registry_api_url}}` / `{{web_url}}` / `{{brand_name}}` / `{{brand_slug}}` 在构建期替换（`{{brand_slug}}` 当前模板未使用，保留给其它文案）。写错占位符不会报错、只会原样留在文案里，因此 `tests/skill-install-prompt.test.ts` 用白名单守卫：除 `{{skill_slug}}` 外任何 `{{…}}` 都会导致测试失败。
+- `skill-install-prompt.md` 的占位符分工：`{{skill_slug}}` 由运行时的 `buildSkillInstallPrompt()` 替换；`{{registry_api_url}}` / `{{web_url}}` / `{{brand_name}}` 在构建期替换。**可用的占位符就这几个**——写错不会报错、只会原样留在文案里，因此 `tests/skill-install-prompt.test.ts` 用白名单守卫：除 `{{skill_slug}}` 外任何 `{{…}}` 都会导致测试失败。
 
 - 产物由 `scripts/sync-usage-public.mjs` 生成，会把**部署地址烧进去**（替换 `{{registry_api_url}}` / `{{web_url}}` / `{{brand_name}}`）。地址取自生成环境的 dotenv，产物因而只是"某台机器当时的快照"——**已在 `.gitignore` 忽略，不要提交**。
 - 为什么必须有产物：`apps/web/public/` 下的文件是**静态提供**的（用户 `curl {webRoot}/install | bash` 拿到的是原文），没有运行时解析变量的机会，只能在构建时替换好。网页（`/docs/*`）走 React 渲染，不受影响。

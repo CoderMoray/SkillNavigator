@@ -10,7 +10,7 @@ const SKILL_SLUG_PLACEHOLDER = "{{skill_slug}}";
  * The wording lives in `apps/web/content/prompts/skill-install-prompt.md` so it
  * can be edited without touching TS; `scripts/sync-usage-public.mjs` compiles
  * that template into `SKILL_INSTALL_PROMPT_TEMPLATE` with `{{registry_api_url}}`,
- * `{{brand_name}}` and `{{brand_slug}}` already resolved for this deployment.
+ * `{{web_url}}` and `{{brand_name}}` already resolved for this deployment.
  */
 export function buildSkillInstallPrompt(input: { skill: Pick<RegistrySkill, "slug"> }): string {
   return SKILL_INSTALL_PROMPT_TEMPLATE.replaceAll(SKILL_SLUG_PLACEHOLDER, input.skill.slug);

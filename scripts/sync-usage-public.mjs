@@ -12,7 +12,6 @@ const DEFAULT_BRAND_NAME = "SkillNavigator";
 /** Dev-only fallback for {{web_url}}; same value as registry-install-guide.ts. */
 const DEV_WEB_ORIGIN = "http://127.0.0.1:3001";
 const BRAND_PLACEHOLDER = "{{brand_name}}";
-const BRAND_SLUG_PLACEHOLDER = "{{brand_slug}}";
 const REGISTRY_API_URL_PLACEHOLDER = "{{registry_api_url}}";
 const WEB_URL_PLACEHOLDER = "{{web_url}}";
 
@@ -54,27 +53,6 @@ const allowUnconfigured = process.argv.includes("--allow-unconfigured");
 const UNSET_REGISTRY_NOTICE = "（部署方未配置 Registry API 地址——请向平台维护者索取）";
 const UNSET_WEB_NOTICE = "（部署方未配置对外 Web 地址——请向平台维护者索取）";
 
-/**
- * Slug form of the brand name — used as the example CLI profile name. Same rule
- * as the agent guide in usage/skillnavigator.md: lowercase, camel-case word
- * boundaries and every other non-alphanumeric run collapsed into `-`.
- * BRAND_SLUG / NEXT_PUBLIC_BRAND_SLUG pins the value for a deployment whose
- * brand name does not slugify to the name it wants (e.g. "mono").
- */
-function resolveBrandSlug(brandName) {
-  const explicit = process.env.BRAND_SLUG?.trim() || process.env.NEXT_PUBLIC_BRAND_SLUG?.trim();
-  if (explicit) {
-    return explicit;
-  }
-  return brandName
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
-    .replace(/[^A-Za-z0-9]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .toLowerCase();
-}
-
 function deploymentConfig() {
   const explicitRegistryApiUrl = process.env.NEXT_PUBLIC_REGISTRY_API_URL?.trim();
   const explicitWebUrl =
@@ -110,7 +88,6 @@ function deploymentConfig() {
   const brandName = process.env.BRAND_NAME?.trim() || DEFAULT_BRAND_NAME;
   return {
     brandName,
-    brandSlug: resolveBrandSlug(brandName),
     registryApiUrl: registryApiUrl || UNSET_REGISTRY_NOTICE,
     webUrl: webUrl || UNSET_WEB_NOTICE,
   };
@@ -120,7 +97,6 @@ function applyDeploymentConfig(content, config) {
   return content
     .replaceAll(REGISTRY_API_URL_PLACEHOLDER, config.registryApiUrl)
     .replaceAll(WEB_URL_PLACEHOLDER, config.webUrl)
-    .replaceAll(BRAND_SLUG_PLACEHOLDER, config.brandSlug)
     .replaceAll(BRAND_PLACEHOLDER, config.brandName);
 }
 
