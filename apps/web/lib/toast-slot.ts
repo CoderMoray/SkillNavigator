@@ -18,9 +18,19 @@ export function claimToastSlot(onSuperseded: () => void): () => void {
 /** Hide older toasts locally without clearing parent state (avoids wiping the next toast). */
 export function useToastSlot(resetKey: string): boolean {
   const [superseded, setSuperseded] = useState(false);
+  const [seenResetKey, setSeenResetKey] = useState(resetKey);
+
+  // Reset during render (React's "adjust state when a value changes" pattern,
+  // same as apps/web/app/login/page.tsx): doing it inside the effect would
+  // commit one frame with the previous key's state first, and a synchronous
+  // setState in an effect body is banned repo-wide
+  // (react-hooks/set-state-in-effect).
+  if (seenResetKey !== resetKey) {
+    setSeenResetKey(resetKey);
+    setSuperseded(false);
+  }
 
   useEffect(() => {
-    setSuperseded(false);
     return claimToastSlot(() => setSuperseded(true));
   }, [resetKey]);
 
