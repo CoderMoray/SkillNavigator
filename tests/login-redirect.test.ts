@@ -3,6 +3,7 @@ import {
   buildLoginHref,
   resolveLoginNextPath,
   skillPagePath,
+  withNextParam,
 } from "../apps/web/lib/login-redirect";
 
 describe("resolveLoginNextPath", () => {
@@ -32,5 +33,15 @@ describe("buildLoginHref", () => {
 
   it("encodes a slug with a slash instead of splitting the path", () => {
     expect(skillPagePath("a/b")).toBe("/skills/a%2Fb");
+  });
+});
+
+describe("withNextParam", () => {
+  it("appends the return path only when there is one", () => {
+    expect(withNextParam("/register", "/skills/demo-skill")).toBe(
+      "/register?next=%2Fskills%2Fdemo-skill"
+    );
+    expect(withNextParam("/register", null)).toBe("/register");
+    expect(withNextParam("/register", undefined)).toBe("/register");
   });
 });

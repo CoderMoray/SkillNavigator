@@ -18,9 +18,17 @@ export function resolveLoginNextPath(value: string | null | undefined): string |
   return raw;
 }
 
+/**
+ * Append an opt-in `?next=` return path. Returns `target` untouched when there
+ * is no return path, so the default destination of every auth page survives.
+ */
+export function withNextParam(target: string, nextPath: string | null | undefined): string {
+  return nextPath ? `${target}?next=${encodeURIComponent(nextPath)}` : target;
+}
+
 /** Login URL that returns to the app-relative `path` after signing in. */
 export function buildLoginHref(path: string): string {
-  return `/login?next=${encodeURIComponent(path)}`;
+  return withNextParam("/login", path);
 }
 
 /** App-relative path of a skill detail page. */

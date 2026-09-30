@@ -5,11 +5,14 @@ import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { Mail } from "lucide-react";
 import { AppShell } from "../../../components/AppShell";
+import { resolveLoginNextPath, withNextParam } from "../../../lib/login-redirect";
 
 function RegisterPendingContent() {
   const searchParams = useSearchParams();
   const email = searchParams.get("email");
   const resent = searchParams.get("resent") === "1";
+  // 校验后再回显：这个参数会在 URL 里流转，未校验的话就是一个开放重定向入口。
+  const nextPath = resolveLoginNextPath(searchParams.get("next"));
 
   return (
     <AppShell title="验证邮箱">
@@ -26,7 +29,7 @@ function RegisterPendingContent() {
               : `注册成功。我们已向${email ? ` ${email} ` : "你的邮箱"}发送验证邮件，请点击邮件中的链接完成账户激活。`}
           </p>
           <p className="description">验证完成后将自动登录。若未收到邮件，可在验证失败页重新发送。</p>
-          <Link className="button primary" href="/login">
+          <Link className="button primary" href={withNextParam("/login", nextPath)}>
             去登录
           </Link>
           <p className="description" style={{ marginTop: 16 }}>

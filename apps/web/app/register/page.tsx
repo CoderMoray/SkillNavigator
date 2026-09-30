@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useState } from "react";
 import { UserPlus } from "lucide-react";
 import { AppShell } from "../../components/AppShell";
 import { ErrorToast } from "../../components/ErrorToast";
 import { registerUser } from "../../lib/api";
 import { setAuthToken } from "../../lib/auth-token";
 import { creatorProfilePath } from "../../lib/creators";
+import { resolveLoginNextPath, withNextParam } from "../../lib/login-redirect";
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9_.-]+$/;
 
@@ -84,8 +85,11 @@ function setRegisterEmailValidity(input: HTMLInputElement) {
   input.setCustomValidity("");
 }
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // 可选回跳：只有从 Skill 页「复制 prompt → 去登录 → 注册新用户」过来的链接才带 next。
+  const nextPath = resolveLoginNextPath(searchParams.get("next"));
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -112,10 +116,14 @@ export default function RegisterPage() {
       const result = await registerUser(username, password, email);
       if ("token" in result) {
         setAuthToken(result.token);
-        router.push(creatorProfilePath(result.user.username));
+        router.push(nextPath ?? creatorProfilePath(result.user.username));
         return;
       }
-      router.push(`/register/pending?email=${encodeURIComponent(result.user.email ?? email)}`);
+      const pendingParams = new URLSearchParams({ email: result.user.email ?? email });
+      if (nextPath) {
+        pendingParams.set("next", nextPath);
+      }
+      router.push(`/register/pending?${pendingParams.toString()}`);
     } catch (err) {
       setErrorToast(formatRegisterError(err instanceof Error ? err.message : "注册失败"));
     } finally {
@@ -192,10 +200,26 @@ export default function RegisterPage() {
           </form>
 
           <p className="description">
-            已有账户？<Link className="text-link" href="/login">去登录</Link>
+            已有账户？<Link className="text-link" href={withNextParam("/login", nextPath)}>去登录</Link>
           </p>
         </section>
       </div>
     </AppShell>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppShell title="注册">
+          <div className="auth-page">
+            <div className="empty">加载中…</div>
+          </div>
+        </AppShell>
+      }
+    >
+      <RegisterContent />
+    </Suspense>
   );
 }

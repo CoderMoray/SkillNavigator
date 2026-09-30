@@ -11,7 +11,7 @@ import { getCurrentUser, loginUser, ApiRequestError } from "../../lib/api";
 import { clearAuthToken, getAuthToken, setAuthToken } from "../../lib/auth-token";
 import { resolveBrandName } from "../../lib/brand-name";
 import { creatorProfilePath } from "../../lib/creators";
-import { resolveLoginNextPath } from "../../lib/login-redirect";
+import { resolveLoginNextPath, withNextParam } from "../../lib/login-redirect";
 
 function formatLoginError(message: string): string {
   // 严格模式（默认）：统一文案，不暴露账号是否存在
@@ -200,7 +200,7 @@ function LoginContent() {
             </Link>
           </p>
           <p className="description">
-            还没有账户？<Link className="text-link" href="/register">注册新用户</Link>
+            还没有账户？<Link className="text-link" href={withNextParam("/register", nextPath)}>注册新用户</Link>
           </p>
         </section>
       </div>
