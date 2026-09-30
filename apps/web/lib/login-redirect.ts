@@ -9,6 +9,10 @@
  * protocol-relative value would turn the login page into an open redirect.
  * The result stays basePath-relative: `router.push` adds the deployment prefix
  * itself, so callers must not pre-prefix it.
+ *
+ * Known, deliberate gap: the email-verification hop does not carry this param,
+ * so verification still lands on the creator profile. See docs/roadmap.md
+ * 「明确的非目标」for why it is not worth threading it through the email.
  */
 export function resolveLoginNextPath(value: string | null | undefined): string | null {
   const raw = value?.trim();
